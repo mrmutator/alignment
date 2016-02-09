@@ -4,9 +4,11 @@ import subprocess
 import tempfile
 import shutil
 import os
+import re
 
 HEADER = R"""\documentclass[class=minimal,border=0pt]{standalone}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}    
 \usepackage{tikz}
 \usepackage{color}
 \usetikzlibrary{shapes.geometric, arrows, positioning}
@@ -22,7 +24,15 @@ HEADER = R"""\documentclass[class=minimal,border=0pt]{standalone}
 FOOTER = r"""\end{tikzpicture}
 \end{document}"""
 
+ESCAPE = r'(&|%|\$|#|_|{|}|~|\^)'
+
+def escape(string):
+    string = re.sub(r"\\", "\\textbackslash", string)
+    string = re.sub(r"\^", "\\^{}", string)
+    return re.sub(ESCAPE, r"\\\1", string)
+
 def make_node(tok, pos, side):
+    tok = escape(tok)
     return "\\node (%s%d) [word, my right of=%s%d] {%s};\n" % (side, pos, side, pos-1, tok)
 
 def make_link(e_pos, f_pos):
