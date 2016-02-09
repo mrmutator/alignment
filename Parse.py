@@ -1,19 +1,11 @@
 import argparse
 import re
 
-# arg_parser = argparse.ArgumentParser()
-#
-# arg_parser.add_argument("alignment_file")
-#
-# args = arg_parser.parse_args()
+arg_parser = argparse.ArgumentParser()
 
-class Test():
-    def __init__(self):
-        self.alignment_file = ""
+arg_parser.add_argument("alignment_file")
 
-
-args = Test()
-args.alignment_file = "results.A3.final"
+args = arg_parser.parse_args()
 
 infile = open(args.alignment_file, "r")
 outfile = open(args.alignment_file + ".aligned", "w")
