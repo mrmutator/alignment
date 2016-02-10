@@ -8,7 +8,7 @@ import re
 
 HEADER = R"""\documentclass[class=minimal,border=0pt]{standalone}
 \usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}    
+\usepackage[T1]{fontenc}
 \usepackage{tikz}
 \usepackage{color}
 \usetikzlibrary{shapes.geometric, arrows, positioning}
