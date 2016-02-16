@@ -6,8 +6,11 @@ class Corpus_Reader(object):
     """ Corpus_Reader object that allows to iterate over corresponding e-file, f-file and alignment file.
     """
 
-    def __init__(self, e_file, f_file, al_file, alignment_order=('e', 'f'), limit=None):
-        self.al_file = codecs.open(al_file, "r", "utf-8")
+    def __init__(self, e_file, f_file, al_file=None, alignment_order=('e', 'f'), limit=None):
+        if al_file:
+            self.al_file = codecs.open(al_file, "r", "utf-8")
+        else:
+            self.al_file = None
         self.e_file = codecs.open(e_file, "r", "utf-8")
         self.f_file = codecs.open(f_file, "r", "utf-8")
         self.limit = limit
@@ -18,16 +21,21 @@ class Corpus_Reader(object):
         else:
             raise Exception("No valid alignment order.")
 
-        self.__check_al_order()
-        self.reset()
+        if self.al_file:
+            self.next = self.__iter_al
+            self.__check_al_order()
+            self.reset()
+        else:
+            self.next = self.__iter_pairs
 
     def reset(self):
-        self.al_file.seek(0)
+        if self.al_file:
+            self.al_file.seek(0)
         self.e_file.seek(0)
         self.f_file.seek(0)
 
     def __check_al_order(self):
-        for a,e,f in self:
+        for a,e,f in self.__iter_al():
             if len(e) != len(f):
                 e_als, f_als = zip(*a)
                 e_al_max = max(e_als)
@@ -41,10 +49,27 @@ class Corpus_Reader(object):
                     print "passed"
                     break
 
+    def __iter_pairs(self):
+        self.reset()
+
+        line1 = self.e_file.readline()
+        line2 = self.f_file.readline()
+
+        c = 0
+        while(line1 and line2 and c < self.limit):
+            c += 1
+            yield line1.split(), line2.split()
+            line1 = self.e_file.readline()
+            line2 = self.f_file.readline()
 
     def __iter__(self):
+        return self.next()
+
+
+    def __iter_al(self):
         """Iterable that yields 3-tuple: (tokens_e, tokens_f, alignment_links). One alignment link
         is 2-tuple (position_e, position_f)."""
+        self.reset()
         c = 1
         for al_line in self.al_file:
             if self.limit and c > self.limit:
@@ -61,4 +86,8 @@ class Corpus_Reader(object):
 
 if __name__ == "__main__":
 
-    corpus = Corpus_Reader("../ALT_Lab1/data/file.en", "../ALT_Lab1/data/file.de", "../ALT_Lab1/data/file.aligned", alignment_order=("f", "e"))
+    corpus = Corpus_Reader("../ALT_Lab1/data/file.en", "../ALT_Lab1/data/file.de", "../ALT_Lab1/data/file.aligned", alignment_order=("f", "e"), limit=3)
+    corpus = Corpus_Reader("../ALT_Lab1/data/file.en", "../ALT_Lab1/data/file.de", alignment_order=("f", "e"), limit=3)
+
+    for e, f in corpus:
+        print e, f
