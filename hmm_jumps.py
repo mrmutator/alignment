@@ -4,6 +4,8 @@ from collections import defaultdict, Counter
 import numpy as np
 import sys
 import random
+import cPickle as pickle
+import multiprocessing as mp
 
 class HMMAlignment(AlignmentModel):
 
@@ -13,7 +15,8 @@ class HMMAlignment(AlignmentModel):
         if not trans_prob:
             self.trans_prob = defaultdict(lambda: defaultdict(random_prob))
         else:
-            self.trans_prob = trans_prob
+            self.trans_prob = dict()
+            self.load_trans_prob(trans_prob)
 
         # initialize p(a_j|a_j-1, I) randomly
         # = al_prob[(a_j-1,I)][a_j]
@@ -21,7 +24,21 @@ class HMMAlignment(AlignmentModel):
         if not al_prob:
             self.al_prob = defaultdict(lambda: defaultdict(random_prob))
         else:
-            self.al_prob = al_prob = al_prob
+            self.al_prob = dict()
+            self.load_al_prob(al_prob)
+
+    def load_trans_prob(self, trans_probs):
+        for (e,f), v in trans_probs.iteritems():
+            if e not in self.trans_prob:
+                self.trans_prob[e] = dict()
+            self.trans_prob[e][f] = v
+
+    def load_al_prob(self, al_probs):
+        for (cond, jmp), v in al_probs.iteritems():
+            if cond not in self.al_prob:
+                self.al_prob[cond] = dict()
+            self.al_prob[cond][jmp] = v
+
 
     def train(self, corpus, max_iterations=np.inf, convergence_ll=0.01, log_file = sys.stdout):
         """
@@ -33,62 +50,7 @@ class HMMAlignment(AlignmentModel):
         while(iteration < max_iterations and delta_ll > convergence_ll):
             iteration += 1
             print "Iteration ", iteration
-            # set all counts to zero
-            counts_e_f = Counter()
-            counts_e = Counter()
-            pi_counts = Counter() # (i, I)
-            pi_denom = Counter() # I
-            xi_sums = Counter() # (i, i_p, I)
-            gamma_sums = Counter() # (i_p, I)
-            for e_toks, f_toks in corpus:
-                # e_toks = [None] + e_toks # introduce NULL-token
-                I = len(e_toks)
-                J = len(f_toks)
-                alphas = np.zeros((J, I))
-                betas = np.zeros((J, I))
-                for j, f_tok in enumerate(f_toks):
-                    for i, e_tok in enumerate(e_toks):
-                        t_f_e = self.trans_prob[e_tok][f_tok]
-                        if j == 0:
-                            alphas[j][i] = t_f_e * self.al_prob[(None, I)][i]
-                        else:
-                            alphas[j][i] = t_f_e * np.sum([alphas[j - 1][k] * self.al_prob[I][i - k] for k in xrange(I)])
-
-                        # lexical translation parameters
-                        delta_t = t_f_e / np.sum([self.trans_prob[k_tok][f_tok] for k_tok in e_toks])
-                        counts_e_f[(e_tok, f_tok)] += delta_t
-                        counts_e[e_tok] += delta_t
-
-                for j, f_tok in reversed(list(enumerate(f_toks))):
-                    for i, e_tok in enumerate(e_toks):
-                        if j == J-1:
-                            betas[j][i] = 1
-                        else:
-                            betas[j][i] = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] * self.al_prob[I][k-i] for k, e_k in enumerate(e_toks)])
-
-                # posteriors
-                multiplied = np.multiply(alphas, betas)
-                denom_sums = 1.0 / np.sum(multiplied, axis=1)
-
-                gammas = multiplied * denom_sums[:, np.newaxis]
-
-                for j in xrange(1, J):
-                    t_f_e = np.array([self.trans_prob[e_tok][f_toks[j]] for e_tok in e_toks])
-                    beta_t_j_i = np.multiply(betas[j], t_f_e)
-                    j_p = j-1
-                    alpha_j_p = alphas[j_p]
-                    denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
-                    for i_p in range(I):
-                        alpha_j_p_i_p = alpha_j_p[i_p]
-                        gamma_sums[(i_p, I)] += gammas[j_p][i_p]
-                        for i in range(I):
-                            xi = (self.al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / denom
-                            xi_sums[(i,i_p, I)] += xi
-                # add counts
-                for i in range(I):
-                    pi_counts[(i, I)] += gammas[0][i]
-                pi_denom[I] += 1
-
+            counts_e_f, counts_e, gamma_sums, xi_sums, pi_counts, pi_denom = self.train_iteration(corpus)
 
             # update parameters
 
@@ -118,6 +80,67 @@ class HMMAlignment(AlignmentModel):
             return True
         else:
             return False
+
+    def train_iteration(self, corpus):
+        # set all counts to zero
+        counts_e_f = Counter()
+        counts_e = Counter()
+        pi_counts = Counter() # (i, I)
+        pi_denom = Counter() # I
+        xi_sums = Counter() # (i, i_p, I)
+        gamma_sums = Counter() # (i_p, I)
+        for e_toks, f_toks in corpus:
+            # e_toks = [None] + e_toks # introduce NULL-token
+            I = len(e_toks)
+            J = len(f_toks)
+            alphas = np.zeros((J, I))
+            betas = np.zeros((J, I))
+            for j, f_tok in enumerate(f_toks):
+                for i, e_tok in enumerate(e_toks):
+                    t_f_e = self.trans_prob[e_tok][f_tok]
+                    if j == 0:
+                        alphas[j][i] = t_f_e * self.al_prob[(None, I)][i]
+                    else:
+                        alphas[j][i] = t_f_e * np.sum([alphas[j - 1][k] * self.al_prob[I][i - k] for k in xrange(I)])
+
+                    # lexical translation parameters
+                    delta_t = t_f_e / np.sum([self.trans_prob[k_tok][f_tok] for k_tok in e_toks])
+                    counts_e_f[(e_tok, f_tok)] += delta_t
+                    counts_e[e_tok] += delta_t
+
+            for j, f_tok in reversed(list(enumerate(f_toks))):
+                for i, e_tok in enumerate(e_toks):
+                    if j == J-1:
+                        betas[j][i] = 1
+                    else:
+                        betas[j][i] = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] * self.al_prob[I][k-i] for k, e_k in enumerate(e_toks)])
+
+            # posteriors
+            multiplied = np.multiply(alphas, betas)
+            denom_sums = 1.0 / np.sum(multiplied, axis=1)
+
+            gammas = multiplied * denom_sums[:, np.newaxis]
+
+            for j in xrange(1, J):
+                t_f_e = np.array([self.trans_prob[e_tok][f_toks[j]] for e_tok in e_toks])
+                beta_t_j_i = np.multiply(betas[j], t_f_e)
+                j_p = j-1
+                alpha_j_p = alphas[j_p]
+                denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
+                for i_p in range(I):
+                    alpha_j_p_i_p = alpha_j_p[i_p]
+                    gamma_sums[(i_p, I)] += gammas[j_p][i_p]
+                    for i in range(I):
+                        xi = (self.al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / denom
+                        xi_sums[(i,i_p, I)] += xi
+            # add counts
+            for i in range(I):
+                pi_counts[(i, I)] += gammas[0][i]
+            pi_denom[I] += 1
+
+        return counts_e_f, counts_e, gamma_sums, xi_sums, pi_counts, pi_denom
+
+
 
     def calculate_pair_log_likelihood(self, f_toks, e_toks):
         """
@@ -183,16 +206,17 @@ class HMMAlignment(AlignmentModel):
 
 if __name__ == "__main__":
     # create corpus instance
-    corpus = Corpus_Reader("../ALT_Lab1/data/file.en", "../ALT_Lab1/data/file.de", limit=100)
+    corpus = Corpus_Reader("test/tp.e.1", "test/tp.f.1")
+    trans_params, al_params = pickle.load(open("test/tp.prms.1", "rb"))
     # create model, omit parameters for random initialization
-    model = HMMAlignment()
+    model = HMMAlignment(al_prob=al_params, trans_prob=trans_params)
 
     # train model until convergence delta is small enough or max_iterations is reached
     model.train(corpus, max_iterations=5, convergence_ll=0.001)
     alignments = model.get_all_viterbi_alignments(corpus)
     print alignments
-    outfile = open("test.al", "w")
-    for als in alignments:
-        als = [str(al[0]) + "-" + str(al[1]) for al in als]
-        outfile.write(" ".join(als) + "\n")
-    outfile.close()
+    # outfile = open("test.al", "w")
+    # for als in alignments:
+    #     als = [str(al[0]) + "-" + str(al[1]) for al in als]
+    #     outfile.write(" ".join(als) + "\n")
+    # outfile.close()
