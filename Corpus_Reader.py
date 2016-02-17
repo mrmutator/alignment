@@ -6,7 +6,7 @@ class Corpus_Reader(object):
     """ Corpus_Reader object that allows to iterate over corresponding e-file, f-file and alignment file.
     """
 
-    def __init__(self, e_file, f_file, al_file=None, alignment_order=('e', 'f'), limit=None):
+    def __init__(self, e_file, f_file, al_file=None, alignment_order=('e', 'f'), limit=None, strings=False):
         if al_file:
             self.al_file = codecs.open(al_file, "r", "utf-8")
         else:
@@ -27,6 +27,9 @@ class Corpus_Reader(object):
             self.reset()
         else:
             self.next = self.__iter_pairs
+        self.conv = int
+        if strings:
+            self.conv = unicode
 
     def reset(self):
         if self.al_file:
@@ -56,9 +59,11 @@ class Corpus_Reader(object):
         line2 = self.f_file.readline()
 
         c = 0
-        while(line1 and line2 and c < self.limit):
+        while(line1 and line2):
             c += 1
-            yield line1.split(), line2.split()
+            if self.limit and c > self.limit:
+                break
+            yield map(self.conv, line1.split()), map(self.conv, line2.split())
             line1 = self.e_file.readline()
             line2 = self.f_file.readline()
 
@@ -75,8 +80,8 @@ class Corpus_Reader(object):
             if self.limit and c > self.limit:
                 break
             c += 1
-            yield map(self.order, re.findall("(\d+)-(\d+)", al_line)), self.e_file.readline().strip().split(" "), \
-                  self.f_file.readline().strip().split(" ")
+            yield map(self.order, re.findall("(\d+)-(\d+)", al_line)), map(self.conv, self.e_file.readline().strip().split(" ")), \
+                  map(self.conv, self.f_file.readline().strip().split(" "))
 
     def __convert_to_int_e_f(self, tpl):
         return int(tpl[0]), int(tpl[1])
