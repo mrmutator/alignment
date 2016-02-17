@@ -33,17 +33,27 @@ class Vocab(object):
 
 class Parameters(object):
 
-    def __init__(self):
+    def __init__(self, corpus):
+        self.corpus = corpus
         self.trans_probs = defaultdict(set)
         self.al_probs = defaultdict(set)
         self.e_vocab = Vocab()
         self.f_vocab = Vocab()
 
+        self.add_corpus(corpus)
+
+    def write_corpus_format(self, out_file_name):
+        outfile_e = open(out_file_name + ".e", "w")
+        outfile_f = open(out_file_name + ".f", "w")
+
+        for e_toks, f_toks in corpus:
+            outfile_e.write(" ".join([str(self.e_vocab.get_index(w)) for w in e_toks]) + "\n")
+            outfile_f.write(" ".join([str(self.f_vocab.get_index(w)) for w in f_toks]) + "\n")
+
+        outfile_e.close()
+        outfile_f.close()
 
     def add_corpus(self, corpus, out_file_name=None):
-        if out_file_name:
-            outfile_e = open(out_file_name + ".e", "w")
-            outfile_f = open(out_file_name + ".f", "w")
         for e_toks, f_toks in corpus:
             I = len(e_toks)
             for jmp in range(-I+1, I):
@@ -52,13 +62,7 @@ class Parameters(object):
                 self.al_probs[(None, I)].add(i)
                 for f_tok in f_toks:
                     self.trans_probs[self.e_vocab.get_index(e_tok)].add(self.f_vocab.get_index(f_tok))
-            if out_file_name:
-                outfile_e.write(" ".join([str(self.e_vocab.get_index(w)) for w in e_toks]) + "\n")
-                outfile_f.write(" ".join([str(self.f_vocab.get_index(w)) for w in f_toks]) + "\n")
 
-        if out_file_name:
-            outfile_e.close()
-            outfile_f.close()
 
     def initialize_uniformly(self):
         al_probs = dict()
@@ -105,9 +109,9 @@ class Parameters(object):
         self.trans_probs = trans_probs
 
     def split_data(self, corpus, num_sentences, file_prefix):
-        part_num = 0
-        outfile_e = open(file_prefix +".e"+str(part_num), "w")
-        outfile_f = open(file_prefix +".f"+str(part_num), "w")
+        part_num = 1
+        outfile_e = open(file_prefix +".e."+str(part_num), "w")
+        outfile_f = open(file_prefix +".f."+str(part_num), "w")
         trans_param = dict()
         al_param = dict()
         c = 0
@@ -120,7 +124,7 @@ class Parameters(object):
             for jmp in range(-I+1, I):
                 al_param[(I, jmp)] = self.al_probs[I][jmp]
             for i, e_tok in enumerate(e_toks):
-                al_param[(None, I, i)] = self.al_probs[(None, I)][i]
+                al_param[((None, I), i)] = self.al_probs[(None, I)][i]
                 for f_tok in f_toks:
                     e = self.e_vocab.get_index(e_tok)
                     f = self.f_vocab.get_index(f_tok)
@@ -129,7 +133,7 @@ class Parameters(object):
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
-                pickle.dump((trans_param, al_param), open("params."+str(part_num), "wb"))
+                pickle.dump((trans_param, al_param), open(file_prefix +".prms."+str(part_num), "wb"))
                 al_param = dict()
                 trans_param = dict()
                 part_num += 1
@@ -139,8 +143,7 @@ class Parameters(object):
 
 if __name__ == "__main__":
     # create corpus instance
-    corpus = Corpus_Reader("../ALT_Lab1/data/file.en", "../ALT_Lab1/data/file.de", limit=100)
-    parameters = Parameters()
-    parameters.add_corpus(corpus, "output")
+    corpus = Corpus_Reader("data/file.en", "data/file.de", limit=10000, strings=True)
+    parameters = Parameters(corpus)
     parameters.initialize_uniformly()
-    parameters.split_data(corpus, num_sentences=10, file_prefix="tp")
+    parameters.split_data(corpus, num_sentences=1000, file_prefix="test/tp")
