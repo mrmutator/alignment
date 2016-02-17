@@ -48,24 +48,23 @@ class HMMAlignment(AlignmentModel):
                 betas = np.zeros((J, I))
                 for j, f_tok in enumerate(f_toks):
                     for i, e_tok in enumerate(e_toks):
+                        t_f_e = self.trans_prob[e_tok][f_tok]
                         if j == 0:
-                            alpha_j_i = self.trans_prob[e_tok][f_tok] * self.al_prob[(None, I)][i]
+                            alphas[j][i] = t_f_e * self.al_prob[(None, I)][i]
                         else:
-                            alpha_j_i = self.trans_prob[e_tok][f_tok] * np.sum([ alphas[j-1][k]*self.al_prob[I][i-k] for k in range(I)])
-                        alphas[j][i] = alpha_j_i
+                            alphas[j][i] = t_f_e * np.sum([alphas[j - 1][k] * self.al_prob[I][i - k] for k in xrange(I)])
 
                         # lexical translation parameters
-                        delta_t = self.trans_prob[e_tok][f_tok] / np.sum([self.trans_prob[k_tok][f_tok] for k_tok in e_toks])
+                        delta_t = t_f_e / np.sum([self.trans_prob[k_tok][f_tok] for k_tok in e_toks])
                         counts_e_f[(e_tok, f_tok)] += delta_t
                         counts_e[e_tok] += delta_t
 
                 for j, f_tok in reversed(list(enumerate(f_toks))):
                     for i, e_tok in enumerate(e_toks):
                         if j == J-1:
-                            beta_j_i = 1
+                            betas[j][i] = 1
                         else:
-                            beta_j_i = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] * self.al_prob[I][k-i] for k, e_k in enumerate(e_toks)])
-                        betas[j][i] = beta_j_i
+                            betas[j][i] = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] * self.al_prob[I][k-i] for k, e_k in enumerate(e_toks)])
 
                 # posteriors
                 multiplied = np.multiply(alphas, betas)
@@ -73,12 +72,12 @@ class HMMAlignment(AlignmentModel):
 
                 gammas = multiplied * denom_sums[:, np.newaxis]
 
-                for j in range(1, J):
+                for j in xrange(1, J):
                     t_f_e = np.array([self.trans_prob[e_tok][f_toks[j]] for e_tok in e_toks])
                     beta_t_j_i = np.multiply(betas[j], t_f_e)
                     j_p = j-1
                     alpha_j_p = alphas[j_p]
-                    denom = np.sum(np.multiply(alphas[j_p], betas[j_p]))
+                    denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
                     for i_p in range(I):
                         alpha_j_p_i_p = alpha_j_p[i_p]
                         gamma_sums[(i_p, I)] += gammas[j_p][i_p]
@@ -107,7 +106,7 @@ class HMMAlignment(AlignmentModel):
             for (i, I), count in pi_counts.items():
                 self.al_prob[(None, I)][i] = count / pi_denom[I]
 
-            self.test_probs()
+            #self.test_probs()
 
             old_ll = data_ll
             data_ll =  self.calculate_data_log_likelihood(corpus)
@@ -184,8 +183,7 @@ class HMMAlignment(AlignmentModel):
 
 if __name__ == "__main__":
     # create corpus instance
-    corpus = Corpus_Reader("../ALT_Lab1/data/file.en", "../ALT_Lab1/data/file.de", alignment_order=("f", "e"), limit=100)
-
+    corpus = Corpus_Reader("../ALT_Lab1/data/file.en", "../ALT_Lab1/data/file.de", limit=100)
     # create model, omit parameters for random initialization
     model = HMMAlignment()
 
@@ -198,5 +196,3 @@ if __name__ == "__main__":
         als = [str(al[0]) + "-" + str(al[1]) for al in als]
         outfile.write(" ".join(als) + "\n")
     outfile.close()
-
-
