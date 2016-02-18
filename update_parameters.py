@@ -1,14 +1,19 @@
 import cPickle as pickle
 from collections import defaultdict, Counter
-
+import argparse
+import glob
 
 def load_params(param_file):
     trans_params, al_params = pickle.load(open(param_file, "rb"))
     return trans_params, al_params
 
+arg_parser = argparse.ArgumentParser()
+arg_parser.add_argument("-dir", required=True)
+args = arg_parser.parse_args()
 
-exp_files = ["test/tp.exp.1"]
-param_files = ["test/tp.prms.1"]
+
+exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts")
+param_files = glob.glob(args.dir.rstrip("/") + "/*.prms")
 
 
 total = defaultdict(Counter)
@@ -23,8 +28,6 @@ for f in exp_files:
 
     for count, d in expectations.iteritems():
         total[count].update(d)
-
-print total["counts_e"][1]
 
 print "LL before update: ", total_ll
 

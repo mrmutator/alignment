@@ -3,7 +3,7 @@ from collections import defaultdict, Counter
 import numpy as np
 import cPickle as pickle
 import multiprocessing as mp
-
+import argparse
 
 def train_iteration(corpus, trans_prob, al_prob, results):
     # set all counts to zero
@@ -77,13 +77,19 @@ def load_probs(trans_probs):
     return probs
 
 
+arg_parser = argparse.ArgumentParser()
+arg_parser.add_argument("-e", required=True)
+arg_parser.add_argument("-f", required=True)
+arg_parser.add_argument("-params", required=True)
+arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
 
-e_file = "test/tp.e.1"
-f_file = "test/tp.f.1"
-params_file = "test/tp.prms.1"
-output_exp_file = "test/tp.exp.1"
+args = arg_parser.parse_args()
+
+e_file = args.e
+f_file = args.f
+params_file = args.params
+output_exp_file = params_file + ".counts"
 num_workers = 6
-
 
 corpus = Corpus_Reader(e_file, f_file)
 trans_params, al_params = pickle.load(open(params_file, "rb"))
@@ -92,7 +98,7 @@ trans_prob = load_probs(trans_params)
 al_prob = load_probs(al_params)
 
 corpus = list(corpus)
-n= len(corpus) / num_workers
+n= int(np.ceil(float(len(corpus)) / num_workers))
 data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
 
 results = mp.Queue()

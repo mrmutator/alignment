@@ -3,6 +3,7 @@ from collections import defaultdict
 import codecs
 import random
 import cPickle as pickle
+import argparse
 
 def random_prob():
     return random.random()*-1 + 1 # random number between 0 and 1, excluding 0, including 1
@@ -110,8 +111,8 @@ class Parameters(object):
 
     def split_data(self, corpus, num_sentences, file_prefix):
         part_num = 1
-        outfile_e = open(file_prefix +".e."+str(part_num), "w")
-        outfile_f = open(file_prefix +".f."+str(part_num), "w")
+        outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
+        outfile_f = open(file_prefix +"."+str(part_num) + ".f", "w")
         trans_param = dict()
         al_param = dict()
         c = 0
@@ -133,17 +134,43 @@ class Parameters(object):
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
-                pickle.dump((trans_param, al_param), open(file_prefix +".prms."+str(part_num), "wb"))
+                pickle.dump((trans_param, al_param), open(file_prefix +"."+str(part_num) + ".prms", "wb"))
                 al_param = dict()
                 trans_param = dict()
                 part_num += 1
-                outfile_e = open(file_prefix +".e."+str(part_num), "w")
-                outfile_f = open(file_prefix +".f."+str(part_num), "w")
+                outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
+                outfile_f = open(file_prefix +"."+str(part_num) + ".f", "w")
+
+        if c > 0:
+            outfile_f.close()
+            outfile_e.close()
+            pickle.dump((trans_param, al_param), open(file_prefix +"."+str(part_num) + ".prms", "wb"))
 
 
 if __name__ == "__main__":
-    # create corpus instance
-    corpus = Corpus_Reader("data/file.en", "data/file.de", limit=10000, strings=True)
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-e", required=True)
+    arg_parser.add_argument("-f", required=True)
+    arg_parser.add_argument("-limit", required=False, type=int, default=0)
+    arg_parser.add_argument("-vocab_file", required=False, default="")
+    arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
+    arg_parser.add_argument("-output_prefix", required=True)
+    init = arg_parser.add_mutually_exclusive_group(required=True)
+    init.add_argument('-uniform', dest='uniform', action='store_true', default=False)
+    init.add_argument('-random', dest='random', action='store_true', default=False)
+
+    args = arg_parser.parse_args()
+
+    corpus = Corpus_Reader(args.e, args.f, limit=args.limit, strings=True)
     parameters = Parameters(corpus)
-    parameters.initialize_uniformly()
-    parameters.split_data(corpus, num_sentences=1000, file_prefix="test/tp")
+
+    if args.random:
+        parameters.initialize_uniformly()
+    elif args.uniform:
+        parameters.initialize_uniformly()
+
+    parameters.split_data(corpus, num_sentences=args.group_size, file_prefix=args.output_prefix)
+
+    if args.vocab_file:
+        parameters.e_vocab.write_vocab(args.vocab_file + ".voc.e")
+        parameters.f_vocab.write_vocab(args.vocab_file + ".voc.f")
