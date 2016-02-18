@@ -65,6 +65,7 @@ def train_iteration(corpus, trans_prob, al_prob, results):
                 alpha_j_p_i_p = alpha_j_p[i_p]
                 gamma_sums[(i_p, I)] += gammas[j_p][i_p]
                 for i in range(I):
+                    # xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / denom
                     xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
                     xi_sums[(i,i_p, I)] += xi
         # add counts
