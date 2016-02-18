@@ -76,7 +76,6 @@ def train_iteration(corpus, trans_prob, al_prob, results):
         # ll += np.log(np.sum(alphas[J-1]))
         ll += np.sum(np.log(scale_coeffs))
 
-    print ll
     results.put([counts_e_f, counts_e, gamma_sums, xi_sums, pi_counts, pi_denom, ll])
 
 
