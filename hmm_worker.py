@@ -19,6 +19,7 @@ def train_iteration(corpus, trans_prob, al_prob, results):
         J = len(f_toks)
         alphas = np.zeros((J, I))
         betas = np.zeros((J, I))
+        scale_coeffs = np.zeros(J)
         for j, f_tok in enumerate(f_toks):
             for i, e_tok in enumerate(e_toks):
                 t_f_e = trans_prob[e_tok][f_tok]
@@ -31,6 +32,10 @@ def train_iteration(corpus, trans_prob, al_prob, results):
                 delta_t = t_f_e / np.sum([trans_prob[k_tok][f_tok] for k_tok in e_toks])
                 counts_e_f[(e_tok, f_tok)] += delta_t
                 counts_e[e_tok] += delta_t
+            # rescale alphas for numerical stability
+            Z = np.sum(alphas[j])
+            alphas[j] = alphas[j] / Z
+            scale_coeffs[j] = Z
 
         for j, f_tok in reversed(list(enumerate(f_toks))):
             for i, e_tok in enumerate(e_toks):
@@ -38,33 +43,39 @@ def train_iteration(corpus, trans_prob, al_prob, results):
                     betas[j][i] = 1
                 else:
                     betas[j][i] = np.sum([betas[j+1][k] * trans_prob[e_k][f_toks[j+1]] * al_prob[I][k-i] for k, e_k in enumerate(e_toks)])
+            if j != J-1:
+                # rescale betas for numerical stability
+                betas[j] = betas[j] / scale_coeffs[j+1]
 
         # posteriors
-        multiplied = np.multiply(alphas, betas)
-        denom_sums = 1.0 / np.sum(multiplied, axis=1)
+        # multiplied = np.multiply(alphas, betas)
+        # denom_sums = 1.0 / np.sum(multiplied, axis=1)
+        #
+        # gammas = multiplied * denom_sums[:, np.newaxis]
 
-        gammas = multiplied * denom_sums[:, np.newaxis]
+        gammas = np.multiply(alphas, betas)
 
         for j in xrange(1, J):
             t_f_e = np.array([trans_prob[e_tok][f_toks[j]] for e_tok in e_toks])
             beta_t_j_i = np.multiply(betas[j], t_f_e)
             j_p = j-1
             alpha_j_p = alphas[j_p]
-            denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
+            # denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
             for i_p in range(I):
                 alpha_j_p_i_p = alpha_j_p[i_p]
                 gamma_sums[(i_p, I)] += gammas[j_p][i_p]
                 for i in range(I):
-                    xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / denom
+                    xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
                     xi_sums[(i,i_p, I)] += xi
         # add counts
         for i in range(I):
             pi_counts[(i, I)] += gammas[0][i]
         pi_denom[I] += 1
 
-        ll += np.sum(alphas[J-1])
+        # ll += np.log(np.sum(alphas[J-1]))
+        ll += np.sum(np.log(scale_coeffs))
 
-
+    print ll
     results.put([counts_e_f, counts_e, gamma_sums, xi_sums, pi_counts, pi_denom, ll])
 
 
