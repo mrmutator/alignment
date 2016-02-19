@@ -131,7 +131,7 @@ class Parameters(object):
     def initialize_trans_t_file(self, t_file):
         trans_dict = dict()
         with open(t_file, "r") as infile:
-            for line in t_file:
+            for line in infile:
                 e, f, p = line.strip().split()
                 trans_dict[(int(e), int(f))] = float(p)
 
@@ -215,13 +215,13 @@ if __name__ == "__main__":
         if not args.t_file:
             parameters.initialize_trans_randomly()
         else:
-            pass
+            parameters.initialize_trans_t_file(args.t_file)
     elif args.uniform:
         parameters.initialize_al_uniformly()
         if not args.t_file:
             parameters.initialize_trans_uniformly()
         else:
-            pass
+            parameters.initialize_trans_t_file(args.t_file)
 
     parameters.split_data(corpus, num_sentences=args.group_size, file_prefix=args.output_prefix)
 
