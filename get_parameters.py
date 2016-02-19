@@ -31,15 +31,32 @@ class Vocab(object):
             for k,v in self.index2w.iteritems():
                 outfile.write(str(k) + "\t" + v + "\n")
 
+class GizaVocab(Vocab):
+    def __init__(self, file_name):
+        self.w2index = dict()
+        self.index2w = dict()
+        self.read_file(file_name)
+
+    def read_file(self, file_name):
+        with codecs.open(file_name, "r", "utf-8") as infile:
+            for line in infile:
+                i, w, _= line.strip().split()
+                self.w2index[w] = int(i)
+                self.index2w[int(i)] = w
+
+    def get_index(self, w):
+        return self.w2index[w]
+
+
 
 class Parameters(object):
 
-    def __init__(self, corpus):
+    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab()):
         self.corpus = corpus
         self.trans_probs = defaultdict(set)
         self.al_probs = defaultdict(set)
-        self.e_vocab = Vocab()
-        self.f_vocab = Vocab()
+        self.e_vocab = e_vocab
+        self.f_vocab = f_vocab
 
         self.add_corpus(corpus)
 
@@ -65,7 +82,7 @@ class Parameters(object):
                     self.trans_probs[self.e_vocab.get_index(e_tok)].add(self.f_vocab.get_index(f_tok))
 
 
-    def initialize_uniformly(self):
+    def initialize_al_uniformly(self):
         al_probs = dict()
         for I in self.al_probs:
             al_probs[I] = dict()
@@ -76,6 +93,7 @@ class Parameters(object):
 
         self.al_probs = al_probs
 
+    def initialize_trans_uniformly(self):
         trans_probs = dict()
         for e in self.trans_probs:
             trans_probs[e] = dict()
@@ -86,7 +104,7 @@ class Parameters(object):
 
         self.trans_probs = trans_probs
 
-    def initialize_randomly(self):
+    def initialize_al_randomly(self):
         al_probs = dict()
         for I in self.al_probs:
             al_probs[I] = dict()
@@ -98,6 +116,7 @@ class Parameters(object):
 
         self.al_probs = al_probs
 
+    def initialize_trans_randomly(self):
         trans_probs = dict()
         for e in self.trans_probs:
             trans_probs[e] = dict()
@@ -108,6 +127,22 @@ class Parameters(object):
                 trans_probs[e][f] = rand_probs[i] / Z
 
         self.trans_probs = trans_probs
+
+    def initialize_trans_t_file(self, t_file):
+        trans_dict = dict()
+        with open(t_file, "r") as infile:
+            for line in t_file:
+                e, f, p = line.strip().split()
+                trans_dict[(int(e), int(f))] = float(p)
+
+        trans_probs = dict()
+        for e in self.trans_probs:
+            trans_probs[e] = dict()
+            for f in self.trans_probs[e]:
+                trans_probs[e][f] = trans_dict[(e,f)]
+
+        self.trans_probs = trans_probs
+
 
     def split_data(self, corpus, num_sentences, file_prefix):
         part_num = 1
@@ -152,25 +187,44 @@ if __name__ == "__main__":
     arg_parser.add_argument("-e", required=True)
     arg_parser.add_argument("-f", required=True)
     arg_parser.add_argument("-limit", required=False, type=int, default=0)
-    arg_parser.add_argument("-vocab_file", required=False, default="")
+    arg_parser.add_argument("-output_vocab_file", required=False, default="")
     arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
     arg_parser.add_argument("-output_prefix", required=True)
     init = arg_parser.add_mutually_exclusive_group(required=True)
     init.add_argument('-uniform', dest='uniform', action='store_true', default=False)
     init.add_argument('-random', dest='random', action='store_true', default=False)
+    arg_parser.add_argument("-t_file", required=False, default="")
+    arg_parser.add_argument("-e_voc", required=False, default="")
+    arg_parser.add_argument("-f_voc", required=False, default="")
 
     args = arg_parser.parse_args()
 
     corpus = Corpus_Reader(args.e, args.f, limit=args.limit, strings=True)
-    parameters = Parameters(corpus)
+
+    e_vocab= Vocab()
+    f_vocab = Vocab()
+    if args.e_voc:
+        e_vocab = GizaVocab(args.e_voc)
+    if args.f_voc:
+        f_vocab = GizaVocab(args.f_voc)
+
+    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab)
 
     if args.random:
-        parameters.initialize_uniformly()
+        parameters.initialize_al_randomly()
+        if not args.t_file:
+            parameters.initialize_trans_randomly()
+        else:
+            pass
     elif args.uniform:
-        parameters.initialize_uniformly()
+        parameters.initialize_al_uniformly()
+        if not args.t_file:
+            parameters.initialize_trans_uniformly()
+        else:
+            pass
 
     parameters.split_data(corpus, num_sentences=args.group_size, file_prefix=args.output_prefix)
 
-    if args.vocab_file:
-        parameters.e_vocab.write_vocab(args.vocab_file + ".voc.e")
-        parameters.f_vocab.write_vocab(args.vocab_file + ".voc.f")
+    if args.output_vocab_file:
+        parameters.e_vocab.write_vocab(args.output_vocab_file + ".voc.e")
+        parameters.f_vocab.write_vocab(args.output_vocab_file + ".voc.f")
