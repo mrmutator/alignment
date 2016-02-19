@@ -100,7 +100,7 @@ e_file = args.e
 f_file = args.f
 params_file = args.params
 output_exp_file = params_file + ".counts"
-num_workers = 6
+num_workers = args.num_workers
 
 corpus = Corpus_Reader(e_file, f_file)
 trans_params, al_params = pickle.load(open(params_file, "rb"))
