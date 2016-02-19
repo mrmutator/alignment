@@ -138,8 +138,14 @@ class Parameters(object):
         trans_probs = dict()
         for e in self.trans_probs:
             trans_probs[e] = dict()
+            Z = 0
             for f in self.trans_probs[e]:
-                trans_probs[e][f] = trans_dict[(e,f)]
+
+                t_e_f = trans_dict.get((e, f), 0.0000001)
+                trans_probs[e][f] = t_e_f
+                Z += t_e_f
+            for f in self.trans_probs[e]:
+                trans_probs[e][f] = trans_probs[e][f] / float(Z)
 
         self.trans_probs = trans_probs
 
