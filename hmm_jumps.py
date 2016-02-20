@@ -95,6 +95,7 @@ class HMMAlignment(AlignmentModel):
             J = len(f_toks)
             alphas = np.zeros((J, I))
             betas = np.zeros((J, I))
+            scale_coeffs = np.zeros(J)
             for j, f_tok in enumerate(f_toks):
                 for i, e_tok in enumerate(e_toks):
                     t_f_e = self.trans_prob[e_tok][f_tok]
@@ -107,6 +108,10 @@ class HMMAlignment(AlignmentModel):
                     delta_t = t_f_e / np.sum([self.trans_prob[k_tok][f_tok] for k_tok in e_toks])
                     counts_e_f[(e_tok, f_tok)] += delta_t
                     counts_e[e_tok] += delta_t
+                # rescale alphas for numerical stability
+                Z = np.sum(alphas[j])
+                alphas[j] = alphas[j] / Z
+                scale_coeffs[j] = Z
 
             for j, f_tok in reversed(list(enumerate(f_toks))):
                 for i, e_tok in enumerate(e_toks):
@@ -114,24 +119,30 @@ class HMMAlignment(AlignmentModel):
                         betas[j][i] = 1
                     else:
                         betas[j][i] = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] * self.al_prob[I][k-i] for k, e_k in enumerate(e_toks)])
+                if j != J-1:
+                    # rescale betas for numerical stability
+                    betas[j] = betas[j] / scale_coeffs[j+1]
 
             # posteriors
-            multiplied = np.multiply(alphas, betas)
-            denom_sums = 1.0 / np.sum(multiplied, axis=1)
+            # multiplied = np.multiply(alphas, betas)
+            # denom_sums = 1.0 / np.sum(multiplied, axis=1)
+            #
+            # gammas = multiplied * denom_sums[:, np.newaxis]
 
-            gammas = multiplied * denom_sums[:, np.newaxis]
+            gammas = np.multiply(alphas, betas)
 
             for j in xrange(1, J):
                 t_f_e = np.array([self.trans_prob[e_tok][f_toks[j]] for e_tok in e_toks])
                 beta_t_j_i = np.multiply(betas[j], t_f_e)
                 j_p = j-1
                 alpha_j_p = alphas[j_p]
-                denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
+                # denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
                 for i_p in range(I):
                     alpha_j_p_i_p = alpha_j_p[i_p]
                     gamma_sums[(i_p, I)] += gammas[j_p][i_p]
                     for i in range(I):
-                        xi = (self.al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / denom
+                        # xi = (self.al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / denom
+                        xi = (self.al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
                         xi_sums[(i,i_p, I)] += xi
             # add counts
             for i in range(I):
@@ -206,8 +217,8 @@ class HMMAlignment(AlignmentModel):
 
 if __name__ == "__main__":
     # create corpus instance
-    corpus = Corpus_Reader("test/tp.e.1", "test/tp.f.1")
-    trans_params, al_params = pickle.load(open("test/tp.prms.1", "rb"))
+    corpus = Corpus_Reader("test/tp.1.e", "test/tp.1.f", limit=100)
+    trans_params, al_params = pickle.load(open("test/tp.1.prms", "rb"))
     # create model, omit parameters for random initialization
     model = HMMAlignment(al_prob=al_params, trans_prob=trans_params)
 
