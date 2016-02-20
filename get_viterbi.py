@@ -4,7 +4,7 @@ import multiprocessing as mp
 import numpy as np
 import argparse
 
-def get_all_viterbi_alignments(data, trans_prob, al_prob, results, i):
+def get_all_viterbi_alignments(data, trans_prob, al_prob, results, group):
     all_alignments = []
     for e_toks, f_toks in data:
         J = len(f_toks)
@@ -37,7 +37,7 @@ def get_all_viterbi_alignments(data, trans_prob, al_prob, results, i):
         best_path = list(reversed(best_path))
         alignments = [(int(best_path[j]), j) for j in range(J)]
         all_alignments. append(alignments)
-    results.put((i, all_alignments))
+    results.put((group, all_alignments))
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-e", required=True)
