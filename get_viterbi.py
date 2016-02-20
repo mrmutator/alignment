@@ -4,7 +4,7 @@ import multiprocessing as mp
 import numpy as np
 import argparse
 
-def get_all_viterbi_alignments(data, trans_prob, al_prob, results):
+def get_all_viterbi_alignments(data, trans_prob, al_prob, results, i):
     all_alignments = []
     for e_toks, f_toks in data:
         J = len(f_toks)
@@ -37,7 +37,7 @@ def get_all_viterbi_alignments(data, trans_prob, al_prob, results):
         best_path = list(reversed(best_path))
         alignments = [(int(best_path[j]), j) for j in range(J)]
         all_alignments. append(alignments)
-    results.put(all_alignments)
+    results.put((i, all_alignments))
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-e", required=True)
@@ -59,22 +59,23 @@ data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
 
 results = mp.Queue()
 
-processes = [mp.Process(target=get_all_viterbi_alignments, args=(data[i], trans_params, al_params, results)) for i in xrange(num_workers)]
+processes = [mp.Process(target=get_all_viterbi_alignments, args=(data[i], trans_params, al_params, results, i)) for i in xrange(num_workers)]
 for p in processes:
     p.start()
 
-alignments = results.get()
+alignments = []
 
-for p in processes[1:]:
+for p in processes:
     als = results.get()
-    alignments += als
+    alignments.append(als)
 
 for p in processes:
     a = p.join()
 
 
 outfile = open(args.out_file, "w")
-for als in alignments:
-    als = [str(al[0]) + "-" + str(al[1]) for al in als]
-    outfile.write(" ".join(als) + "\n")
+for group in sorted(alignments, key=lambda t: t[0]):
+    for als in group[1]:
+        als = [str(al[0]) + "-" + str(al[1]) for al in als]
+        outfile.write(" ".join(als) + "\n")
 outfile.close()
