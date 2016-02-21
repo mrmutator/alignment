@@ -7,6 +7,10 @@ class Corpus_Reader(object):
     """
 
     def __init__(self, e_file, f_file, al_file=None, alignment_order=('e', 'f'), limit=None, strings=False):
+        self.conv = int
+        if strings:
+            self.conv = unicode
+
         if al_file:
             self.al_file = codecs.open(al_file, "r", "utf-8")
         else:
@@ -27,9 +31,7 @@ class Corpus_Reader(object):
             self.reset()
         else:
             self.next = self.__iter_pairs
-        self.conv = int
-        if strings:
-            self.conv = unicode
+
 
     def reset(self):
         if self.al_file:
