@@ -115,6 +115,6 @@ if __name__ == "__main__":
     else:
         limit = args.limit
 
-    corpus = Corpus_Reader(args.e_file, args.f_file, args.a_file, alignment_order=alignment_order, limit=limit)
+    corpus = Corpus_Reader(args.e_file, args.f_file, args.a_file, alignment_order=alignment_order, limit=limit, strings=True)
 
     visualize_all(corpus, args.out, max_sent_length=args.max_length)
