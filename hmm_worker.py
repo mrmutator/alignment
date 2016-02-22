@@ -5,7 +5,7 @@ import cPickle as pickle
 import multiprocessing as mp
 import argparse
 
-def train_iteration(corpus, trans_prob, al_prob, results):
+def train_iteration(corpus, trans_prob, al_prob, p_0, results):
     # set all counts to zero
     counts_e_f = Counter()
     counts_e = Counter()
@@ -17,63 +17,105 @@ def train_iteration(corpus, trans_prob, al_prob, results):
     for e_toks, f_toks in corpus:
         I = len(e_toks)
         J = len(f_toks)
-        alphas = np.zeros((J, I))
-        betas = np.zeros((J, I))
+        alphas = np.zeros((J, 2*I))
+        betas = np.zeros((J, 2*I))
         scale_coeffs = np.zeros(J)
-        for j, f_tok in enumerate(f_toks):
-            for i, e_tok in enumerate(e_toks):
+
+        # f_0, special initialization for alphas
+        f_0 = f_toks[0]
+        t_denom_f0 = np.sum([trans_prob[k_tok][f_0] for k_tok in e_toks]) + I * trans_prob[0][f_0]
+        for i, e_tok in enumerate(e_toks):
+            alphas[0][i] = trans_prob[e_tok][f_0] * al_prob[(None, I)][i]
+            delta_t = trans_prob[e_tok][f_0] / t_denom_f0
+            counts_e_f[(e_tok, f_0)] += delta_t
+            counts_e[e_tok] += delta_t
+
+
+        t_f_e_0 = trans_prob[0][f_0]
+        for i in range(I, 2*I):
+            alphas[0][i] = t_f_e_0 * p_0
+
+        delta_t = trans_prob[0][f_0] / t_denom_f0
+        counts_e_f[(0, f_0)] += delta_t * I
+        counts_e[0] += delta_t * I
+
+        Z = np.sum(alphas[0])
+        alphas[0] = alphas[0] / Z
+        scale_coeffs[0] = Z
+
+
+        for j_, f_tok in enumerate(f_toks[1:]):
+            j = j_ + 1
+            t_denom_f_tok = np.sum([trans_prob[k_tok][f_tok] for k_tok in e_toks])  \
+                            + I * trans_prob[0][f_tok]
+            for i, e_tok in enumerate(e_toks + [0] * I):
                 t_f_e = trans_prob[e_tok][f_tok]
-                if j == 0:
-                    alphas[j][i] = t_f_e * al_prob[(None, I)][i]
+                if e_tok == 0:
+                    # i is NULL
+                    # go to NULL_i is only possible from NULL_i or from NULL_i - I
+                    alphas[j][i] = t_f_e * (alphas[j - 1][i-I] + alphas[j-1][i]) * p_0
                 else:
-                    alphas[j][i] = t_f_e * np.sum([alphas[j - 1][k] * al_prob[I][i - k] for k in xrange(I)])
+                    # i is not null
+                    alphas[j][i] = t_f_e * (np.sum([alphas[j - 1][k] * al_prob[I][i - k]
+                                                        for k in xrange(I)]) + np.sum([alphas[j-1][k] *
+                                                                al_prob[I][i - k + I] for k in range(I, 2*I)]))
 
                 # lexical translation parameters
-                delta_t = t_f_e / np.sum([trans_prob[k_tok][f_tok] for k_tok in e_toks])
+                delta_t = t_f_e / t_denom_f_tok
                 counts_e_f[(e_tok, f_tok)] += delta_t
                 counts_e[e_tok] += delta_t
+
             # rescale alphas for numerical stability
             Z = np.sum(alphas[j])
             alphas[j] = alphas[j] / Z
             scale_coeffs[j] = Z
 
-        for j, f_tok in reversed(list(enumerate(f_toks))):
-            for i, e_tok in enumerate(e_toks):
-                if j == J-1:
-                    betas[j][i] = 1
-                else:
-                    betas[j][i] = np.sum([betas[j+1][k] * trans_prob[e_k][f_toks[j+1]] * al_prob[I][k-i] for k, e_k in enumerate(e_toks)])
-            if j != J-1:
-                # rescale betas for numerical stability
-                betas[j] = betas[j] / scale_coeffs[j+1]
 
-        # posteriors
-        # multiplied = np.multiply(alphas, betas)
-        # denom_sums = 1.0 / np.sum(multiplied, axis=1)
-        #
-        # gammas = multiplied * denom_sums[:, np.newaxis]
+        # betas
+        # special initialization for last betas
+
+        betas[J-1] = np.ones(I*2)
+
+        for j, f_tok in reversed(list(enumerate(f_toks[:-1]))):
+            for i, e_tok in enumerate(e_toks + [0] * I):
+                if e_tok == 0:
+                    # i is NULL
+                    betas[j][i] = np.sum([betas[j+1][k] * trans_prob[e_k][f_toks[j+1]] *
+                                              al_prob[I][k-i+I] for k, e_k in enumerate(e_toks)]) +\
+                                      (betas[j+1][i] * trans_prob[0][f_toks[j+1]] *
+                                              p_0)
+                else:
+                    # i is not NULL
+                    betas[j][i] = np.sum([betas[j+1][k] * trans_prob[e_k][f_toks[j+1]] *
+                                              al_prob[I][k-i] for k, e_k in enumerate(e_toks)]) + \
+                                      (betas[j+1][i+I] * trans_prob[0][f_toks[j+1]] *
+                                              p_0)
+
+            # rescale betas for numerical stability
+            betas[j] = betas[j] / scale_coeffs[j+1]
 
         gammas = np.multiply(alphas, betas)
 
         for j in xrange(1, J):
-            t_f_e = np.array([trans_prob[e_tok][f_toks[j]] for e_tok in e_toks])
+            t_f_e = np.array([trans_prob[e_tok][f_toks[j]] for e_tok in e_toks + [0]*I])
             beta_t_j_i = np.multiply(betas[j], t_f_e)
             j_p = j-1
             alpha_j_p = alphas[j_p]
-            # denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
-            for i_p in range(I):
+            for i_p in range(2*I):
                 alpha_j_p_i_p = alpha_j_p[i_p]
                 gamma_sums[(i_p, I)] += gammas[j_p][i_p]
                 for i in range(I):
-                    # xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / denom
-                    xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
-                    xi_sums[(i,i_p, I)] += xi
-        # add counts
-        for i in range(I):
+                    if i_p < I:
+                        xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
+                        xi_sums[(i,i_p, I)] += xi
+                    else:
+                        xi = (al_prob[I][i - i_p + I]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
+                        xi_sums[(i,i_p-I, I)] += xi
+    # add counts
+        for i in range(2*I):
             pi_counts[(i, I)] += gammas[0][i]
         pi_denom[I] += 1
 
-        # ll += np.log(np.sum(alphas[J-1]))
         ll += np.sum(np.log(scale_coeffs))
 
     results.put([counts_e_f, counts_e, gamma_sums, xi_sums, pi_counts, pi_denom, ll])
@@ -93,6 +135,7 @@ arg_parser.add_argument("-e", required=True)
 arg_parser.add_argument("-f", required=True)
 arg_parser.add_argument("-params", required=True)
 arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
+arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
 
 args = arg_parser.parse_args()
 
@@ -101,6 +144,7 @@ f_file = args.f
 params_file = args.params
 output_exp_file = params_file + ".counts"
 num_workers = args.num_workers
+p_0 = args.p_0
 
 corpus = Corpus_Reader(e_file, f_file)
 trans_params, al_params = pickle.load(open(params_file, "rb"))
@@ -114,7 +158,7 @@ data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
 
 results = mp.Queue()
 
-processes = [mp.Process(target=train_iteration, args=(data[i], trans_prob, al_prob, results)) for i in xrange(num_workers)]
+processes = [mp.Process(target=train_iteration, args=(data[i], trans_prob, al_prob, p_0, results)) for i in xrange(num_workers)]
 for p in processes:
     p.start()
 

@@ -80,6 +80,8 @@ class Parameters(object):
                 self.al_probs[(None, I)].add(i)
                 for f_tok in f_toks:
                     self.trans_probs[self.e_vocab.get_index(e_tok)].add(self.f_vocab.get_index(f_tok))
+            for f_tok in f_toks:
+                self.trans_probs[0].add(self.f_vocab.get_index(f_tok))
 
 
     def initialize_al_uniformly(self):
@@ -171,6 +173,8 @@ class Parameters(object):
                     e = self.e_vocab.get_index(e_tok)
                     f = self.f_vocab.get_index(f_tok)
                     trans_param[(e, f)] = self.trans_probs[e][f]
+            for f_tok in f_toks:
+                trans_param[(0,self.f_vocab.get_index(f_tok))] = self.trans_probs[0][self.f_vocab.get_index(f_tok)]
             if c == num_sentences:
                 c = 0
                 outfile_f.close()
