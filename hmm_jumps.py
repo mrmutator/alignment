@@ -96,58 +96,79 @@ class HMMAlignment(AlignmentModel):
             alphas = np.zeros((J, 2*I))
             betas = np.zeros((J, 2*I))
             scale_coeffs = np.zeros(J)
-            for j, f_tok in enumerate(f_toks):
+
+            # f_0, special initialization for alphas
+            f_0 = f_toks[0]
+            t_denom_f0 = np.sum([self.trans_prob[k_tok][f_0] for k_tok in e_toks]) + I * self.trans_prob[0][f_0]
+            for i, e_tok in enumerate(e_toks):
+                alphas[0][i] = self.trans_prob[e_tok][f_0] * self.al_prob[(None, I)][i]
+                delta_t = self.trans_prob[e_tok][f_0] / t_denom_f0
+                counts_e_f[(e_tok, f_0)] += delta_t
+                counts_e[e_tok] += delta_t
+
+
+            t_f_e_0 = self.trans_prob[0][f_0]
+            for i in range(I, 2*I):
+                alphas[0][i] = t_f_e_0 * self.p_0
+
+            delta_t = self.trans_prob[0][f_0] / t_denom_f0
+            counts_e_f[(0, f_0)] += delta_t * I
+            counts_e[0] += delta_t * I
+
+            Z = np.sum(alphas[0])
+            alphas[0] = alphas[0] / Z
+            scale_coeffs[0] = Z
+
+
+            for j_, f_tok in enumerate(f_toks[1:]):
+                j = j_ + 1
+                t_denom_f_tok = np.sum([self.trans_prob[k_tok][f_tok] for k_tok in e_toks])  \
+                                + I * self.trans_prob[0][f_tok]
                 for i, e_tok in enumerate(e_toks + [0] * I):
                     t_f_e = self.trans_prob[e_tok][f_tok]
                     if e_tok == 0:
                         # i is NULL
-                        if j == 0:
-                            alphas[j][i] = t_f_e * self.p_0
-                        else:
-                            # go to NULL_i is only possible from NULL_i or from NULL_i - I
-                            alphas[j][i] = t_f_e * np.sum([alphas[j - 1][k] * self.p_0 for k in [i-I, i]])
+                        # go to NULL_i is only possible from NULL_i or from NULL_i - I
+                        alphas[j][i] = t_f_e * (alphas[j - 1][i-I] + alphas[j-1][i]) * self.p_0
                     else:
                         # i is not null
-                        if j == 0:
-                            alphas[j][i] = t_f_e * self.al_prob[(None, I)][i]
-                        else:
-                            alphas[j][i] = t_f_e * (np.sum([alphas[j - 1][k] * self.al_prob[I][i - k]
+                        alphas[j][i] = t_f_e * (np.sum([alphas[j - 1][k] * self.al_prob[I][i - k]
                                                             for k in xrange(I)]) + np.sum([alphas[j-1][k] *
                                                                     self.al_prob[I][i - k + I] for k in range(I, 2*I)]))
 
-
                     # lexical translation parameters
-                    delta_t = t_f_e / np.sum([self.trans_prob[k_tok][f_tok] for k_tok in e_toks + [0]*I])
+                    delta_t = t_f_e / t_denom_f_tok
                     counts_e_f[(e_tok, f_tok)] += delta_t
                     counts_e[e_tok] += delta_t
+
                 # rescale alphas for numerical stability
                 Z = np.sum(alphas[j])
                 alphas[j] = alphas[j] / Z
                 scale_coeffs[j] = Z
 
-            for j, f_tok in reversed(list(enumerate(f_toks))):
+
+            # betas
+            # special initialization for last betas
+
+            betas[J-1] = np.ones(I*2)
+
+            for j, f_tok in reversed(list(enumerate(f_toks[:-1]))):
                 for i, e_tok in enumerate(e_toks + [0] * I):
                     if e_tok == 0:
                         # i is NULL
-                        if j == J-1:
-                            betas[j][i] = 1
-                        else:
-                            betas[j][i] = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] *
+                        betas[j][i] = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] *
                                                   self.al_prob[I][k-i+I] for k, e_k in enumerate(e_toks)]) +\
                                           (betas[j+1][i] * self.trans_prob[0][f_toks[j+1]] *
                                                   self.p_0)
                     else:
                         # i is not NULL
-                        if j == J-1:
-                            betas[j][i] = 1
-                        else:
-                            betas[j][i] = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] *
+                        betas[j][i] = np.sum([betas[j+1][k] * self.trans_prob[e_k][f_toks[j+1]] *
                                                   self.al_prob[I][k-i] for k, e_k in enumerate(e_toks)]) + \
                                           (betas[j+1][i+I] * self.trans_prob[0][f_toks[j+1]] *
                                                   self.p_0)
-                if j != J-1:
-                    # rescale betas for numerical stability
-                    betas[j] = betas[j] / scale_coeffs[j+1]
+
+                # rescale betas for numerical stability
+                betas[j] = betas[j] / scale_coeffs[j+1]
 
             gammas = np.multiply(alphas, betas)
 
@@ -261,14 +282,14 @@ class HMMAlignment(AlignmentModel):
 if __name__ == "__main__":
     # create corpus instance
     corpus = Corpus_Reader("test/tp.1.e", "test/tp.1.f", limit=100)
-    #trans_params, al_params = pickle.load(open("test/tp.1.prms", "rb"))
+    trans_params, al_params = pickle.load(open("test/tp.1.prms", "rb"))
     # create model, omit parameters for random initialization
-    model = HMMAlignment(al_prob=None, trans_prob=None)
+    model = HMMAlignment(al_prob=al_params, trans_prob=trans_params)
 
     # train model until convergence delta is small enough or max_iterations is reached
-    model.train(corpus, max_iterations=5, convergence_ll=0.001)
+    model.train(corpus, max_iterations=1, convergence_ll=0.001)
     alignments = model.get_all_viterbi_alignments(corpus)
-    print alignments
+    #print alignments
     # outfile = open("test.al", "w")
     # for als in alignments:
     #     als = [str(al[0]) + "-" + str(al[1]) for al in als]
