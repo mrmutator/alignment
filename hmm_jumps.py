@@ -91,7 +91,6 @@ class HMMAlignment(AlignmentModel):
         xi_sums = Counter() # (i, i_p, I)
         gamma_sums = Counter() # (i_p, I)
         for e_toks, f_toks in corpus:
-            # e_toks = [None] + e_toks # introduce NULL-token
             I = len(e_toks)
             J = len(f_toks)
             alphas = np.zeros((J, 2*I))
@@ -150,12 +149,6 @@ class HMMAlignment(AlignmentModel):
                     # rescale betas for numerical stability
                     betas[j] = betas[j] / scale_coeffs[j+1]
 
-            # posteriors
-            # multiplied = np.multiply(alphas, betas)
-            # denom_sums = 1.0 / np.sum(multiplied, axis=1)
-            #
-            # gammas = multiplied * denom_sums[:, np.newaxis]
-
             gammas = np.multiply(alphas, betas)
 
             for j in xrange(1, J):
@@ -163,23 +156,17 @@ class HMMAlignment(AlignmentModel):
                 beta_t_j_i = np.multiply(betas[j], t_f_e)
                 j_p = j-1
                 alpha_j_p = alphas[j_p]
-                # denom = np.sum(np.multiply(alpha_j_p, betas[j_p]))
                 for i_p in range(2*I):
                     alpha_j_p_i_p = alpha_j_p[i_p]
                     gamma_sums[(i_p, I)] += gammas[j_p][i_p]
-                    for i in range(2*I):
-                        if i >= I:
-                            if i - I == i_p or i == i_p: # i is NULL
-                                xi = (self.p_0  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
-                                xi_sums[(i,i_p, I)] += xi
+                    for i in range(I):
+                        if i_p < I:
+                            xi = (self.al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
+                            xi_sums[(i,i_p, I)] += xi
                         else:
-                            if i_p < I:
-                                xi = (self.al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
-                                xi_sums[(i,i_p, I)] += xi
-                            else:
-                                xi = (self.al_prob[I][i - i_p + I]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
-                                xi_sums[(i,i_p-I, I)] += xi
-            # add counts
+                            xi = (self.al_prob[I][i - i_p + I]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
+                            xi_sums[(i,i_p-I, I)] += xi
+        # add counts
             for i in range(2*I):
                 pi_counts[(i, I)] += gammas[0][i]
             pi_denom[I] += 1
