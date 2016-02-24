@@ -103,7 +103,10 @@ def train_iteration(corpus, trans_prob, al_prob, p_0, results):
             alpha_j_p = alphas[j_p]
             for i_p in range(2*I):
                 alpha_j_p_i_p = alpha_j_p[i_p]
-                gamma_sums[(i_p, I)] += gammas[j_p][i_p]
+                if i_p < I:
+                    gamma_sums[(i_p, I)] += gammas[j_p][i_p]
+                else:
+                    gamma_sums[(i_p-I, I)] += gammas[j_p][i_p]
                 for i in range(I):
                     if i_p < I:
                         xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
