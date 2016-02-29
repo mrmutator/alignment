@@ -54,7 +54,8 @@ class Parameters(object):
     def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab()):
         self.corpus = corpus
         self.trans_probs = defaultdict(set)
-        self.al_probs = defaultdict(set)
+        self.jumps = set()
+        self.lengths = set()
         self.e_vocab = e_vocab
         self.f_vocab = f_vocab
 
@@ -74,49 +75,35 @@ class Parameters(object):
     def add_corpus(self, corpus, out_file_name=None):
         for e_toks, f_toks in corpus:
             I = len(e_toks)
+            self.lengths.add(I)
             for jmp in range(-I+1, I):
-                self.al_probs[I].add(jmp)
+                self.jumps.add(jmp)
             for i, e_tok in enumerate(e_toks):
-                self.al_probs[(None, I)].add(i)
                 for f_tok in f_toks:
                     self.trans_probs[self.e_vocab.get_index(e_tok)].add(self.f_vocab.get_index(f_tok))
             for f_tok in f_toks:
                 self.trans_probs[0].add(self.f_vocab.get_index(f_tok))
 
+    def initialize_start_randomly(self):
+        start = dict()
+        for I in self.lengths:
+            Z = 0
+            start[I] = dict()
+            for i in xrange(I):
+                p = random_prob()
+                start[I][i] = p
+                Z += p
+            for i in xrange(I):
+                start[I][i] = start[I][i] / Z
+        self.start = start
+        del self.lengths
 
-    def initialize_al_uniformly(self):
-        al_probs = dict()
-        for I in self.al_probs:
-            al_probs[I] = dict()
-            jmps = self.al_probs[I]
-            Z = len(jmps)
-            for jmp in jmps:
-                al_probs[I][jmp] = 1.0 / Z
-
-        self.al_probs = al_probs
-
-    def initialize_trans_uniformly(self):
-        trans_probs = dict()
-        for e in self.trans_probs:
-            trans_probs[e] = dict()
-            fs = self.trans_probs[e]
-            Z = len(fs)
-            for f in fs:
-                trans_probs[e][f] = 1.0 / Z
-
-        self.trans_probs = trans_probs
 
     def initialize_al_randomly(self):
         al_probs = dict()
-        for I in self.al_probs:
-            al_probs[I] = dict()
-            jmps = self.al_probs[I]
-            rand_probs = [random_prob() for _ in xrange(len(jmps))]
-            Z = sum(rand_probs)
-            for i, jmp in enumerate(jmps):
-                al_probs[I][jmp] = rand_probs[i] / Z
-
-        self.al_probs = al_probs
+        for jmp in self.jumps:
+            al_probs[jmp] = random_prob()
+        self.jumps = al_probs
 
     def initialize_trans_randomly(self):
         trans_probs = dict()
@@ -157,7 +144,8 @@ class Parameters(object):
         outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
         outfile_f = open(file_prefix +"."+str(part_num) + ".f", "w")
         trans_param = dict()
-        al_param = dict()
+        jumps_param = dict()
+        start_param = dict()
         c = 0
         for e_toks, f_toks in corpus:
             c += 1
@@ -166,9 +154,9 @@ class Parameters(object):
 
             I = len(e_toks)
             for jmp in range(-I+1, I):
-                al_param[(I, jmp)] = self.al_probs[I][jmp]
+                jumps_param[jmp] = self.jumps[jmp]
             for i, e_tok in enumerate(e_toks):
-                al_param[((None, I), i)] = self.al_probs[(None, I)][i]
+                start_param[(I, i)] = self.start[I][i]
                 for f_tok in f_toks:
                     e = self.e_vocab.get_index(e_tok)
                     f = self.f_vocab.get_index(f_tok)
@@ -179,8 +167,8 @@ class Parameters(object):
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
-                pickle.dump((trans_param, al_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
-                al_param = dict()
+                pickle.dump((trans_param, jumps_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+                jumps_param = dict()
                 trans_param = dict()
                 part_num += 1
                 outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
@@ -189,7 +177,7 @@ class Parameters(object):
         if c > 0:
             outfile_f.close()
             outfile_e.close()
-            pickle.dump((trans_param, al_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+            pickle.dump((trans_param, jumps_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
 
 
 if __name__ == "__main__":
@@ -200,9 +188,6 @@ if __name__ == "__main__":
     arg_parser.add_argument("-output_vocab_file", required=False, default="")
     arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
     arg_parser.add_argument("-output_prefix", required=True)
-    init = arg_parser.add_mutually_exclusive_group(required=True)
-    init.add_argument('-uniform', dest='uniform', action='store_true', default=False)
-    init.add_argument('-random', dest='random', action='store_true', default=False)
     arg_parser.add_argument("-t_file", required=False, default="")
     arg_parser.add_argument("-e_voc", required=False, default="")
     arg_parser.add_argument("-f_voc", required=False, default="")
@@ -220,18 +205,13 @@ if __name__ == "__main__":
 
     parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab)
 
-    if args.random:
-        parameters.initialize_al_randomly()
-        if not args.t_file:
-            parameters.initialize_trans_randomly()
-        else:
-            parameters.initialize_trans_t_file(args.t_file)
-    elif args.uniform:
-        parameters.initialize_al_uniformly()
-        if not args.t_file:
-            parameters.initialize_trans_uniformly()
-        else:
-            parameters.initialize_trans_t_file(args.t_file)
+
+    parameters.initialize_al_randomly()
+    parameters.initialize_start_randomly()
+    if not args.t_file:
+        parameters.initialize_trans_randomly()
+    else:
+        parameters.initialize_trans_t_file(args.t_file)
 
     parameters.split_data(corpus, num_sentences=args.group_size, file_prefix=args.output_prefix)
 

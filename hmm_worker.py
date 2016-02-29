@@ -1,3 +1,4 @@
+from __future__ import division
 from Corpus_Reader import Corpus_Reader
 from collections import defaultdict, Counter
 import numpy as np
@@ -5,7 +6,8 @@ import cPickle as pickle
 import multiprocessing as mp
 import argparse
 
-def train_iteration(corpus, trans_prob, al_prob, p_0, results):
+
+def train_iteration(corpus, trans_prob, jumps, start_prob, p_0, results):
     # set all counts to zero
     counts_e_f = Counter()
     counts_e = Counter()
@@ -17,6 +19,12 @@ def train_iteration(corpus, trans_prob, al_prob, p_0, results):
     for e_toks, f_toks in corpus:
         I = len(e_toks)
         J = len(f_toks)
+        # compute alignment probability based on jump parameters for all possible i, i'
+        al_prob = dict() # [i_p][i]
+        for i_p in xrange(I):
+            norm = np.sum([ jumps[i_pp - i_p] for i_pp in xrange(I)])
+            al_prob[i_p] = {i: jumps[i-i_p] / norm for i in xrange(I)}
+
         alphas = np.zeros((J, 2*I))
         betas = np.zeros((J, 2*I))
         scale_coeffs = np.zeros(J)
@@ -25,7 +33,7 @@ def train_iteration(corpus, trans_prob, al_prob, p_0, results):
         f_0 = f_toks[0]
         t_denom_f0 = np.sum([trans_prob[k_tok][f_0] for k_tok in e_toks]) + I * trans_prob[0][f_0]
         for i, e_tok in enumerate(e_toks):
-            alphas[0][i] = trans_prob[e_tok][f_0] * al_prob[(None, I)][i]
+            alphas[0][i] = trans_prob[e_tok][f_0] * start_prob[I][i]
             delta_t = trans_prob[e_tok][f_0] / t_denom_f0
             counts_e_f[(e_tok, f_0)] += delta_t
             counts_e[e_tok] += delta_t
@@ -56,9 +64,9 @@ def train_iteration(corpus, trans_prob, al_prob, p_0, results):
                     alphas[j][i] = t_f_e * (alphas[j - 1][i-I] + alphas[j-1][i]) * p_0
                 else:
                     # i is not null
-                    alphas[j][i] = t_f_e * (np.sum([alphas[j - 1][k] * al_prob[I][i - k]
+                    alphas[j][i] = t_f_e * (np.sum([alphas[j - 1][k] * al_prob[k][i]
                                                         for k in xrange(I)]) + np.sum([alphas[j-1][k] *
-                                                                al_prob[I][i - k + I] for k in range(I, 2*I)]))
+                                                                al_prob[k-I][i] for k in range(I, 2*I)]))
 
                 # lexical translation parameters
                 delta_t = t_f_e / t_denom_f_tok
@@ -81,13 +89,13 @@ def train_iteration(corpus, trans_prob, al_prob, p_0, results):
                 if e_tok == 0:
                     # i is NULL
                     betas[j][i] = np.sum([betas[j+1][k] * trans_prob[e_k][f_toks[j+1]] *
-                                              al_prob[I][k-i+I] for k, e_k in enumerate(e_toks)]) +\
+                                              al_prob[i-I][k] for k, e_k in enumerate(e_toks)]) +\
                                       (betas[j+1][i] * trans_prob[0][f_toks[j+1]] *
                                               p_0)
                 else:
                     # i is not NULL
                     betas[j][i] = np.sum([betas[j+1][k] * trans_prob[e_k][f_toks[j+1]] *
-                                              al_prob[I][k-i] for k, e_k in enumerate(e_toks)]) + \
+                                              al_prob[i][k] for k, e_k in enumerate(e_toks)]) + \
                                       (betas[j+1][i+I] * trans_prob[0][f_toks[j+1]] *
                                               p_0)
 
@@ -104,16 +112,16 @@ def train_iteration(corpus, trans_prob, al_prob, p_0, results):
             for i_p in range(2*I):
                 alpha_j_p_i_p = alpha_j_p[i_p]
                 if i_p < I:
-                    gamma_sums[(i_p, I)] += gammas[j_p][i_p]
+                    gamma_sums[i_p] += gammas[j_p][i_p]
                 else:
-                    gamma_sums[(i_p-I, I)] += gammas[j_p][i_p]
+                    gamma_sums[i_p-I] += gammas[j_p][i_p]
                 for i in range(I):
                     if i_p < I:
-                        xi = (al_prob[I][i - i_p]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
-                        xi_sums[(i,i_p, I)] += xi
+                        xi = (al_prob[i_p][i]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
+                        xi_sums[(i,i_p)] += xi
                     else:
-                        xi = (al_prob[I][i - i_p + I]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
-                        xi_sums[(i,i_p-I, I)] += xi
+                        xi = (al_prob[i_p-I][i]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
+                        xi_sums[(i,i_p-I)] += xi
     # add counts
         for i in range(2*I):
             pi_counts[(i, I)] += gammas[0][i]
@@ -126,10 +134,14 @@ def train_iteration(corpus, trans_prob, al_prob, p_0, results):
 
 def load_probs(trans_probs):
     probs = dict()
-    for (cond,x), v in trans_probs.iteritems():
-        if cond not in probs:
-            probs[cond] = dict()
-        probs[cond][x] = v
+    for el, v in trans_probs.iteritems():
+        if isinstance(el, tuple):
+            cond, x = el
+            if cond not in probs:
+                probs[cond] = dict()
+            probs[cond][x] = v
+        else:
+            probs[el] = v
     return probs
 
 
@@ -150,10 +162,12 @@ num_workers = args.num_workers
 p_0 = args.p_0
 
 corpus = Corpus_Reader(e_file, f_file)
-trans_params, al_params = pickle.load(open(params_file, "rb"))
+trans_params, jump_params, start_params = pickle.load(open(params_file, "rb"))
 
 trans_prob = load_probs(trans_params)
-al_prob = load_probs(al_params)
+jumps = load_probs(jump_params)
+start_prob = load_probs(start_params)
+
 
 corpus = list(corpus)
 n= int(np.ceil(float(len(corpus)) / num_workers))
@@ -161,7 +175,7 @@ data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
 
 results = mp.Queue()
 
-processes = [mp.Process(target=train_iteration, args=(data[i], trans_prob, al_prob, p_0, results)) for i in xrange(num_workers)]
+processes = [mp.Process(target=train_iteration, args=(data[i], trans_prob, jumps, start_prob, p_0, results)) for i in xrange(num_workers)]
 for p in processes:
     p.start()
 
