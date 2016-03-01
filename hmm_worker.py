@@ -7,7 +7,7 @@ import multiprocessing as mp
 import argparse
 
 
-def train_iteration(corpus, trans_prob, al_probs, start_prob, p_0, results, alpha=0):
+def train_iteration(corpus, trans_prob, jump_params, start_prob, p_0, results, alpha=0):
     # set all counts to zero
     counts_e_f = Counter()
     counts_e = Counter()
@@ -19,7 +19,7 @@ def train_iteration(corpus, trans_prob, al_probs, start_prob, p_0, results, alph
     for e_toks, f_toks in corpus:
         I = len(e_toks)
         J = len(f_toks)
-        al_prob = al_probs[I] # alignment probabilities are precomputed for each sentence length I
+        al_prob = jump_params[I] # alignment probabilities are precomputed for each sentence length I
 
         # initialize alphas, betas and scaling coefficients
         alphas = np.zeros((J, 2*I))
@@ -122,7 +122,7 @@ def train_iteration(corpus, trans_prob, al_probs, start_prob, p_0, results, alph
                         xi_sums[(i,i_p-I)] += xi
         # add start counts
         for i in range(2*I):
-            pi_counts[(i, I)] += gammas[0][i]
+            pi_counts[(I, i)] += gammas[0][i]
         pi_denom[I] += 1
 
         ll += np.sum(np.log(scale_coeffs))
@@ -132,14 +132,10 @@ def train_iteration(corpus, trans_prob, al_probs, start_prob, p_0, results, alph
 
 def load_probs(trans_probs):
     probs = dict()
-    for el, v in trans_probs.iteritems():
-        if isinstance(el, tuple):
-            cond, x = el
-            if cond not in probs:
-                probs[cond] = dict()
-            probs[cond][x] = v
-        else:
-            probs[el] = v
+    for (cond, x), v in trans_probs.iteritems():
+        if cond not in probs:
+            probs[cond] = dict()
+        probs[cond][x] = v
     return probs
 
 
@@ -163,7 +159,6 @@ corpus = Corpus_Reader(e_file, f_file)
 trans_params, jump_params, start_params = pickle.load(open(params_file, "rb"))
 
 trans_prob = load_probs(trans_params)
-al_probs = load_probs(jump_params)
 start_prob = load_probs(start_params)
 
 
@@ -173,7 +168,7 @@ data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
 
 results = mp.Queue()
 
-processes = [mp.Process(target=train_iteration, args=(data[i], trans_prob, al_probs, start_prob, p_0, results)) for i in xrange(num_workers)]
+processes = [mp.Process(target=train_iteration, args=(data[i], trans_prob, jump_params, start_prob, p_0, results)) for i in xrange(num_workers)]
 for p in processes:
     p.start()
 

@@ -38,7 +38,7 @@ with open("log_likelihood", "w") as outfile:
 
 trans_prob = dict()
 jmp_prob = defaultdict(int)
-start_prob = defaultdict(dict)
+start_prob = dict()
 al_prob = dict()
 
 # update parameters
@@ -51,8 +51,8 @@ for (i, i_p), count in total['xi_sums'].items():
     jmp_prob[i-i_p] += count / total['gamma_sums'][i_p]
 
 
-for (i, I), count in total['pi_counts'].items():
-    start_prob[I][i] = count / total['pi_denom'][I]
+for (I, i), count in total['pi_counts'].items():
+    start_prob[(I, i)] = count / total['pi_denom'][I]
 
 
 for f in param_files:
