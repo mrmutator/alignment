@@ -2,6 +2,7 @@ import cPickle as pickle
 from collections import defaultdict, Counter
 import argparse
 import glob
+import numpy as np
 
 def load_params(param_file):
     trans_params, jump_params, start_params = pickle.load(open(param_file, "rb"))
@@ -9,12 +10,14 @@ def load_params(param_file):
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-dir", required=True)
+arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 args = arg_parser.parse_args()
 
 
 exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts")
 param_files = glob.glob(args.dir.rstrip("/") + "/*.prms")
 
+alpha = args.alpha
 
 total = defaultdict(Counter)
 
@@ -36,6 +39,7 @@ with open("log_likelihood", "w") as outfile:
 trans_prob = dict()
 jmp_prob = defaultdict(int)
 start_prob = defaultdict(dict)
+al_prob = dict()
 
 # update parameters
 
@@ -52,12 +56,19 @@ for (i, I), count in total['pi_counts'].items():
 
 
 for f in param_files:
-    trans_params, jump_params, start_params  = load_params(f)
+    trans_params, al_params, start_params  = load_params(f)
     for k in trans_params:
         trans_params[k] = trans_prob[k]
-    for k in jump_params:
-        jump_params[k] = jmp_prob[k]
+    for k in al_params:
+        if k not in al_prob:
+            tmp_prob = dict()
+            for i_p in xrange(k): # k==I
+                norm = np.sum([ jmp_prob[i_pp - i_p] for i_pp in xrange(I)])
+                tmp_prob[i_p] = {i: ((jmp_prob[i-i_p] / norm) * (1-alpha)) + (alpha * (1.0/I))  for i in xrange(I)}
+            al_prob[k] = tmp_prob
+        al_params[k] = al_prob[k]
+
     for k in start_params:
         start_params[k] = start_prob[k]
 
-    pickle.dump((trans_params, jump_params, start_params), open(f +".u", "wb"))
+    pickle.dump((trans_params, al_params, start_params), open(f +".u", "wb"))

@@ -7,7 +7,7 @@ import multiprocessing as mp
 import argparse
 
 
-def train_iteration(corpus, trans_prob, jumps, start_prob, p_0, results):
+def train_iteration(corpus, trans_prob, al_probs, start_prob, p_0, results, alpha=0):
     # set all counts to zero
     counts_e_f = Counter()
     counts_e = Counter()
@@ -19,39 +19,38 @@ def train_iteration(corpus, trans_prob, jumps, start_prob, p_0, results):
     for e_toks, f_toks in corpus:
         I = len(e_toks)
         J = len(f_toks)
-        # compute alignment probability based on jump parameters for all possible i, i'
-        al_prob = dict() # [i_p][i]
-        for i_p in xrange(I):
-            norm = np.sum([ jumps[i_pp - i_p] for i_pp in xrange(I)])
-            al_prob[i_p] = {i: jumps[i-i_p] / norm for i in xrange(I)}
+        al_prob = al_probs[I] # alignment probabilities are precomputed for each sentence length I
 
+        # initialize alphas, betas and scaling coefficients
         alphas = np.zeros((J, 2*I))
         betas = np.zeros((J, 2*I))
         scale_coeffs = np.zeros(J)
 
         # f_0, special initialization for alphas
+        # also compute lexical probabilities for f_0
         f_0 = f_toks[0]
-        t_denom_f0 = np.sum([trans_prob[k_tok][f_0] for k_tok in e_toks]) + I * trans_prob[0][f_0]
+        t_f_e_0 = trans_prob[0][f_0]
+        t_denom_f0 = np.sum([trans_prob[k_tok][f_0] for k_tok in e_toks]) + I * t_f_e_0
         for i, e_tok in enumerate(e_toks):
             alphas[0][i] = trans_prob[e_tok][f_0] * start_prob[I][i]
             delta_t = trans_prob[e_tok][f_0] / t_denom_f0
             counts_e_f[(e_tok, f_0)] += delta_t
             counts_e[e_tok] += delta_t
 
-
-        t_f_e_0 = trans_prob[0][f_0]
+        # initialize alphas for NULL words
         for i in range(I, 2*I):
             alphas[0][i] = t_f_e_0 * p_0
-
+        # lexical translation deltas for NULL words
         delta_t = trans_prob[0][f_0] / t_denom_f0
         counts_e_f[(0, f_0)] += delta_t * I
         counts_e[0] += delta_t * I
 
+        # rescale alphas and store scaling coefficient
         Z = np.sum(alphas[0])
         alphas[0] = alphas[0] / Z
         scale_coeffs[0] = Z
 
-
+        # iterate over f_2, ..., f_J
         for j_, f_tok in enumerate(f_toks[1:]):
             j = j_ + 1
             t_denom_f_tok = np.sum([trans_prob[k_tok][f_tok] for k_tok in e_toks])  \
@@ -64,10 +63,9 @@ def train_iteration(corpus, trans_prob, jumps, start_prob, p_0, results):
                     alphas[j][i] = t_f_e * (alphas[j - 1][i-I] + alphas[j-1][i]) * p_0
                 else:
                     # i is not null
-                    alphas[j][i] = t_f_e * (np.sum([alphas[j - 1][k] * al_prob[k][i]
-                                                        for k in xrange(I)]) + np.sum([alphas[j-1][k] *
+                    alphas[j][i] = t_f_e * (np.sum([alphas[j - 1][k] * al_prob[k][i] for k in xrange(I)]) +
+                                            np.sum([alphas[j-1][k] *
                                                                 al_prob[k-I][i] for k in range(I, 2*I)]))
-
                 # lexical translation parameters
                 delta_t = t_f_e / t_denom_f_tok
                 counts_e_f[(e_tok, f_tok)] += delta_t
@@ -81,9 +79,9 @@ def train_iteration(corpus, trans_prob, jumps, start_prob, p_0, results):
 
         # betas
         # special initialization for last betas
-
         betas[J-1] = np.ones(I*2)
 
+        # other betas
         for j, f_tok in reversed(list(enumerate(f_toks[:-1]))):
             for i, e_tok in enumerate(e_toks + [0] * I):
                 if e_tok == 0:
@@ -122,7 +120,7 @@ def train_iteration(corpus, trans_prob, jumps, start_prob, p_0, results):
                     else:
                         xi = (al_prob[i_p-I][i]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
                         xi_sums[(i,i_p-I)] += xi
-    # add counts
+        # add start counts
         for i in range(2*I):
             pi_counts[(i, I)] += gammas[0][i]
         pi_denom[I] += 1
@@ -165,7 +163,7 @@ corpus = Corpus_Reader(e_file, f_file)
 trans_params, jump_params, start_params = pickle.load(open(params_file, "rb"))
 
 trans_prob = load_probs(trans_params)
-jumps = load_probs(jump_params)
+al_probs = load_probs(jump_params)
 start_prob = load_probs(start_params)
 
 
@@ -175,7 +173,7 @@ data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
 
 results = mp.Queue()
 
-processes = [mp.Process(target=train_iteration, args=(data[i], trans_prob, jumps, start_prob, p_0, results)) for i in xrange(num_workers)]
+processes = [mp.Process(target=train_iteration, args=(data[i], trans_prob, al_probs, start_prob, p_0, results)) for i in xrange(num_workers)]
 for p in processes:
     p.start()
 

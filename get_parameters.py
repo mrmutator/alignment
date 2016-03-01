@@ -4,6 +4,7 @@ import codecs
 import random
 import cPickle as pickle
 import argparse
+import numpy as np
 
 def random_prob():
     return random.random()*-1 + 1 # random number between 0 and 1, excluding 0, including 1
@@ -51,13 +52,14 @@ class GizaVocab(Vocab):
 
 class Parameters(object):
 
-    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab()):
+    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab(), alpha=0):
         self.corpus = corpus
         self.trans_probs = defaultdict(set)
         self.jumps = set()
         self.lengths = set()
         self.e_vocab = e_vocab
         self.f_vocab = f_vocab
+        self.alpha = alpha
 
         self.add_corpus(corpus)
 
@@ -140,11 +142,12 @@ class Parameters(object):
 
 
     def split_data(self, corpus, num_sentences, file_prefix):
+        all_al_params = dict()
         part_num = 1
         outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
         outfile_f = open(file_prefix +"."+str(part_num) + ".f", "w")
         trans_param = dict()
-        jumps_param = dict()
+        al_param = dict()
         start_param = dict()
         c = 0
         for e_toks, f_toks in corpus:
@@ -153,8 +156,14 @@ class Parameters(object):
             outfile_f.write(" ".join([str(self.f_vocab.get_index(w)) for w in f_toks]) + "\n")
 
             I = len(e_toks)
-            for jmp in range(-I+1, I):
-                jumps_param[jmp] = self.jumps[jmp]
+            if I not in all_al_params:
+                tmp_prob = dict()
+                for i_p in xrange(I):
+                    norm = np.sum([ self.jumps[i_pp - i_p] for i_pp in xrange(I)])
+                    tmp_prob[i_p] = {i: ((self.jumps[i-i_p] / norm) * (1-self.alpha)) + (self.alpha * (1.0/I))  for i in xrange(I)}
+                all_al_params[I] = tmp_prob
+            al_param[I] = all_al_params[I]
+
             for i, e_tok in enumerate(e_toks):
                 start_param[(I, i)] = self.start[I][i]
                 for f_tok in f_toks:
@@ -167,8 +176,8 @@ class Parameters(object):
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
-                pickle.dump((trans_param, jumps_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
-                jumps_param = dict()
+                pickle.dump((trans_param, al_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+                al_param = dict()
                 trans_param = dict()
                 part_num += 1
                 outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
@@ -177,7 +186,7 @@ class Parameters(object):
         if c > 0:
             outfile_f.close()
             outfile_e.close()
-            pickle.dump((trans_param, jumps_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+            pickle.dump((trans_param, al_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
 
 
 if __name__ == "__main__":
@@ -191,6 +200,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-t_file", required=False, default="")
     arg_parser.add_argument("-e_voc", required=False, default="")
     arg_parser.add_argument("-f_voc", required=False, default="")
+    arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 
     args = arg_parser.parse_args()
 
@@ -203,7 +213,7 @@ if __name__ == "__main__":
     if args.f_voc:
         f_vocab = GizaVocab(args.f_voc)
 
-    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab)
+    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab, alpha=args.alpha)
 
 
     parameters.initialize_al_randomly()
