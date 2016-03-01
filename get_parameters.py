@@ -167,7 +167,7 @@ class Parameters(object):
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
-                pickle.dump((trans_param, jumps_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+                pickle.dump((trans_param, jumps_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
                 jumps_param = dict()
                 trans_param = dict()
                 part_num += 1
