@@ -3,6 +3,7 @@ from collections import defaultdict, Counter
 import argparse
 import glob
 import numpy as np
+import multiprocessing as mp
 
 def load_params(param_file):
     trans_params, jump_params, start_params = pickle.load(open(param_file, "rb"))
@@ -11,6 +12,7 @@ def load_params(param_file):
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
+arg_parser.add_argument("-num_workers", required=False, default=1, type=int)
 args = arg_parser.parse_args()
 
 
@@ -36,39 +38,63 @@ print "LL before update: ", total_ll
 with open("log_likelihood", "w") as outfile:
     outfile.write("Log-Likelihood: " + str(total_ll))
 
-trans_prob = dict()
-jmp_prob = defaultdict(int)
-start_prob = dict()
-al_prob = dict()
-
 # update parameters
 
-for (e,f), count in total['counts_e_f'].items():
-    trans_prob[(e,f)] = count / total['counts_e'][e]
+def normalize_trans(queue):
+    trans_prob = dict()
+    for (e,f), count in total['counts_e_f'].items():
+        trans_prob[(e,f)] = count / total['counts_e'][e]
+    queue.put(("trans_prob", trans_prob))
+
+def normalize_jumps(queue):
+    jmp_prob = defaultdict(int)
+    for (i, i_p), count in total['xi_sums'].items():
+        jmp_prob[i-i_p] += count / total['gamma_sums'][i_p]
+    queue.put(("jmp_prob", jmp_prob))
+
+def normalize_start(queue):
+    start_prob = dict()
+    for (I, i), count in total['pi_counts'].items():
+        start_prob[(I, i)] = count / total['pi_denom'][I]
+    queue.put(("start_prob", start_prob))
 
 
-for (i, i_p), count in total['xi_sums'].items():
-    jmp_prob[i-i_p] += count / total['gamma_sums'][i_p]
+results = mp.Queue()
 
+processes = [mp.Process(target=x, args=(results, )) for x in [normalize_start, normalize_jumps, normalize_trans]]
+for p in processes:
+    p.start()
 
-for (I, i), count in total['pi_counts'].items():
-    start_prob[(I, i)] = count / total['pi_denom'][I]
+normalized_counts = dict()
 
+for p in processes:
+    name, data = results.get()
+    normalized_counts[name] = data
+for p in processes:
+    a = p.join()
 
-for f in param_files:
+manager = mp.Manager()
+al_prob = manager.dict()
+
+def update_worker(f):
     trans_params, al_params, start_params  = load_params(f)
     for k in trans_params:
-        trans_params[k] = trans_prob[k]
+        trans_params[k] = normalized_counts['trans_prob'][k]
     for k in al_params:
         if k not in al_prob:
             tmp_prob = dict()
             for i_p in xrange(k): # k==I
-                norm = np.sum([ jmp_prob[i_pp - i_p] for i_pp in xrange(k)])
-                tmp_prob[i_p] = {i: ((jmp_prob[i-i_p] / norm) * (1-alpha)) + (alpha * (1.0/k))  for i in xrange(k)}
+                norm = np.sum([ normalized_counts['jmp_prob'][i_pp - i_p] for i_pp in xrange(k)])
+                tmp_prob[i_p] = {i: ((normalized_counts['jmp_prob'][i-i_p] / norm) * (1-alpha)) + (alpha * (1.0/k))
+                                 for i in xrange(k)}
             al_prob[k] = tmp_prob
         al_params[k] = al_prob[k]
 
     for k in start_params:
-        start_params[k] = start_prob[k]
+        start_params[k] = normalized_counts['start_prob'][k]
 
     pickle.dump((trans_params, al_params, start_params), open(f +".u", "wb"))
+
+
+pool = mp.Pool(processes=args.num_workers)
+pool.map(update_worker, param_files)
