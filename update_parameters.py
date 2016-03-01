@@ -63,8 +63,8 @@ for f in param_files:
         if k not in al_prob:
             tmp_prob = dict()
             for i_p in xrange(k): # k==I
-                norm = np.sum([ jmp_prob[i_pp - i_p] for i_pp in xrange(I)])
-                tmp_prob[i_p] = {i: ((jmp_prob[i-i_p] / norm) * (1-alpha)) + (alpha * (1.0/I))  for i in xrange(I)}
+                norm = np.sum([ jmp_prob[i_pp - i_p] for i_pp in xrange(k)])
+                tmp_prob[i_p] = {i: ((jmp_prob[i-i_p] / norm) * (1-alpha)) + (alpha * (1.0/k))  for i in xrange(k)}
             al_prob[k] = tmp_prob
         al_params[k] = al_prob[k]
 
