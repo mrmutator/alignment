@@ -6,7 +6,7 @@ class Corpus_Reader(object):
     """ Corpus_Reader object that allows to iterate over corresponding e-file, f-file and alignment file.
     """
 
-    def __init__(self, e_file, f_file, al_file=None, alignment_order=('e', 'f'), limit=None, strings=False):
+    def __init__(self, e_file, f_file, al_file=None, alignment_order=('e', 'f'), limit=None, strings=False, source_dep=False):
         self.conv = int
         if strings:
             self.conv = unicode
@@ -29,6 +29,8 @@ class Corpus_Reader(object):
             self.next = self.__iter_al
             self.__check_al_order()
             self.reset()
+        elif source_dep:
+            self.next = self.__iter_source_dep
         else:
             self.next = self.__iter_pairs
 
@@ -69,6 +71,22 @@ class Corpus_Reader(object):
             line1 = self.e_file.readline()
             line2 = self.f_file.readline()
 
+    def __iter_source_dep(self):
+        self.reset()
+
+        line1 = self.e_file.readline()
+        line2 = self.f_file.readline()
+
+        c = 0
+        while(line1 and line2):
+            c += 1
+            if self.limit and c > self.limit:
+                break
+            yield map(self.conv, line1.split()), [self.__split_tok_parent(tok)for tok in line2.split()]
+            line1 = self.e_file.readline()
+            line2 = self.f_file.readline()
+
+
     def __iter__(self):
         return self.next()
 
@@ -90,6 +108,10 @@ class Corpus_Reader(object):
 
     def __convert_to_int_f_e(self, tpl):
         return int(tpl[1]), int(tpl[0])
+
+    def __split_tok_parent(self, tok_):
+        tok, parent = tok_.split("_")
+        return self.conv(tok), int(parent)
 
 if __name__ == "__main__":
 
