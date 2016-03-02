@@ -1,5 +1,5 @@
 from __future__ import division
-from Corpus_Reader import Corpus_Reader
+from utils.Corpus_Reader import Corpus_Reader
 from collections import defaultdict, Counter
 import numpy as np
 import cPickle as pickle

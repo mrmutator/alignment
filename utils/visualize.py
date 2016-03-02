@@ -1,4 +1,4 @@
-from Corpus_Reader import Corpus_Reader
+from utils.Corpus_Reader import Corpus_Reader
 import codecs
 import subprocess
 import tempfile

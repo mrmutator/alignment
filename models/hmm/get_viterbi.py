@@ -1,4 +1,4 @@
-from Corpus_Reader import Corpus_Reader
+from utils.Corpus_Reader import Corpus_Reader
 import cPickle as pickle
 import multiprocessing as mp
 import numpy as np
