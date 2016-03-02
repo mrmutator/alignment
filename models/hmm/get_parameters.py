@@ -74,7 +74,7 @@ class Parameters(object):
         outfile_e.close()
         outfile_f.close()
 
-    def add_corpus(self, corpus, out_file_name=None):
+    def add_corpus(self, corpus):
         for e_toks, f_toks in corpus:
             I = len(e_toks)
             self.lengths.add(I)
