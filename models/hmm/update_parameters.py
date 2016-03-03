@@ -42,20 +42,20 @@ with open("log_likelihood", "w") as outfile:
 
 def normalize_trans(queue):
     trans_prob = dict()
-    for (e,f), count in total['counts_e_f'].items():
-        trans_prob[(e,f)] = count / total['counts_e'][e]
+    for (e,f), count in total['lex_counts'].items():
+        trans_prob[(e,f)] = count / total['lex_norm'][e]
     queue.put(("trans_prob", trans_prob))
 
 def normalize_jumps(queue):
     jmp_prob = defaultdict(int)
-    for (i, i_p), count in total['xi_sums'].items():
-        jmp_prob[i-i_p] += count / total['gamma_sums'][i_p]
+    for (i_p, i), count in total['al_counts'].items():
+        jmp_prob[i-i_p] += count / total['al_norm'][i_p]
     queue.put(("jmp_prob", jmp_prob))
 
 def normalize_start(queue):
     start_prob = dict()
-    for (I, i), count in total['pi_counts'].items():
-        start_prob[(I, i)] = count / total['pi_denom'][I]
+    for (I, i), count in total['start_counts'].items():
+        start_prob[(I, i)] = count / total['start_norm'][I]
     queue.put(("start_prob", start_prob))
 
 

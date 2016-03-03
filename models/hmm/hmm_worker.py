@@ -9,12 +9,12 @@ import argparse
 
 def train_iteration(corpus, trans_prob, jump_params, start_prob, p_0, results, alpha=0):
     # set all counts to zero
-    counts_e_f = Counter()
-    counts_e = Counter()
-    pi_counts = Counter() # (i, I)
-    pi_denom = Counter() # I
-    xi_sums = Counter() # (i, i_p, I)
-    gamma_sums = Counter() # (i_p, I)
+    lex_counts = Counter() #(e,f)
+    lex_norm = Counter() # e
+    start_counts = Counter() # (I, i)
+    start_norm = Counter() # I
+    al_counts = Counter() # (i_p, i)
+    al_norm = Counter() # (i_p)
     ll = 0
     for e_toks, f_toks in corpus:
         I = len(e_toks)
@@ -29,23 +29,15 @@ def train_iteration(corpus, trans_prob, jump_params, start_prob, p_0, results, a
         # f_0, special initialization for alphas
         # also compute lexical probabilities for f_0
         f_0 = f_toks[0]
-        t_f_e_0 = trans_prob[0][f_0]
-        t_denom_f0 = np.sum([trans_prob[k_tok][f_0] for k_tok in e_toks]) + I * t_f_e_0
         for i, e_tok in enumerate(e_toks):
             alphas[0][i] = trans_prob[e_tok][f_0] * start_prob[I][i]
-            delta_t = trans_prob[e_tok][f_0] / t_denom_f0
-            counts_e_f[(e_tok, f_0)] += delta_t
-            counts_e[e_tok] += delta_t
 
         # initialize alphas for NULL words
+        t_f_e_0 = trans_prob[0][f_0]
         for i in range(I, 2*I):
             alphas[0][i] = t_f_e_0 * p_0
-        # lexical translation deltas for NULL words
-        delta_t = trans_prob[0][f_0] / t_denom_f0
-        counts_e_f[(0, f_0)] += delta_t * I
-        counts_e[0] += delta_t * I
 
-        # rescale alphas and store scaling coefficient
+        # rescale alphas[0] and store scaling coefficient
         Z = np.sum(alphas[0])
         alphas[0] = alphas[0] / Z
         scale_coeffs[0] = Z
@@ -53,8 +45,6 @@ def train_iteration(corpus, trans_prob, jump_params, start_prob, p_0, results, a
         # iterate over f_2, ..., f_J
         for j_, f_tok in enumerate(f_toks[1:]):
             j = j_ + 1
-            t_denom_f_tok = np.sum([trans_prob[k_tok][f_tok] for k_tok in e_toks])  \
-                            + I * trans_prob[0][f_tok]
             for i, e_tok in enumerate(e_toks + [0] * I):
                 t_f_e = trans_prob[e_tok][f_tok]
                 if e_tok == 0:
@@ -66,10 +56,6 @@ def train_iteration(corpus, trans_prob, jump_params, start_prob, p_0, results, a
                     alphas[j][i] = t_f_e * (np.sum([alphas[j - 1][k] * al_prob[k][i] for k in xrange(I)]) +
                                             np.sum([alphas[j-1][k] *
                                                                 al_prob[k-I][i] for k in range(I, 2*I)]))
-                # lexical translation parameters
-                delta_t = t_f_e / t_denom_f_tok
-                counts_e_f[(e_tok, f_tok)] += delta_t
-                counts_e[e_tok] += delta_t
 
             # rescale alphas for numerical stability
             Z = np.sum(alphas[j])
@@ -102,32 +88,44 @@ def train_iteration(corpus, trans_prob, jump_params, start_prob, p_0, results, a
 
         gammas = np.multiply(alphas, betas)
 
-        for j in xrange(1, J):
-            t_f_e = np.array([trans_prob[e_tok][f_toks[j]] for e_tok in e_toks + [0]*I])
+        # update counts
+
+        # add start counts and counts for lex f_0
+        f_0 = f_toks[0]
+        for i, e_tok in enumerate(e_toks + [0]*I):
+            start_counts[(I, i)] += gammas[0][i]
+            lex_counts[(e_tok, f_0)] += gammas[0][i]
+            lex_norm[e_tok] += gammas[0][i]
+        start_norm[I] += 1
+
+        for j_p, f_tok in enumerate(f_toks[1:]):
+            j = j_p + 1
+            t_f_e = np.array([trans_prob[e_tok][f_toks[j]] for e_tok in e_toks + [0]*I]) # array of t(f_j|e) for all e
             beta_t_j_i = np.multiply(betas[j], t_f_e)
-            j_p = j-1
             alpha_j_p = alphas[j_p]
-            for i_p in range(2*I):
-                alpha_j_p_i_p = alpha_j_p[i_p]
-                if i_p < I:
-                    gamma_sums[i_p] += gammas[j_p][i_p]
-                else:
-                    gamma_sums[i_p-I] += gammas[j_p][i_p]
-                for i in range(I):
+            gammas_0_j = np.sum(gammas[j][I:])
+            lex_counts[(0, f_tok)] += gammas_0_j
+            lex_norm[0] += gammas_0_j
+            for i, e_tok in enumerate(e_toks):
+                lex_counts[(e_tok, f_tok)] += gammas[j][i]
+                lex_norm[e_tok] += gammas[j][i]
+                for i_p in range(2*I):
                     if i_p < I:
-                        xi = (al_prob[i_p][i]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
-                        xi_sums[(i,i_p)] += xi
+                        al_norm[i_p] += gammas[j_p][i_p]
+                        al_prob_ip = al_prob[i_p]
+                        actual_i_p = i_p
                     else:
-                        xi = (al_prob[i_p-I][i]  * alpha_j_p_i_p * beta_t_j_i[i]) / scale_coeffs[j]
-                        xi_sums[(i,i_p-I)] += xi
-        # add start counts
-        for i in range(2*I):
-            pi_counts[(I, i)] += gammas[0][i]
-        pi_denom[I] += 1
+                        al_norm[i_p-I] += gammas[j_p][i_p]
+                        al_prob_ip = al_prob[i_p-I]
+                        actual_i_p = i_p - I
+                    xi = (al_prob_ip[i]  * alpha_j_p[i_p] * beta_t_j_i[i]) / scale_coeffs[j]
+                    al_counts[(actual_i_p, i)] += xi
+                    al_norm[actual_i_p] += gammas[j_p][i_p]
+
 
         ll += np.sum(np.log(scale_coeffs))
 
-    results.put([counts_e_f, counts_e, gamma_sums, xi_sums, pi_counts, pi_denom, ll])
+    results.put([lex_counts, lex_norm, al_norm, al_counts, start_counts, start_norm, ll])
 
 
 def load_probs(trans_probs):
@@ -185,7 +183,7 @@ for p in processes:
     a = p.join()
 
 
-expectations = {'counts_e_f': total[0], 'counts_e':total[1], 'gamma_sums': total[2], 'xi_sums': total[3],
-                'pi_counts':total[4], 'pi_denom':total[5], 'll':total_ll}
+expectations = {'lex_counts': total[0], 'lex_norm':total[1], 'al_norm': total[2], 'al_counts': total[3],
+                'start_counts':total[4], 'start_norm':total[5], 'll':total_ll}
 
 pickle.dump(expectations, open(output_exp_file, "wb"))

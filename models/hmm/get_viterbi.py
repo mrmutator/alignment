@@ -4,16 +4,17 @@ import multiprocessing as mp
 import numpy as np
 import argparse
 
-def get_all_viterbi_alignments(data, trans_prob, al_prob, p_0, results, group):
+def get_all_viterbi_alignments(data, trans_prob, jump_params, start_prob, p_0, results, group):
     all_alignments = []
     for e_toks, f_toks in data:
         J = len(f_toks)
         I = len(e_toks)
+        al_prob = jump_params[I]
         chart = np.zeros((J, 2*I))
         best = np.zeros((J, 2*I))
         # initialize
         for i, e_tok in enumerate(e_toks):
-            chart[0][i] = trans_prob[(e_tok,f_toks[0])] * al_prob[((None, I),i)]
+            chart[0][i] = trans_prob[(e_tok,f_toks[0])] * start_prob[(I, i)]
         for i in range(I, I*2):
             chart[0][i] = trans_prob[(0,f_toks[0])] * p_0
 
@@ -30,9 +31,9 @@ def get_all_viterbi_alignments(data, trans_prob, al_prob, p_0, results, group):
                             values.append(0)
                     else:
                         if i_p < I:
-                            values.append(chart[j-1][i_p]*al_prob[(I,i-i_p)])
+                            values.append(chart[j-1][i_p]*al_prob[i_p][i])
                         else:
-                            values.append(chart[j-1][i_p]*al_prob[(I,i-i_p + I)])
+                            values.append(chart[j-1][i_p]*al_prob[i_p-I][i])
                 best_i = np.argmax(values)
                 chart[j][i] = values[best_i] * trans_prob[(e_tok,f_tok)]
                 best[j][i] = best_i
@@ -61,7 +62,7 @@ arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 args = arg_parser.parse_args()
 
 corpus = Corpus_Reader(args.e, args.f)
-trans_params, al_params = pickle.load(open(args.prms, "rb"))
+trans_params, jump_params, start_params = pickle.load(open(args.prms, "rb"))
 num_workers = args.num_workers
 p_0 = args.p_0
 
@@ -71,7 +72,10 @@ data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
 
 results = mp.Queue()
 
-processes = [mp.Process(target=get_all_viterbi_alignments, args=(data[i], trans_params, al_params, p_0, results, i)) for i in xrange(num_workers)]
+processes = [mp.Process(target=get_all_viterbi_alignments,
+                        args=(data[i], trans_params, jump_params, start_params, p_0, results, i))
+             for i in xrange(num_workers)]
+
 for p in processes:
     p.start()
 
