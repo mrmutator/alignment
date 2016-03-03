@@ -7,7 +7,7 @@ import multiprocessing as mp
 import argparse
 
 
-def train_iteration(corpus, trans_prob, jump_params, start_prob, p_0, results, alpha=0):
+def train_iteration(corpus, trans_prob, jump_params, start_prob, p_0, results):
     # set all counts to zero
     lex_counts = Counter() #(e,f)
     lex_norm = Counter() # e
