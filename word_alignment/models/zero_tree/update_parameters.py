@@ -35,7 +35,7 @@ for f in exp_files:
 
 print "LL before update: ", total_ll
 with open("log_likelihood", "w") as outfile:
-    outfile.write("Log-Likelihood: " + str(total_ll))
+    outfile.write("Log-Likelihood: " + str(total_ll) + "\n")
 
 # update parameters
 
