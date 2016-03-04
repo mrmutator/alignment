@@ -7,6 +7,8 @@ cp %(dir)s/it0/%(job_name)s.${part}.e train.e
 cp %(dir)s/it0/%(job_name)s.${part}.f train.f
 cp %(it_dir)s/%(job_name)s.${part}.prms.u params.p
 # call the programs
+module load python
+source $(script_dir)s/venv/bin/activate
 python %(script_dir)s/word_alignment/models/hmm/hmm_worker.py -e train.e -f train.f -params params.p -num_workers %(num_workers)s
 cp params.p.counts %(it_dir)s/%(job_name)s.${part}.counts
 cp params.p%(it_dir)s/%(job_name)s.${part}.prms

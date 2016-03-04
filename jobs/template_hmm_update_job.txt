@@ -6,6 +6,8 @@ mkdir data
 cp %(it_dir)s/%(job_name)s.*.prms data/
 cp %(it_dir)s/%(job_name)s.*.counts data/
 # call the programs
+module load python
+source $(script_dir)s/venv/bin/activate
 python %(script_dir)s/word_alignment/models/hmm/update_parameters.py -dir data/ -num_workers 4
 cp data/*.u %(it_dir)s/
 cp log_likelihood %(it_dir)s/
