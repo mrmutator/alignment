@@ -1,6 +1,7 @@
 import argparse
 import time
 import os
+import subprocess
 
 def get_time():
     return str(int(time.time()))
@@ -21,9 +22,9 @@ def get_params(args):
     params['num_workers'] = args.num_workers
     params['alpha'] = args.alpha
     params['p_0'] = args.p_0
+    params['num_nodes'] = args.num_nodes
 
     return params
-
 
 
 def make_directories(dir, num_iterations):
@@ -59,6 +60,43 @@ def generate_iteration_jobs(**params):
     with open(params['job_dir'] + "/update_job_it" + params["it_number"] + ".sh", "w") as outfile:
         outfile.write(job_file)
 
+def send_jobs(**params):
+    log_file = open(params["job_name"] + ".log", "w")
+
+    #prepare data
+    job_path = params['dir'] + "/jobs0/prepare_job.sh"
+    proc_prepare = subprocess.Popen(['qsub', job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = proc_prepare.communicate()
+    if stderr:
+        raise Exception("Failed sending prepare_job: " + stderr)
+    prep_job_id = stdout.strip()
+    log_file.write(job_path + ": " + prep_job_id + "\n")
+
+    last_job_id = prep_job_id
+    # iteration jobs
+    for i in xrange(1, params["num_iterations"]+1):
+        # workers
+        job_path = params['dir'] + "/jobs" + str(i) + "/worker_job_it" +str(i) + ".sh"
+        proc_prepare = subprocess.Popen(['qsub', "-Wdepdend:afterok:"+last_job_id, "-t", "1-"+str(params["num_nodes"]),
+                                         job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc_prepare.communicate()
+        if stderr:
+            raise Exception("Failed sending worker job it" + str(i) + " : " + stderr)
+        worker_array_job_id = stdout.strip()
+        log_file.write(job_path + ": " + worker_array_job_id + "\n")
+
+        #update job
+        job_path = params['dir'] + "/jobs" + str(i) + "/update_job_it" +str(i) + ".sh"
+        proc_prepare = subprocess.Popen(['qsub', "-Wdepdend:afterokarray:"+worker_array_job_id, job_path],
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc_prepare.communicate()
+        if stderr:
+            raise Exception("Failed sending update job it" + str(i) + " : " + stderr)
+        update_job_id = stdout.strip()
+        log_file.write(job_path + ": " + update_job_id + "\n")
+        last_job_id = update_job_id
+
+    log_file.write("Jobs sent successfully.\n")
 
 
 arg_parser = argparse.ArgumentParser()
@@ -79,15 +117,17 @@ arg_parser.add_argument("-num_iterations", required=True, type=int)
 arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 
-arg_parser.add_argument("-group_size", required=False, default=-1, type=int)
+arg_parser.add_argument("-group_size", required=True, type=int)
 arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
+
+arg_parser.add_argument("-num_nodes", required=True, type=int)
+
+arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
+arg_parser.set_defaults(no_sub=False)
 
 args = arg_parser.parse_args()
 
-
-
 params = get_params(args)
-
 
 
 # make directories
@@ -99,5 +139,8 @@ for i in xrange(1, params["num_iterations"]+1):
     params["it_number"] = str(i)
     generate_iteration_jobs(**params)
 
-# To-Do
-# smart way to automatically define number of nodes
+if not args.no_sub:
+    send_jobs(**params)
+    print "Jobs sent."
+else:
+    print "Jobs prepared, but not sent."
