@@ -2,7 +2,6 @@ import cPickle as pickle
 from collections import defaultdict, Counter
 import argparse
 import glob
-import numpy as np
 import multiprocessing as mp
 
 def load_params(param_file):

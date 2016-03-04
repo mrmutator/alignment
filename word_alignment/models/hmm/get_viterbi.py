@@ -1,4 +1,4 @@
-from utils.Corpus_Reader import Corpus_Reader
+from word_alignment.utils.Corpus_Reader import Corpus_Reader
 import cPickle as pickle
 import multiprocessing as mp
 import numpy as np

@@ -1,4 +1,4 @@
-from utils.Corpus_Reader import Corpus_Reader
+from word_alignment.utils.Corpus_Reader import Corpus_Reader
 from collections import defaultdict
 import codecs
 import random

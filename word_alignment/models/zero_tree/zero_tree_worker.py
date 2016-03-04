@@ -1,6 +1,6 @@
 from __future__ import division
-from utils.Corpus_Reader import Corpus_Reader
-from collections import defaultdict, Counter
+from word_alignment.utils.Corpus_Reader import Corpus_Reader
+from collections import Counter
 import numpy as np
 import cPickle as pickle
 import multiprocessing as mp
