@@ -19,6 +19,8 @@ def get_params(args):
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '..'))
     params['num_workers'] = args.num_workers
+    params['alpha'] = args.alpha
+    params['p_0'] = args.p_0
 
     return params
 
@@ -75,7 +77,7 @@ arg_parser.add_argument("-f_vocab", required=True, default="")
 arg_parser.add_argument("-num_iterations", required=True, type=int)
 
 arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
-arg_parser.add_argument("-p0", required=False, default=0.2, type=float)
+arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 
 arg_parser.add_argument("-group_size", required=False, default=-1, type=int)
 arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
