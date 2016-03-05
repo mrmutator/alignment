@@ -5,6 +5,7 @@ import random
 import cPickle as pickle
 import argparse
 import numpy as np
+import gzip
 
 def random_prob():
     return random.random()*-1 + 1 # random number between 0 and 1, excluding 0, including 1
@@ -176,7 +177,7 @@ class Parameters(object):
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
-                pickle.dump((trans_param, al_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+                pickle.dump((trans_param, al_param, start_param), gzip.open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
                 al_param = dict()
                 trans_param = dict()
                 part_num += 1
@@ -186,7 +187,7 @@ class Parameters(object):
         if c > 0:
             outfile_f.close()
             outfile_e.close()
-            pickle.dump((trans_param, al_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+            pickle.dump((trans_param, al_param, start_param), gzip.open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
 
 
 if __name__ == "__main__":
