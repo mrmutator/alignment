@@ -38,6 +38,7 @@ num_workers = args.num_workers
 corpus = list(corpus)
 n= int(np.ceil(float(len(corpus)) / num_workers))
 data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
+num_workers = len(data)
 
 results = mp.Queue()
 
