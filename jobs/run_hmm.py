@@ -85,7 +85,7 @@ def send_jobs(**params):
     stdout, stderr = proc_prepare.communicate()
     if stderr:
         raise Exception("Failed sending prepare_job: " + stderr)
-    prep_job_id = stdout.strip()
+    prep_job_id = stdout.strip().split(".")[0]
     log_file.write(job_path + ": " + prep_job_id + "\n")
 
     last_job_id = prep_job_id
@@ -98,7 +98,7 @@ def send_jobs(**params):
         stdout, stderr = proc_prepare.communicate()
         if stderr:
             raise Exception("Failed sending worker job it" + str(i) + " : " + stderr)
-        worker_array_job_id = stdout.strip()
+        worker_array_job_id = stdout.strip().split(".")[0]
         log_file.write(job_path + ": " + worker_array_job_id + "\n")
 
         #update job
@@ -108,7 +108,7 @@ def send_jobs(**params):
         stdout, stderr = proc_prepare.communicate()
         if stderr:
             raise Exception("Failed sending update job it" + str(i) + " : " + stderr)
-        update_job_id = stdout.strip()
+        update_job_id = stdout.strip().split(".")[0]
         log_file.write(job_path + ": " + update_job_id + "\n")
         last_job_id = update_job_id
 
@@ -120,7 +120,7 @@ def send_jobs(**params):
             stdout, stderr = proc_prepare.communicate()
             if stderr:
                 raise Exception("Failed sending evaluate job it" + str(i) + " : " + stderr)
-            eval_job_id = stdout.strip()
+            eval_job_id = stdout.strip().split(".")[0]
             log_file.write(job_path + ": " + eval_job_id + "\n")
 
     log_file.write("Jobs sent successfully.\n")
@@ -145,19 +145,19 @@ arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 
 arg_parser.add_argument("-group_size", required=True, type=int)
-arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
-
 arg_parser.add_argument("-num_nodes", required=True, type=int)
 
-arg_parser.add_argument("-e_test", required=False, type=int)
+arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
 
-arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
-arg_parser.set_defaults(no_sub=False)
 
 arg_parser.add_argument('-align1', dest="align1", action="store_true", required=False)
 arg_parser.set_defaults(align1=False)
 
 arg_parser.add_argument("-gold", required=False, default="")
+
+arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
+arg_parser.set_defaults(no_sub=False)
+
 
 args = arg_parser.parse_args()
 params = get_params(args)
