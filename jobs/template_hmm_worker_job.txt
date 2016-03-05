@@ -5,7 +5,7 @@ part=$PBS_ARRAYID
 cd "$TMPDIR"
 cp %(dir)s/it0/%(job_name)s.${part}.e train.e
 cp %(dir)s/it0/%(job_name)s.${part}.f train.f
-cp %(it_dir)s/%(job_name)s.${part}.prms.u params.p
+cp %(prev_it_dir)s/%(job_name)s.${part}.prms.u params.p
 # call the programs
 module load python
 source %(script_dir)s/venv/bin/activate

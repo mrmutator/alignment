@@ -49,6 +49,7 @@ def generate_prepare_job(**params):
 
 def generate_iteration_jobs(**params):
     params['it_dir'] = params["dir"] + "/it" + params["it_number"]
+    params['prev_it_dir'] = params["dir"] + "/it" + str(int(params["it_number"]) -1)
     params['job_dir'] = params["dir"] + "/jobs" + params["it_number"]
     with open(params['job_template_dir'] + "/template_hmm_worker_job.txt", "r") as infile:
         template = infile.read()
