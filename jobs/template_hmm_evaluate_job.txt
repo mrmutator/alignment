@@ -4,5 +4,5 @@
 # call the programs
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/hmm/get_viterbi.py -e %(it_dir)s/%(job_name)s.1.e -f %(it_dir)s/%(job_name)s.1.f -prms %(it_dir)s/%(job_name)s.1.prms.u -out_file %(it_dir)s/%(job_name)s.1.aligned -num_workers %(num_workers)s
+python %(script_dir)s/word_alignment/models/hmm/get_viterbi.py -e %(dir)s/it0/%(job_name)s.1.e -f %(dir)s/it0/%(job_name)s.1.f -prms %(it_dir)s/%(job_name)s.1.prms.u -out_file %(it_dir)s/%(job_name)s.1.aligned -num_workers %(num_workers)s
 wait          # wait until programs are finished
