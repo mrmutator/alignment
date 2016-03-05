@@ -92,10 +92,11 @@ def send_jobs(**params):
     last_job_id = prep_job_id
     # iteration jobs
     for i in xrange(1, params["num_iterations"]+1):
+        job_dir = params['dir'] + "/jobs" + str(i)
         # workers
-        job_path = params['dir'] + "/jobs" + str(i) + "/worker_job_it" +str(i) + ".sh"
+        job_path = job_dir + "/worker_job_it" +str(i) + ".sh"
         proc_prepare = subprocess.Popen(['qsub', "-Wdepend=afterok:"+last_job_id, "-t", "1-"+str(params["num_nodes"]),
-                                         job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                         job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
         stdout, stderr = proc_prepare.communicate()
         if stderr:
             raise Exception("Failed sending worker job it" + str(i) + " : " + stderr)
@@ -103,9 +104,9 @@ def send_jobs(**params):
         log_file.write(job_path + ": " + worker_array_job_id + "\n")
 
         #update job
-        job_path = params['dir'] + "/jobs" + str(i) + "/update_job_it" +str(i) + ".sh"
+        job_path = job_dir + "/update_job_it" +str(i) + ".sh"
         proc_prepare = subprocess.Popen(['qsub', "-Wdepend=afterokarray:"+worker_array_job_id, job_path],
-                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
         stdout, stderr = proc_prepare.communicate()
         if stderr:
             raise Exception("Failed sending update job it" + str(i) + " : " + stderr)
@@ -115,9 +116,9 @@ def send_jobs(**params):
 
         # eval job
         if params["align1"]:
-            job_path = params['dir'] + "/jobs" + str(i) + "/evaluate_job_it" +str(i) + ".sh"
+            job_path = job_dir + "/evaluate_job_it" +str(i) + ".sh"
             proc_prepare = subprocess.Popen(['qsub', "-Wdepend=afterok:"+update_job_id, job_path],
-                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
             stdout, stderr = proc_prepare.communicate()
             if stderr:
                 raise Exception("Failed sending evaluate job it" + str(i) + " : " + stderr)
