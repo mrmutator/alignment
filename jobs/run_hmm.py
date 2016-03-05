@@ -81,8 +81,9 @@ def send_jobs(**params):
     log_file = open(params["job_name"] + ".log", "w")
 
     #prepare data
-    job_path = params['dir'] + "/jobs0/prepare_job.sh"
-    proc_prepare = subprocess.Popen(['qsub', job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    job_dir = params['dir'] + "/jobs0"
+    job_path = job_dir + "/prepare_job.sh"
+    proc_prepare = subprocess.Popen(['qsub', job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
     stdout, stderr = proc_prepare.communicate()
     if stderr:
         raise Exception("Failed sending prepare_job: " + stderr)
