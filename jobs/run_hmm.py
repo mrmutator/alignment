@@ -23,6 +23,8 @@ def get_params(args):
     params['alpha'] = args.alpha
     params['p_0'] = args.p_0
     params['num_nodes'] = args.num_nodes
+    params["gold"] = args.gold
+    params["align1"] = args.align1
 
     return params
 
@@ -60,6 +62,20 @@ def generate_iteration_jobs(**params):
     with open(params['job_dir'] + "/update_job_it" + params["it_number"] + ".sh", "w") as outfile:
         outfile.write(job_file)
 
+    if params["align1"]:
+        with open(params['job_template_dir'] + "/template_hmm_evaluate_job.txt", "r") as infile:
+            template = infile.read()
+            job_file = template % params
+        if params["gold"]:
+            job_file += "python %(script_dir)s/utils/evaluate.py -gold %(gold)s -test %(it_dir)s/%(job_name)s.1.aligned " \
+                        ">> %(it_dir)s/eval.txt\n"  % params
+            job_file += "python %(script_dir)s/utils/evaluate.py -gold %(gold)s -test %(it_dir)s/%(job_name)s.1.aligned " \
+                        ">> %(it_dir)s/eval.txt -swap\n"  % params
+
+        with open(params['job_dir'] + "/evaluate_job_it" + params["it_number"] + ".sh", "w") as outfile:
+            outfile.write(job_file)
+
+
 def send_jobs(**params):
     log_file = open(params["job_name"] + ".log", "w")
 
@@ -96,6 +112,17 @@ def send_jobs(**params):
         log_file.write(job_path + ": " + update_job_id + "\n")
         last_job_id = update_job_id
 
+        # eval job
+        if params["align1"]:
+            job_path = params['dir'] + "/jobs" + str(i) + "/evaluate_job_it" +str(i) + ".sh"
+            proc_prepare = subprocess.Popen(['qsub', "-Wdepdend:afterok:"+update_job_id, job_path],
+                                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = proc_prepare.communicate()
+            if stderr:
+                raise Exception("Failed sending evaluate job it" + str(i) + " : " + stderr)
+            eval_job_id = stdout.strip()
+            log_file.write(job_path + ": " + eval_job_id + "\n")
+
     log_file.write("Jobs sent successfully.\n")
 
 
@@ -122,11 +149,17 @@ arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
 
 arg_parser.add_argument("-num_nodes", required=True, type=int)
 
+arg_parser.add_argument("-e_test", required=False, type=int)
+
 arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
 arg_parser.set_defaults(no_sub=False)
 
-args = arg_parser.parse_args()
+arg_parser.add_argument('-align1', dest="align1", action="store_true", required=False)
+arg_parser.set_defaults(align1=False)
 
+arg_parser.add_argument("-gold", required=False, default="")
+
+args = arg_parser.parse_args()
 params = get_params(args)
 
 
