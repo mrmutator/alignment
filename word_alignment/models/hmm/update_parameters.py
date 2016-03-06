@@ -4,10 +4,9 @@ import argparse
 import glob
 import numpy as np
 import multiprocessing as mp
-import gzip
 
 def load_params(param_file):
-    trans_params, jump_params, start_params = pickle.load(gzip.open(param_file, "rb"))
+    trans_params, jump_params, start_params = pickle.load(open(param_file, "rb"))
     return trans_params, jump_params, start_params
 
 arg_parser = argparse.ArgumentParser()
@@ -27,7 +26,7 @@ total = defaultdict(Counter)
 total_ll = 0
 
 for f in exp_files:
-    expectations = pickle.load(gzip.open(f, "rb"))
+    expectations = pickle.load(open(f, "rb"))
 
     total_ll += expectations["ll"]
     del expectations["ll"]
@@ -94,7 +93,7 @@ def update_worker(f):
     for k in start_params:
         start_params[k] = normalized_counts['start_prob'][k]
 
-    pickle.dump((trans_params, al_params, start_params), gzip.open(f +".u", "wb"))
+    pickle.dump((trans_params, al_params, start_params), open(f +".u", "wb"))
 
 
 pool = mp.Pool(processes=args.num_workers)

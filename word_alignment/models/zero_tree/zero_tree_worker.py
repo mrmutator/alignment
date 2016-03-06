@@ -5,7 +5,7 @@ import numpy as np
 import cPickle as pickle
 import multiprocessing as mp
 import argparse
-import gzip
+
 
 def train_iteration(corpus, trans_prob, al_prob, results):
     # set all counts to zero
@@ -65,7 +65,7 @@ num_workers = args.num_workers
 p_0 = args.p_0
 
 corpus = Corpus_Reader(e_file, f_file, source_dep=True)
-trans_params, al_params = pickle.load(gzip.open(params_file, "rb"))
+trans_params, al_params = pickle.load(open(params_file, "rb"))
 
 trans_prob = load_probs(trans_params)
 al_prob = load_probs(al_params)
@@ -97,4 +97,4 @@ for p in processes:
 
 expectations = {'lex_counts': total[0], 'lex_norm':total[1], 'al_counts': total[2], 'al_norm': total[3], 'll':total_ll}
 
-pickle.dump(expectations, gzip.open(output_exp_file, "wb"))
+pickle.dump(expectations, open(output_exp_file, "wb"))

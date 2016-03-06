@@ -3,7 +3,6 @@ import cPickle as pickle
 import multiprocessing as mp
 import numpy as np
 import argparse
-import gzip
 
 def get_all_viterbi_alignments(data, trans_prob, jump_params, start_prob, p_0, results, group):
     all_alignments = []
@@ -63,7 +62,7 @@ arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 args = arg_parser.parse_args()
 
 corpus = Corpus_Reader(args.e, args.f)
-trans_params, jump_params, start_params = pickle.load(gzip.open(args.prms, "rb"))
+trans_params, jump_params, start_params = pickle.load(open(args.prms, "rb"))
 num_workers = args.num_workers
 p_0 = args.p_0
 
