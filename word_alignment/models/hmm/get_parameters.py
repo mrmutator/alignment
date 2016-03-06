@@ -15,7 +15,7 @@ def write_params_list(params_list, outfile):
     for el in params_list["start"]:
         outfile.write("s" + "\t" + str(el[0]) + " " + str(el[1]) + "\n")
     for el in params_list["trans"]:
-        outfile.write("t" + "\t" + str(el[0] + " " + str(el[1])) + "\n")
+        outfile.write("t" + "\t" + str(el[0]) + " " + str(el[1]) + "\n")
     outfile.close()
 
 class Vocab(object):
