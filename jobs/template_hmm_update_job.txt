@@ -4,7 +4,8 @@
 cd "$TMPDIR"
 mkdir data
 cp %(dir)s/it0/%(job_name)s.*.plist data/
-cp %(it_dir)s/%(job_name)s.*.counts data/
+cp %(it_dir)s/%(job_name)s.*.counts.gz data/
+gunzip data/*.counts.gz
 # call the programs
 module load python
 source %(script_dir)s/venv/bin/activate
