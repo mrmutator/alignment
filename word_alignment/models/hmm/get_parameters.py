@@ -204,6 +204,7 @@ class Parameters(object):
             outfile_f.close()
             outfile_e.close()
             pickle.dump((trans_param, al_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+            write_params_list(params_list, open(file_prefix + "."+str(part_num) + ".plist", "w"))
 
 
 if __name__ == "__main__":
