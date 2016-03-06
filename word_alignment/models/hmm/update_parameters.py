@@ -5,8 +5,22 @@ import glob
 import numpy as np
 import multiprocessing as mp
 
-def load_params(param_file):
-    trans_params, jump_params, start_params = pickle.load(open(param_file, "rb"))
+def load_params(p_list_file):
+    trans_params = dict()
+    jump_params = dict()
+    start_params = dict()
+    infile = open(p_list_file, "r")
+    for line in infile:
+        k, v = line.strip().split("\t")
+        if k == "s":
+            tpl = v.split(" ")
+            start_params[(int(tpl[0]), int(tpl[1]))] = 0
+        elif k == "t":
+            tpl = v.split(" ")
+            trans_params[(int(tpl[0]), int(tpl[1]))] = 0
+        elif k == "I":
+            jump_params[int(v)] = 0
+
     return trans_params, jump_params, start_params
 
 arg_parser = argparse.ArgumentParser()
@@ -17,7 +31,7 @@ args = arg_parser.parse_args()
 
 
 exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts")
-param_files = glob.glob(args.dir.rstrip("/") + "/*.prms")
+param_files = glob.glob(args.dir.rstrip("/") + "/*.plist")
 
 alpha = args.alpha
 
@@ -93,7 +107,7 @@ def update_worker(f):
     for k in start_params:
         start_params[k] = normalized_counts['start_prob'][k]
 
-    pickle.dump((trans_params, al_params, start_params), open(f +".u", "wb"))
+    pickle.dump((trans_params, al_params, start_params), open(f[:-5] +"prms.u", "wb"))
 
 
 pool = mp.Pool(processes=args.num_workers)

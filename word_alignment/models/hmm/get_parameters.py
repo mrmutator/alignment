@@ -9,6 +9,15 @@ import numpy as np
 def random_prob():
     return random.random()*-1 + 1 # random number between 0 and 1, excluding 0, including 1
 
+def write_params_list(params_list, outfile):
+    for el in params_list["I"]:
+        outfile.write("I" + "\t" + str(el) + "\n")
+    for el in params_list["start"]:
+        outfile.write("s" + "\t" + str(el[0]) + " " + str(el[1]) + "\n")
+    for el in params_list["trans"]:
+        outfile.write("t" + "\t" + str(el[0] + " " + str(el[1])) + "\n")
+    outfile.close()
+
 class Vocab(object):
 
     def __init__(self):
@@ -146,6 +155,7 @@ class Parameters(object):
         part_num = 1
         outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
         outfile_f = open(file_prefix +"."+str(part_num) + ".f", "w")
+        params_list = defaultdict(set)
         trans_param = dict()
         al_param = dict()
         start_param = dict()
@@ -163,20 +173,27 @@ class Parameters(object):
                     tmp_prob[i_p] = {i: ((self.jumps[i-i_p] / norm) * (1-self.alpha)) + (self.alpha * (1.0/I))  for i in xrange(I)}
                 all_al_params[I] = tmp_prob
             al_param[I] = all_al_params[I]
+            params_list["I"].add(I)
 
             for i, e_tok in enumerate(e_toks):
                 start_param[(I, i)] = self.start[I][i]
+                params_list["start"].add((I, i))
                 for f_tok in f_toks:
                     e = self.e_vocab.get_index(e_tok)
                     f = self.f_vocab.get_index(f_tok)
                     trans_param[(e, f)] = self.trans_probs[e][f]
+                    params_list["trans"].add((e,f))
             for f_tok in f_toks:
-                trans_param[(0,self.f_vocab.get_index(f_tok))] = self.trans_probs[0][self.f_vocab.get_index(f_tok)]
+                f = self.f_vocab.get_index(f_tok)
+                trans_param[(0, f)] = self.trans_probs[0][f]
+                params_list["trans"].add((0,f))
             if c == num_sentences:
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
                 pickle.dump((trans_param, al_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+                write_params_list(params_list, open(file_prefix + "."+str(part_num) + ".plist", "w"))
+                params_list = defaultdict(set)
                 al_param = dict()
                 trans_param = dict()
                 part_num += 1

@@ -11,5 +11,6 @@ cp %(f_vocab_path)s train.f.vcb
 module load python
 source %(script_dir)s/venv/bin/activate
 python %(script_dir)s/word_alignment/models/hmm/get_parameters.py -e train.e -f train.f -group_size %(group_size)s -output_prefix %(job_name)s -t_file ibm1.table -e_voc train.e.vcb -f_voc train.f.vcb -alpha %(alpha)s
+gzip *.prms.u
 cp %(job_name)s* %(it_dir)s
 wait          # wait until programs are finished
