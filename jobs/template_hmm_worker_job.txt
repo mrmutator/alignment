@@ -11,6 +11,6 @@ gunzip params.p.gz
 module load python
 source %(script_dir)s/venv/bin/activate
 python %(script_dir)s/word_alignment/models/hmm/hmm_worker.py -e train.e -f train.f -params params.p -num_workers %(num_workers)s -p_0 %(p_0)s
-gunzip params.p.counts
+gzip params.p.counts
 cp params.p.counts.gz %(it_dir)s/%(job_name)s.${part}.counts.gz
 wait          # wait until programs are finished
