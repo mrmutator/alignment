@@ -10,7 +10,7 @@ gunzip data/*.counts.gz
 module load python
 source %(script_dir)s/venv/bin/activate
 python %(script_dir)s/word_alignment/models/hmm/update_parameters.py -dir data/ -num_workers 4 -alpha %(alpha)s
-gzip *.u
+gzip data/*.u
 cp data/*.u.gz %(it_dir)s/
 cp log_likelihood %(it_dir)s/
 wait          # wait until programs are finished
