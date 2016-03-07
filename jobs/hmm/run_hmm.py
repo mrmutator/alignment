@@ -23,7 +23,6 @@ def get_params(args):
     params['alpha'] = args.alpha
     params['p_0'] = args.p_0
     params['num_nodes'] = args.num_nodes
-    params["gold"] = args.gold
     params["align1"] = args.align1
 
     return params
@@ -67,11 +66,6 @@ def generate_iteration_jobs(**params):
         with open(params['job_template_dir'] + "/template_hmm_evaluate_job.txt", "r") as infile:
             template = infile.read()
             job_file = template % params
-        if params["gold"]:
-            job_file += "python %(script_dir)s/utils/evaluate.py -gold %(gold)s -test %(it_dir)s/%(job_name)s.1.aligned " \
-                        ">> %(it_dir)s/eval.txt\n"  % params
-            job_file += "python %(script_dir)s/utils/evaluate.py -gold %(gold)s -test %(it_dir)s/%(job_name)s.1.aligned " \
-                        ">> %(it_dir)s/eval.txt -swap\n"  % params
 
         with open(params['job_dir'] + "/evaluate_job_it" + params["it_number"] + ".sh", "w") as outfile:
             outfile.write(job_file)
@@ -156,7 +150,6 @@ arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
 arg_parser.add_argument('-align1', dest="align1", action="store_true", required=False)
 arg_parser.set_defaults(align1=False)
 
-arg_parser.add_argument("-gold", required=False, default="")
 
 arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
 arg_parser.set_defaults(no_sub=False)
