@@ -18,7 +18,7 @@ def get_params(args):
     params['f_vocab_path'] = os.path.abspath(args.f_vocab)
     params['group_size'] = args.group_size
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
-    params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '..'))
+    params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../..'))
     params['num_workers'] = args.num_workers
     params['num_nodes'] = args.num_nodes
     params["align1"] = args.align1
@@ -124,7 +124,6 @@ arg_parser = argparse.ArgumentParser()
 
 arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-job_name", required=False, default=get_time())
-arg_parser.add_argument("-script_dir", required=True)
 
 arg_parser.add_argument("-e", required=True)
 arg_parser.add_argument("-f", required=True)
