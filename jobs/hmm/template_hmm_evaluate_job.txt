@@ -9,5 +9,5 @@ cp %(it_dir)s/%(job_name)s.1.prms.u.gz params.p.gz
 gunzip params.p.gz
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/hmm/get_viterbi.py -e test.e -f test.f  -prms params.p -out_file %(it_dir)s/%(job_name)s.1.aligned -num_workers %(num_workers)s
+python %(script_dir)s/word_alignment/models/hmm/get_viterbi.py -e test.e -f test.f  -prms params.p -out_file %(it_dir)s/%(job_name)s.1.aligned -num_workers %(num_workers)s -p_0 %(p_0)s
 wait          # wait until programs are finished
