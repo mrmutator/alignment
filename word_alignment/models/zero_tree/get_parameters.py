@@ -10,7 +10,7 @@ def random_prob():
 
 def write_params_list(params_list, outfile):
     for el in params_list["a"]:
-        outfile.write("s" + "\t" + " ".join(map(str, el)) + "\n")
+        outfile.write("a" + "\t" + " ".join(map(str, el)) + "\n")
     for el in params_list["t"]:
         outfile.write("t" + "\t" + str(el[0]) + " " + str(el[1]) + "\n")
     outfile.close()

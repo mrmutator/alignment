@@ -14,7 +14,7 @@ def load_params(p_list_file):
             tpl = v.split(" ")
             trans_params[(int(tpl[0]), int(tpl[1]))] = 0
         elif k == "a":
-            I, J, f_head, j, i = v.split(" ")
+            I, J, f_head, j, i = map(int, v.split(" "))
             al_params[((I, J, f_head, j), i)] = 0
 
     return trans_params, al_params
