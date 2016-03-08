@@ -2,24 +2,32 @@ import cPickle as pickle
 from collections import defaultdict, Counter
 import argparse
 import glob
-import numpy as np
 import multiprocessing as mp
 
-def load_params(param_file):
-    trans_params, al_params = pickle.load(open(param_file, "rb"))
+def load_params(p_list_file):
+    trans_params = dict()
+    al_params = dict()
+    infile = open(p_list_file, "r")
+    for line in infile:
+        k, v = line.strip().split("\t")
+        if k == "t":
+            tpl = v.split(" ")
+            trans_params[(int(tpl[0]), int(tpl[1]))] = 0
+        elif k == "a":
+            I, J, f_head, j, i = map(int, v.split(" "))
+            al_params[((I, J, f_head, j), i)] = 0
+
     return trans_params, al_params
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-dir", required=True)
-arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-num_workers", required=False, default=1, type=int)
 args = arg_parser.parse_args()
 
 
 exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts")
-param_files = glob.glob(args.dir.rstrip("/") + "/*.prms")
+param_files = glob.glob(args.dir.rstrip("/") + "/*.plist")
 
-alpha = args.alpha
 
 total = defaultdict(Counter)
 
@@ -36,7 +44,7 @@ for f in exp_files:
 
 print "LL before update: ", total_ll
 with open("log_likelihood", "w") as outfile:
-    outfile.write("Log-Likelihood: " + str(total_ll))
+    outfile.write("Log-Likelihood: " + str(total_ll) + "\n")
 
 # update parameters
 
@@ -78,7 +86,7 @@ def update_worker(f):
     for k in al_params:
         al_params[k] = normalized_counts['al_prob'][k]
 
-    pickle.dump((trans_params, al_params), open(f +".u", "wb"))
+    pickle.dump((trans_params, al_params), open(f[:-5] +"prms.u", "wb"))
 
 
 pool = mp.Pool(processes=args.num_workers)

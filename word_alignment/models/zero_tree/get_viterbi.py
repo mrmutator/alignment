@@ -1,4 +1,4 @@
-from utils.Corpus_Reader import Corpus_Reader
+from word_alignment.utils.Corpus_Reader import Corpus_Reader
 import cPickle as pickle
 import multiprocessing as mp
 import numpy as np
@@ -38,6 +38,7 @@ num_workers = args.num_workers
 corpus = list(corpus)
 n= int(np.ceil(float(len(corpus)) / num_workers))
 data = [corpus[i:i+n] for i in range(0, len(corpus), n)]
+num_workers = len(data)
 
 results = mp.Queue()
 

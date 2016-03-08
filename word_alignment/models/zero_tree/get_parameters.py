@@ -1,4 +1,4 @@
-from utils.Corpus_Reader import Corpus_Reader
+from word_alignment.utils.Corpus_Reader import Corpus_Reader
 from collections import defaultdict
 import codecs
 import random
@@ -7,6 +7,13 @@ import argparse
 
 def random_prob():
     return random.random()*-1 + 1 # random number between 0 and 1, excluding 0, including 1
+
+def write_params_list(params_list, outfile):
+    for el in params_list["a"]:
+        outfile.write("a" + "\t" + " ".join(map(str, el)) + "\n")
+    for el in params_list["t"]:
+        outfile.write("t" + "\t" + str(el[0]) + " " + str(el[1]) + "\n")
+    outfile.close()
 
 class Vocab(object):
 
@@ -51,13 +58,12 @@ class GizaVocab(Vocab):
 
 class Parameters(object):
 
-    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab(), alpha=0):
+    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab()):
         self.corpus = corpus
         self.trans_probs = defaultdict(set)
         self.al_prob = defaultdict(set)
         self.e_vocab = e_vocab
         self.f_vocab = f_vocab
-        self.alpha = alpha
 
         self.add_corpus(corpus)
 
@@ -138,6 +144,7 @@ class Parameters(object):
         outfile_f = open(file_prefix +"."+str(part_num) + ".f", "w")
         trans_param = dict()
         al_param = dict()
+        params_list = defaultdict(set)
         c = 0
         for e_toks, f_pairs in corpus:
             c += 1
@@ -152,14 +159,20 @@ class Parameters(object):
                     f = self.f_vocab.get_index(f_tok)
                     trans_param[(e, f)] = self.trans_probs[e][f]
                     al_param[((I, J, f_head, j), i+1)] = self.al_prob[(I, J, f_head, j)][i+1]
+                    params_list["t"].add((e,f))
+                    params_list["a"].add((I, J, f_head, j, i+1))
             for j, (f_tok, f_head) in enumerate(f_pairs):
-                trans_param[(0,self.f_vocab.get_index(f_tok))] = self.trans_probs[0][self.f_vocab.get_index(f_tok)]
+                f = self.f_vocab.get_index(f_tok)
+                trans_param[(0, f)] = self.trans_probs[0][f]
                 al_param[((I, J, f_head, j), 0)] = self.al_prob[(I, J, f_head, j)][0]
+                params_list["t"].add((0, f))
+                params_list["a"].add((I, J, f_head, j, 0))
             if c == num_sentences:
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
                 pickle.dump((trans_param, al_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+                write_params_list(params_list, open(file_prefix + "."+str(part_num) + ".plist", "w"))
                 al_param = dict()
                 trans_param = dict()
                 part_num += 1
@@ -170,6 +183,7 @@ class Parameters(object):
             outfile_f.close()
             outfile_e.close()
             pickle.dump((trans_param, al_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+            write_params_list(params_list, open(file_prefix + "."+str(part_num) + ".plist", "w"))
 
 
 if __name__ == "__main__":
@@ -183,7 +197,6 @@ if __name__ == "__main__":
     arg_parser.add_argument("-t_file", required=False, default="")
     arg_parser.add_argument("-e_voc", required=False, default="")
     arg_parser.add_argument("-f_voc", required=False, default="")
-    arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 
     args = arg_parser.parse_args()
 
@@ -196,7 +209,7 @@ if __name__ == "__main__":
     if args.f_voc:
         f_vocab = GizaVocab(args.f_voc)
 
-    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab, alpha=args.alpha)
+    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab)
 
 
     parameters.initialize_al_randomly()

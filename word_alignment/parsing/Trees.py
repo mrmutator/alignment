@@ -60,7 +60,7 @@ class Dependency_Tree(object):
 
     def traverse_with_heads(self):
         pairs = []
-        pairs.append((self.root.index, 0))
+        pairs.append((self.root.index, -1))
         pairs += self.root.traverse_with_heads()
 
         order, heads = zip(*pairs)
@@ -69,6 +69,6 @@ class Dependency_Tree(object):
             if h >= 0:
                 heads_reordered.append(order.index(h))
             else:
-                heads_reordered.append(-1)
+                heads_reordered.append(0)
         tokens = map(self.source_tokens.__getitem__, order)
         return order, zip(tokens, heads_reordered)

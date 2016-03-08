@@ -1,0 +1,13 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=01:00:00
+# call the programs
+cd "$TMPDIR"
+cp %(dir)s/it0/%(job_name)s.1.e test.e
+cp %(dir)s/it0/%(job_name)s.1.f test.f
+cp %(it_dir)s/%(job_name)s.1.prms.u.gz params.p.gz
+gunzip params.p.gz
+module load python
+source %(script_dir)s/venv/bin/activate
+python %(script_dir)s/word_alignment/models/hmm/get_viterbi.py -e test.e -f test.f  -prms params.p -out_file %(it_dir)s/%(job_name)s.1.aligned -num_workers %(num_workers)s -p_0 %(p_0)s
+wait          # wait until programs are finished
