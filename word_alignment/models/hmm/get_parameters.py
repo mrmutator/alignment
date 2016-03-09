@@ -61,14 +61,15 @@ class GizaVocab(Vocab):
 
 class Parameters(object):
 
-    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab(), alpha=0):
+    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab(), alpha=0, p_0=0.2):
         self.corpus = corpus
         self.trans_probs = defaultdict(set)
-        self.jumps = set()
+        self.dist_probs = dict()
         self.lengths = set()
         self.e_vocab = e_vocab
         self.f_vocab = f_vocab
         self.alpha = alpha
+        self.p_0 = p_0
 
         self.add_corpus(corpus)
 
@@ -87,34 +88,38 @@ class Parameters(object):
         for e_toks, f_toks in corpus:
             I = len(e_toks)
             self.lengths.add(I)
-            for jmp in range(-I+1, I):
-                self.jumps.add(jmp)
-            for i, e_tok in enumerate(e_toks):
-                for f_tok in f_toks:
-                    self.trans_probs[self.e_vocab.get_index(e_tok)].add(self.f_vocab.get_index(f_tok))
             for f_tok in f_toks:
-                self.trans_probs[0].add(self.f_vocab.get_index(f_tok))
+                f = self.f_vocab.get_index(f_tok)
+                self.trans_probs[0].add(f)                
+                for i, e_tok in enumerate(e_toks):                
+                    self.trans_probs[self.e_vocab.get_index(e_tok)].add(f)
+
 
     def initialize_start_randomly(self):
         start = dict()
         for I in self.lengths:
             Z = 0
-            start[I] = dict()
+            start[I] = np.zeros(I)
             for i in xrange(I):
                 p = random_prob()
                 start[I][i] = p
                 Z += p
-            for i in xrange(I):
-                start[I][i] = start[I][i] / Z
+            Z += self.p_0 # p_0 for null word at start
+            start[I] = start[I] / Z
         self.start = start
-        del self.lengths
 
 
-    def initialize_al_randomly(self):
-        al_probs = dict()
-        for jmp in self.jumps:
-            al_probs[jmp] = random_prob()
-        self.jumps = al_probs
+    def initialize_dist_randomly(self):
+        jumps = dict()
+        for jmp in xrange(-max(self.lengths)+1, max(self.lengths)):
+            jumps[jmp] = random_prob()
+
+        for I in self.lengths:
+            tmp_prob = np.zeros((I, I))
+            for i_p in xrange(I):
+                norm = np.sum([ jumps[i_pp - i_p] for i_pp in xrange(I)]) + self.p_0
+                tmp_prob[i_p, :] = np.array([((jumps[i-i_p] / norm) * (1-self.alpha)) + (self.alpha * (1.0/I))  for i in xrange(I)])
+            self.dist_probs[I] = tmp_prob
 
     def initialize_trans_randomly(self):
         trans_probs = dict()
@@ -151,13 +156,12 @@ class Parameters(object):
 
 
     def split_data(self, corpus, num_sentences, file_prefix):
-        all_al_params = dict()
         part_num = 1
         outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
         outfile_f = open(file_prefix +"."+str(part_num) + ".f", "w")
         params_list = defaultdict(set)
         trans_param = dict()
-        al_param = dict()
+        dist_param = dict()
         start_param = dict()
         c = 0
         for e_toks, f_toks in corpus:
@@ -166,36 +170,30 @@ class Parameters(object):
             outfile_f.write(" ".join([str(self.f_vocab.get_index(w)) for w in f_toks]) + "\n")
 
             I = len(e_toks)
-            if I not in all_al_params:
-                tmp_prob = dict()
-                for i_p in xrange(I):
-                    norm = np.sum([ self.jumps[i_pp - i_p] for i_pp in xrange(I)])
-                    tmp_prob[i_p] = {i: ((self.jumps[i-i_p] / norm) * (1-self.alpha)) + (self.alpha * (1.0/I))  for i in xrange(I)}
-                all_al_params[I] = tmp_prob
-            al_param[I] = all_al_params[I]
+            start_param[I] = self.start[I]
+            dist_param[I] = self.dist_probs[I]
             params_list["I"].add(I)
 
-            for i, e_tok in enumerate(e_toks):
-                start_param[(I, i)] = self.start[I][i]
-                params_list["start"].add((I, i))
-                for f_tok in f_toks:
-                    e = self.e_vocab.get_index(e_tok)
-                    f = self.f_vocab.get_index(f_tok)
-                    trans_param[(e, f)] = self.trans_probs[e][f]
-                    params_list["trans"].add((e,f))
+
             for f_tok in f_toks:
                 f = self.f_vocab.get_index(f_tok)
                 trans_param[(0, f)] = self.trans_probs[0][f]
                 params_list["trans"].add((0,f))
+                for i, e_tok in enumerate(e_toks):
+                    e = self.e_vocab.get_index(e_tok)
+                    trans_param[(e, f)] = self.trans_probs[e][f]
+                    params_list["trans"].add((e,f))
+
             if c == num_sentences:
                 c = 0
                 outfile_f.close()
                 outfile_e.close()
-                pickle.dump((trans_param, al_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+                pickle.dump((trans_param, dist_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
                 write_params_list(params_list, open(file_prefix + "."+str(part_num) + ".plist", "w"))
                 params_list = defaultdict(set)
-                al_param = dict()
                 trans_param = dict()
+                start_param = dict()
+                dist_param = dict()
                 part_num += 1
                 outfile_e = open(file_prefix +"."+str(part_num) + ".e", "w")
                 outfile_f = open(file_prefix +"."+str(part_num) + ".f", "w")
@@ -203,7 +201,7 @@ class Parameters(object):
         if c > 0:
             outfile_f.close()
             outfile_e.close()
-            pickle.dump((trans_param, al_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
+            pickle.dump((trans_param, dist_param, start_param), open(file_prefix +"."+str(part_num) + ".prms.u", "wb"))
             write_params_list(params_list, open(file_prefix + "."+str(part_num) + ".plist", "w"))
 
 
@@ -219,6 +217,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-e_voc", required=False, default="")
     arg_parser.add_argument("-f_voc", required=False, default="")
     arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
+    arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 
     args = arg_parser.parse_args()
 
@@ -231,10 +230,10 @@ if __name__ == "__main__":
     if args.f_voc:
         f_vocab = GizaVocab(args.f_voc)
 
-    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab, alpha=args.alpha)
+    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab, alpha=args.alpha, p_0 = args.p_0)
 
 
-    parameters.initialize_al_randomly()
+    parameters.initialize_dist_randomly()
     parameters.initialize_start_randomly()
     if not args.t_file:
         parameters.initialize_trans_randomly()

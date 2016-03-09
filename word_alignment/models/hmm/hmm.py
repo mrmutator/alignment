@@ -1,24 +1,7 @@
 import numpy as np
 
-def random_start_prob(I):
-    p = np.random.random(I)
-    Z = np.sum(p)
-    return p / Z
-
-def random_dist_prob(I):
-    p = np.random.random((I, I))
-    Z = np.sum(p, axis=1)
-    return p / Z[:, np.newaxis]
-
-def random_emission_prob(I, J):
-    p = np.random.random((I, J))
-    Z = np.sum(p, axis=1)
-    return p / Z[:, np.newaxis]
-
-
 def forward(J, I, start_prob, dist_mat, trans_mat, alphas, scale_coeffs):
-    for i in xrange(I):
-        alphas[0, i] = trans_mat[i, 0] * start_prob[i]
+    alphas[0, :] = np.multiply(trans_mat[:, 0],start_prob[:])
     Z = np.sum(alphas[0, :])
     alphas[0, :] = alphas[0, :] / Z
     scale_coeffs[0] = Z
@@ -30,17 +13,7 @@ def forward(J, I, start_prob, dist_mat, trans_mat, alphas, scale_coeffs):
         alphas[j, :] = alphas[j, :] / Z
         scale_coeffs[j] = Z
 
-
-
-# I = 5
-# J = 6
-#
-# start_prob = random_start_prob(I)
-# dist_prob = random_dist_prob(I)
-# trans_prob = random_emission_prob(I, J)
-#
-# for _ in xrange(100000):
-#     alphas = np.zeros((J, I))
-#     scale_coffs = np.zeros(J)
-#
-#     forward(J, I, start_prob, dist_prob, trans_prob, alphas, scale_coffs)
+def backward(J, I, dist_mat, trans_mat, betas, scale_coeffs):
+    for j in xrange(J-2, -1, -1):
+        for i in xrange(I):
+            betas[j][i] = np.sum(np.multiply( dist_mat[i, :], np.multiply(trans_mat[ :, j+1], betas[j+1, :]))) / scale_coeffs[j+1]
