@@ -64,11 +64,9 @@ def train_iteration(corpus, trans_prob, dist_params, start_params, p_0, results)
                 lex_norm[e_tok] += gammas[j][i]
                 for i_p in range(I_double):
                     if i_p < I:
-                        al_norm[i_p] += gammas[j_p][i_p]
                         al_prob_ip = dist_params[I][i_p]
                         actual_i_p = i_p
                     else:
-                        al_norm[i_p-I] += gammas[j_p][i_p]
                         al_prob_ip = dist_params[I][i_p-I]
                         actual_i_p = i_p - I
                     xi = (al_prob_ip[i]  * alpha_j_p[i_p] * beta_t_j_i[i]) / scale_coeffs[j]
