@@ -11,6 +11,7 @@ class Corpus_Buffer(object):
     def __init__(self, e_file, f_file, strings=False, buffer_size = 20):
         self.buffer_size = buffer_size
         self.corpus = Corpus_Reader(e_file, f_file, strings=strings)
+        self.limit = 0
 
     def __iter__(self):
         self.corpus.reset()
@@ -19,6 +20,8 @@ class Corpus_Buffer(object):
         for el in self.corpus:
             buffer.append(el)
             c += 1
+            if c == self.limit:
+                break
             if c == self.buffer_size:
                 yield buffer
                 buffer = []
@@ -26,7 +29,55 @@ class Corpus_Buffer(object):
         if c > 0:
             yield buffer
 
-def update_counts(counts, trans_prob, dist_params, start_params, alpha=0, p_0 = 0.2):
+def get_all_viterbi_alignments(corpus):
+    all_alignments = []
+    for e_toks, f_toks in corpus:
+        J = len(f_toks)
+        I = len(e_toks)
+        al_prob = dist_params[I]
+        start_prob = start_params[I]
+        chart = np.zeros((J, 2*I))
+        best = np.zeros((J, 2*I))
+        # initialize
+        for i, e_tok in enumerate(e_toks):
+            chart[0][i] = trans_prob[(e_tok,f_toks[0])] * start_prob[i]
+        for i in range(I, I*2):
+            chart[0][i] = trans_prob[(0,f_toks[0])] * p_0
+
+        # compute chart
+        for j, f_tok in enumerate(f_toks[1:]):
+            j= j+1
+            for i, e_tok in enumerate(e_toks + [0]*I):
+                values = []
+                for i_p in range(2*I):
+                    if i >= I:
+                        if i - I == i_p or i == i_p: # i is NULL
+                            values.append(chart[j-1][i_p] * p_0)
+                        else:
+                            values.append(0)
+                    else:
+                        if i_p < I:
+                            values.append(chart[j-1][i_p]*al_prob[i_p][i])
+                        else:
+                            values.append(chart[j-1][i_p]*al_prob[i_p-I][i])
+                best_i = np.argmax(values)
+                chart[j][i] = values[best_i] * trans_prob[(e_tok,f_tok)]
+                best[j][i] = best_i
+
+        # get max path
+        best_path = []
+        best_end = np.argmax(chart[J-1])
+        best_path.append(best_end)
+        for j in reversed(range(1, J)):
+            best_end = best[j][best_end]
+            best_path.append(best_end)
+
+        best_path = list(reversed(best_path))
+        alignments = [(int(best_path[j]), j) for j in range(J) if int(best_path[j]) < I]
+        all_alignments. append(alignments)
+    return all_alignments
+
+def update_parameters(counts):
 
     # update parameters
     for (e,f), count in counts[0].items():
@@ -129,6 +180,14 @@ def train_iteration(corpus):
 
     return (lex_counts, lex_norm, al_norm, al_counts, start_counts, start_norm, ll)
 
+def write_alignments(al_groups, out_file_name):
+    outfile = open(out_file_name, "w")
+    for al_group in al_groups:
+        for als in al_group:
+            als = [str(al[0]) + "-" + str(al[1]) for al in als]
+            outfile.write(" ".join(als) + "\n")
+    outfile.close()
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-e", required=True)
@@ -144,6 +203,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
     arg_parser.add_argument("-num_iterations", required=False, default=5, type=int)
     arg_parser.add_argument("-buffer_size", required=False, default=20, type=int)
+    arg_parser.add_argument("-viterbi_limit", required=False, default=0, type=int)
 
 
     args = arg_parser.parse_args()
@@ -175,4 +235,12 @@ if __name__ == "__main__":
             total_ll += counts[-1]
 
         print total_ll
-        update_counts(total, trans_prob, dist_params, start_params)
+        update_parameters(total)
+
+    # Viterbi
+    print "Aligning"
+    corpus_buffer.limit = args.viterbi_limit
+    pool = mp.Pool(processes=args.num_workers)
+    results = pool.map(get_all_viterbi_alignments, corpus_buffer)
+    write_alignments(results, args.file_prefix + ".aligned")
+
