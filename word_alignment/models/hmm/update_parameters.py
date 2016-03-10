@@ -7,26 +7,23 @@ import multiprocessing as mp
 
 def load_params(p_list_file):
     trans_params = dict()
-    jump_params = dict()
-    start_params = dict()
+    lengths = set()
     infile = open(p_list_file, "r")
     for line in infile:
         k, v = line.strip().split("\t")
-        if k == "s":
-            tpl = v.split(" ")
-            start_params[(int(tpl[0]), int(tpl[1]))] = 0
-        elif k == "t":
+        if k == "t":
             tpl = v.split(" ")
             trans_params[(int(tpl[0]), int(tpl[1]))] = 0
         elif k == "I":
-            jump_params[int(v)] = 0
+            lengths.add(int(v))
 
-    return trans_params, jump_params, start_params
+    return trans_params, lengths
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-num_workers", required=False, default=1, type=int)
+arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 args = arg_parser.parse_args()
 
 
@@ -34,6 +31,7 @@ exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts")
 param_files = glob.glob(args.dir.rstrip("/") + "/*.plist")
 
 alpha = args.alpha
+p_0 = args.p_0
 
 total = defaultdict(Counter)
 
@@ -89,25 +87,33 @@ for p in processes:
 
 manager = mp.Manager()
 al_prob = manager.dict()
+start_prob = manager.dict()
 
 def update_worker(f):
-    trans_params, al_params, start_params  = load_params(f)
+    trans_params, lengths = load_params(f)
+    dist_params = dict()
+    start_params = dict()
     for k in trans_params:
         trans_params[k] = normalized_counts['trans_prob'][k]
-    for k in al_params:
-        if k not in al_prob:
-            tmp_prob = dict()
-            for i_p in xrange(k): # k==I
-                norm = np.sum([ normalized_counts['jmp_prob'][i_pp - i_p] for i_pp in xrange(k)])
-                tmp_prob[i_p] = {i: ((normalized_counts['jmp_prob'][i-i_p] / norm) * (1-alpha)) + (alpha * (1.0/k))
-                                 for i in xrange(k)}
-            al_prob[k] = tmp_prob
-        al_params[k] = al_prob[k]
+    for I in lengths:
+        if I not in al_prob:
+            tmp_prob = np.zeros((I, I))
+            for i_p in xrange(I):
+                norm = np.sum([ normalized_counts['jmp_prob'][i_pp - i_p] for i_pp in xrange(I)]) + p_0
+                tmp_prob[i_p, :] = np.array([((normalized_counts['jmp_prob'][i-i_p] / norm) * (1-alpha)) + (alpha * (1.0/I))  for i in xrange(I)])
+            al_prob[I] = tmp_prob
+        dist_params[I] = al_prob[I]
 
-    for k in start_params:
-        start_params[k] = normalized_counts['start_prob'][k]
+        if I not in start_prob:
+            tmp_prob = np.zeros(I)
+            for i in xrange(I):
+                tmp_prob[i] = normalized_counts['start_prob'][(I, i)]
 
-    pickle.dump((trans_params, al_params, start_params), open(f[:-5] +"prms.u", "wb"))
+            start_prob[I] = tmp_prob
+        start_params[I] = start_prob[I]
+
+
+    pickle.dump((trans_params, dist_params, start_params), open(f[:-5] +"prms.u", "wb"))
 
 
 pool = mp.Pool(processes=args.num_workers)

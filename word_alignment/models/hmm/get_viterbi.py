@@ -4,17 +4,18 @@ import multiprocessing as mp
 import numpy as np
 import argparse
 
-def get_all_viterbi_alignments(data, trans_prob, jump_params, start_prob, p_0, results, group):
+def get_all_viterbi_alignments(data, trans_prob, jump_params, start_params, p_0, results, group):
     all_alignments = []
     for e_toks, f_toks in data:
         J = len(f_toks)
         I = len(e_toks)
         al_prob = jump_params[I]
+        start_prob = start_params[I]
         chart = np.zeros((J, 2*I))
         best = np.zeros((J, 2*I))
         # initialize
         for i, e_tok in enumerate(e_toks):
-            chart[0][i] = trans_prob[(e_tok,f_toks[0])] * start_prob[(I, i)]
+            chart[0][i] = trans_prob[(e_tok,f_toks[0])] * start_prob[i]
         for i in range(I, I*2):
             chart[0][i] = trans_prob[(0,f_toks[0])] * p_0
 
