@@ -252,11 +252,11 @@ if __name__ == "__main__":
         logger.info("Likelihood it. %d: %d" % (it+1, total_ll))
 
     # Viterbi
-    if args.viterbi_limit >= 0:
-        logger.info("Aligning test part.")
-        corpus_buffer.limit = args.viterbi_limit
-        pool = mp.Pool(processes=args.num_workers)
-        results = pool.map(get_all_viterbi_alignments, corpus_buffer)
-        write_alignments(results, args.file_prefix + ".aligned")
+        if args.viterbi_limit >= 0:
+            logger.info("Aligning test part.")
+            corpus_buffer.limit = args.viterbi_limit
+            pool = mp.Pool(processes=args.num_workers)
+            results = pool.map(get_all_viterbi_alignments, corpus_buffer)
+            write_alignments(results, args.file_prefix + ".aligned." + str(it+1))
     logger.info("Done.")
 
