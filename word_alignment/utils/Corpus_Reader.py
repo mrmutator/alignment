@@ -6,10 +6,12 @@ class Corpus_Reader(object):
     """ Corpus_Reader object that allows to iterate over corresponding e-file, f-file and alignment file.
     """
 
-    def __init__(self, e_file, f_file, al_file=None, alignment_order=('e', 'f'), limit=None, strings=False, source_dep=False):
+    def __init__(self, e_file, f_file, al_file=None, alignment_order=('e', 'f'), limit=None, strings="int", source_dep=False):
         self.conv = int
-        if strings:
+        if strings == "unicode":
             self.conv = unicode
+        elif strings == "str":
+            self.conv = str
 
         if al_file:
             self.al_file = codecs.open(al_file, "r", "utf-8")
@@ -112,6 +114,45 @@ class Corpus_Reader(object):
     def __split_tok_parent(self, tok_):
         tok, parent = tok_.split("_")
         return self.conv(tok), int(parent)
+
+class GIZA_Reader(object):
+    """ Corpus_Reader object that allows to iterate over corresponding e-file, f-file and alignment file.
+    """
+
+    def __init__(self, giza_file, alignment_order=('e', 'f'), limit=None):
+        self.giza_file = open(giza_file, "r")
+        self.limit = limit
+        self.next = self.__iter_pairs
+        if alignment_order==('e', 'f'):
+            self.e_index = 1
+            self.f_index = 2
+        elif alignment_order==('f', 'e'):
+            self.e_index = 2
+            self.f_index = 1
+        else:
+            raise Exception("No valid alignment order.")
+
+
+    def reset(self):
+        self.giza_file.seek(0)
+
+    def __iter_pairs(self):
+        self.reset()
+
+        c = 0
+        buffer = []
+        for line in self.giza_file:
+            buffer.append(line.strip().split())
+
+            if len(buffer) == 3:
+                yield map(int, buffer[self.e_index]), map(int, buffer[self.f_index])
+                buffer = []
+                c += 1
+                if c == self.limit:
+                    break
+
+    def __iter__(self):
+        return self.next()
 
 if __name__ == "__main__":
 

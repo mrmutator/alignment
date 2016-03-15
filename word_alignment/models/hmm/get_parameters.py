@@ -221,7 +221,7 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-    corpus = Corpus_Reader(args.e, args.f, limit=args.limit, strings=True)
+    corpus = Corpus_Reader(args.e, args.f, limit=args.limit, strings="unicode")
 
     e_vocab= Vocab()
     f_vocab = Vocab()
