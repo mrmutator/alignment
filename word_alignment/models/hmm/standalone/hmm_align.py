@@ -17,6 +17,7 @@ class Corpus_Buffer(object):
     def __init__(self, e_file, f_file, strings="str", buffer_size = 20):
         self.buffer_size = buffer_size
         self.corpus = Corpus_Reader(e_file, f_file, strings=strings)
+        self.limit = 0
 
     def __iter__(self):
         self.corpus.reset()
@@ -25,6 +26,8 @@ class Corpus_Buffer(object):
         for el in self.corpus:
             buffer.append(el)
             c += 1
+            if c == self.limit:
+                break
             if c == self.buffer_size:
                 yield buffer
                 buffer = []
