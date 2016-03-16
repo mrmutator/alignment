@@ -138,7 +138,7 @@ class Parameters(object):
         outfile_f.close()
         outfile_e.close()
 
-        return self.params
+        return self.params, self.c
 
 
 
@@ -158,13 +158,13 @@ def prepare_data(corpus, alpha=0.0, p_0=0.2, t_file=None, num_workers=1, file_pr
 
     parameters.initialize_trans_t_file(t_file)
 
-    params = parameters.split_data_get_parameters(corpus, file_prefix=file_prefix)
+    params, corpus_size = parameters.split_data_get_parameters(corpus, file_prefix=file_prefix)
 
     if output_vocab_file:
         parameters.e_vocab.write_vocab(output_vocab_file + ".voc.e")
         parameters.f_vocab.write_vocab(output_vocab_file + ".voc.f")
     del parameters
-    return params
+    return params, corpus_size
 
 if __name__ == "__main__":
 

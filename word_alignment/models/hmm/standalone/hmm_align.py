@@ -17,7 +17,6 @@ class Corpus_Buffer(object):
     def __init__(self, e_file, f_file, strings="str", buffer_size = 20):
         self.buffer_size = buffer_size
         self.corpus = Corpus_Reader(e_file, f_file, strings=strings)
-        self.limit = 0
 
     def __iter__(self):
         self.corpus.reset()
@@ -26,8 +25,6 @@ class Corpus_Buffer(object):
         for el in self.corpus:
             buffer.append(el)
             c += 1
-            if c == self.limit:
-                break
             if c == self.buffer_size:
                 yield buffer
                 buffer = []
@@ -113,7 +110,7 @@ def update_parameters(counts):
         params["s-" + str(I)] = tmp_prob
 
 
-def train_iteration(corpus):
+def train_iteration(corpus, queue):
     # set all counts to zero
     lex_counts = Counter() #(e,f)
     lex_norm = Counter() # e
@@ -190,7 +187,7 @@ def train_iteration(corpus):
 
         ll += np.sum(np.log(scale_coeffs))
 
-    return (lex_counts, lex_norm, al_norm, al_counts, start_counts, start_norm, ll)
+    queue.put((lex_counts, lex_norm, al_norm, al_counts, start_counts, start_norm, ll))
 
 def write_alignments(al_groups, out_file_name):
     outfile = open(out_file_name, "w")
@@ -200,11 +197,24 @@ def write_alignments(al_groups, out_file_name):
             outfile.write(" ".join(als) + "\n")
     outfile.close()
 
+def aggregate_counts(queue, shared, num_work):
+    # total = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
+    # total_ll = 0
+    initial = queue.get()
+    total = initial[:-1]
+    total_ll = initial[-1]
+    for _ in xrange(num_work-1):
+        counts = queue.get()
+        for i, c in enumerate(counts[:-1]):
+            total[i].update(c)
+        total_ll += counts[-1]
+    shared["counts"] = total
+    shared["ll"] = total_ll
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-giza_file", required=True)
     arg_parser.add_argument("-t_file", required=True)
-    arg_parser.add_argument("-limit", required=False, type=int, default=0)
     arg_parser.add_argument("-output_vocab_file", required=False, default="")
     arg_parser.add_argument("-num_workers", required=True, type=int, default=1)
     arg_parser.add_argument("-file_prefix", required=False, default="tmp")
@@ -222,35 +232,42 @@ if __name__ == "__main__":
     p_0 = args.p_0
     alpha = args.alpha
 
-    corpus = GIZA_Reader(args.giza_file, limit=args.limit)
+    corpus = GIZA_Reader(args.giza_file)
 
-    params = prepare_data(corpus, alpha=args.alpha,p_0=args.p_0, t_file=args.t_file, num_workers=args.num_workers,
+    params, corpus_size = prepare_data(corpus, alpha=args.alpha,p_0=args.p_0, t_file=args.t_file, num_workers=args.num_workers,
                                                         file_prefix=args.file_prefix,
-                                                        output_vocab_file=args.output_vocab_file)
+                                                        output_vocab_file=args.output_vocab_file, random=False)
 
 
     logger.info("Parameters ready.")
     corpus_buffer = Corpus_Buffer(e_file = args.file_prefix + ".e", f_file=args.file_prefix + ".f", buffer_size=args.buffer_size)
+
+    num_work = int(np.ceil(float(corpus_size) / args.buffer_size))
+
     for it in xrange(args.num_iterations):
         logger.info("E-Step iteration %d" % (it+1))
-        pool = mp.Pool(processes=args.num_workers)
-        results = pool.map(train_iteration, corpus_buffer)
+
+        queue = mp.Queue()
+        manager = mp.Manager()
+        aggregated = manager.dict()
+        def worker_wrapper(buffer):
+            return train_iteration(buffer, queue)
+
+        updater = mp.Process(target=aggregate_counts, args=(queue, aggregated, num_work))
+        updater.start()
+        pool = mp.Pool(processes=args.num_workers-1)
+        pool.map(worker_wrapper, corpus_buffer)
+        updater.join()
 
         logger.info("U-Step iteration %d" % (it+1))
 
-        initial = results[0]
-        total = initial[:-1]
-        total_ll = initial[-1]
 
-        for counts in results:
-            for i, c in enumerate(counts[:-1]):
-                total[i].update(c)
-            total_ll += counts[-1]
-
+        total = aggregated["counts"]
+        total_ll = aggregated["ll"]
 
         update_parameters(total)
         del total
-        del results
+        del aggregated
         del pool
         logger.info("Likelihood it. %d: %d" % (it+1, total_ll))
 
