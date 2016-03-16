@@ -284,8 +284,11 @@ if __name__ == "__main__":
         if args.viterbi_limit >= 0:
             logger.info("Aligning test part.")
             corpus_buffer.limit = args.viterbi_limit
-            pool = mp.Pool(processes=2)
+            pool = mp.Pool(processes=args.num_workers)
             results = pool.map(get_all_viterbi_alignments, corpus_buffer)
             write_alignments(results, args.file_prefix + ".aligned." + str(it+1))
+            pool.close()
+            pool.join()
+            corpus_buffer.limit = 0
     logger.info("Done.")
 
