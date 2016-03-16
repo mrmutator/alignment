@@ -87,7 +87,9 @@ def update_parameters(counts):
 
     # update parameters
     for (e,f), count in counts[0].items():
-        params["t-" + e + "-" + f] = count / counts[1][e]
+        name = "t-" + e + "-" + f
+        if name in params:
+            params[name] = count / counts[1][e]
 
 
     jmp_prob = defaultdict(int)
