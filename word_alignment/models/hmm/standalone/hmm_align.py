@@ -262,9 +262,10 @@ if __name__ == "__main__":
         updater.start()
         pool = mp.Pool(processes=args.num_workers-1)
         pool.map(worker_wrapper, corpus_buffer)
-        updater.join()
         pool.close()
         pool.join()
+        del pool
+        updater.join()
         logger.info("U-Step iteration %d" % (it+1))
 
 
@@ -275,9 +276,9 @@ if __name__ == "__main__":
 
         del total
         del aggregated
-        del pool
         del queue
         del manager
+        del updater
         logger.info("Likelihood it. %d: %d" % (it+1, total_ll))
 
     # Viterbi
