@@ -45,11 +45,14 @@ def train_iteration(corpus, trans_prob, dist_params, start_params, p_0, results)
 
         # add start counts and counts for lex f_0
         f_0 = f_toks[0]
-        for i, e_tok in enumerate(e_toks + [0]*I):
+        for i, e_tok in enumerate(e_toks):
             start_counts[(I, i)] += gammas[0][i]
             lex_counts[(e_tok, f_0)] += gammas[0][i]
             lex_norm[e_tok] += gammas[0][i]
         start_norm[I] += 1
+        zero_sum = np.sum(gammas[0][I:])
+        lex_counts[(0, f_0)] += zero_sum
+        lex_norm[0] += zero_sum
 
         for j_p, f_tok in enumerate(f_toks[1:]):
             j = j_p + 1
