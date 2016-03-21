@@ -4,23 +4,11 @@ import random
 import numpy as np
 import itertools
 
-import shelve
-
-class Params(object):
-
-    def __init__(self, name="params.shelve"):
-        self.name = name
-        self.open()
-
-    def open(self):
-        self.store = shelve.open(self.name)
-
-    def close(self):
-        self.store.close()
-        self.store = None
-
-
-
+def write_params(params, out_file_name):
+    outfile = open(out_file_name, "w")
+    for key, value in params.iteritems():
+        outfile.write(key + "\t" + str(value) + "\n")
+    outfile.close()
 
 def random_prob():
     return random.random()*-1 + 1 # random number between 0 and 1, excluding 0, including 1
@@ -61,19 +49,18 @@ class Vocab(object):
 
 class Parameters(object):
 
-    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab(), alpha=0.0, p_0=0.2):
+    def __init__(self, corpus, e_vocab=Vocab(), f_vocab=Vocab(),p_0=0.2):
         self.corpus = corpus
-        self.cooc = defaultdict(set)
+        self.cooc = set()
         self.lengths = set()
         self.e_vocab = e_vocab
         self.f_vocab = f_vocab
-        self.alpha = alpha
         self.p_0 = p_0
 
         self.c = 0
         self.add_corpus(corpus)
 
-        self.params = shelve.open("params.shelve")
+        self.params = dict()
 
     def add_corpus(self, corpus):
         self.c = 0
@@ -83,9 +70,9 @@ class Parameters(object):
             self.lengths.add(I)
             for f_tok in f_toks:
                 f = self.f_vocab.get_index(f_tok)
-                self.cooc["0"].add(f)
+                self.cooc.add(("0", f))
                 for i, e_tok in enumerate(e_toks):
-                    self.cooc[self.e_vocab.get_index(e_tok)].add(f)
+                    self.cooc.add((self.e_vocab.get_index(e_tok), f))
 
 
     def initialize_start_randomly(self):
@@ -98,33 +85,25 @@ class Parameters(object):
                 Z += p
             Z += self.p_0 # p_0 for null word at start
             start = start / Z
-            self.params["s-" + str(I)] = start
+            for i in xrange(I):
+                self.params["b/" + str(I) + "/" + str(i)] = start[i]
 
     def initialize_start_uniformly(self):
         for I in self.lengths:
             Z = 0
-            start = np.ones(I) * ((1.0 - self.p_0) / I)
-            self.params["s-" + str(I)] = start
+            start = (1.0 - self.p_0) / I
+            for i in xrange(I):
+                self.params["b/" + str(I) + "/" + str(i)] = start
 
 
     def initialize_dist_randomly(self):
-        jumps = dict()
         for jmp in xrange(-max(self.lengths)+1, max(self.lengths)):
-            jumps[jmp] = random_prob()
+            self.params["j/" + str(jmp)] = random_prob()
 
-        for I in self.lengths:
-            tmp_prob = np.zeros((I, I))
-            for i_p in xrange(I):
-                norm = np.sum([ jumps[i_pp - i_p] for i_pp in xrange(I)]) + self.p_0
-                tmp_prob[i_p, :] = np.array([((jumps[i-i_p] / norm) * (1-self.alpha)) + (self.alpha * (1.0/I))  for i in xrange(I)])
-            self.params["d-"+str(I)] = tmp_prob
 
     def initialize_dist_uniformly(self):
-        for I in self.lengths:
-            tmp_prob = np.zeros((I, I))
-            for i_p in xrange(I):
-                tmp_prob[i_p, :] = np.array([(((1.0-self.p_0)/ I) * (1-self.alpha)) + (self.alpha * (1.0/I))  for i in xrange(I)])
-            self.params["d-"+str(I)] = tmp_prob
+        for jmp in xrange(-max(self.lengths)+1, max(self.lengths)):
+            self.params["j/"+str(jmp)] = 0.5 # number doesn't matter
 
 
     def initialize_trans_t_file(self, t_file):
@@ -132,19 +111,22 @@ class Parameters(object):
         with open(t_file, "r") as infile:
             for line in infile:
                 e, f, p = line.strip().split()
-                e_ = self.e_vocab.get_index(int(e))
+                if int(e) != 0:
+                    e_ = self.e_vocab.get_index(int(e))
+                else:
+                    e_ = "0"
                 f_ = self.f_vocab.get_index(int(f))
-                trans_dict[e_][f_] = float(p)
+                if (e_, f_) in self.cooc:
+                    trans_dict[e_][f_] = float(p)
         for e in trans_dict:
             Z = np.sum(trans_dict[e].values())
             for f in trans_dict[e]:
-                self.params["t-" + e +"-"+f] = trans_dict[e][f] / float(Z)
+                self.params["t/" + e +"/"+f] = trans_dict[e][f] / float(Z)
         del self.cooc
 
 
 
     def split_data_get_parameters(self, corpus, file_prefix):
-        self.params["I"] = self.lengths
         outfile_e = open(file_prefix  + ".e", "w")
         outfile_f = open(file_prefix  + ".f", "w")
         for e_toks, f_toks in corpus:
@@ -159,11 +141,11 @@ class Parameters(object):
 
 
 
-def prepare_data(corpus, alpha=0.0, p_0=0.2, t_file=None, num_workers=1, file_prefix="", output_vocab_file=None, random=True):
+def prepare_data(corpus, p_0=0.2, t_file=None, num_workers=1, file_prefix="", output_vocab_file=None, random=True):
     e_vocab= Vocab()
     f_vocab = Vocab()
 
-    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab, alpha=alpha, p_0=p_0)
+    parameters = Parameters(corpus, e_vocab=e_vocab, f_vocab=f_vocab, p_0=p_0)
 
     if random:
         parameters.initialize_dist_randomly()
@@ -176,11 +158,13 @@ def prepare_data(corpus, alpha=0.0, p_0=0.2, t_file=None, num_workers=1, file_pr
 
     params, corpus_size = parameters.split_data_get_parameters(corpus, file_prefix=file_prefix)
 
+    write_params(params, "params.p")
+
     if output_vocab_file:
         parameters.e_vocab.write_vocab(output_vocab_file + ".voc.e")
         parameters.f_vocab.write_vocab(output_vocab_file + ".voc.f")
     del parameters
-    return params, corpus_size
+    return corpus_size
 
 if __name__ == "__main__":
 
