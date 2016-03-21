@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 import argparse
 import multiprocessing as mp
 import logging
+import shelve
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -35,7 +36,7 @@ class Corpus_Buffer(object):
         if c > 0:
             yield buffer
 
-def get_all_viterbi_alignments(corpus):
+def get_all_viterbi_alignments(corpus, params):
     all_alignments = []
     for e_toks, f_toks in corpus:
         J = len(f_toks)
@@ -115,7 +116,7 @@ def update_parameters(counts):
         params["s-" + str(I)] = tmp_prob
 
 
-def train_iteration(corpus, queue):
+def train_iteration(corpus, queue, params):
     # set all counts to zero
     lex_counts = Counter() #(e,f)
     lex_norm = Counter() # e
@@ -238,12 +239,11 @@ if __name__ == "__main__":
     alpha = args.alpha
 
     corpus = GIZA_Reader(args.giza_file)
-
     params, corpus_size = prepare_data(corpus, alpha=args.alpha,p_0=args.p_0, t_file=args.t_file, num_workers=args.num_workers,
                                                         file_prefix=args.file_prefix,
                                                         output_vocab_file=args.output_vocab_file, random=False)
 
-
+    params.close()
     logger.info("Parameters ready.")
     corpus_buffer = Corpus_Buffer(e_file = args.file_prefix + ".e", f_file=args.file_prefix + ".f", buffer_size=args.buffer_size)
 
@@ -255,8 +255,9 @@ if __name__ == "__main__":
         queue = mp.Queue()
         manager = mp.Manager()
         aggregated = manager.dict()
+        params = shelve.open("params.shelve")
         def worker_wrapper(buffer):
-            return train_iteration(buffer, queue)
+            return train_iteration(buffer, queue, params)
 
         updater = mp.Process(target=aggregate_counts, args=(queue, aggregated, num_work))
         updater.start()
@@ -273,7 +274,8 @@ if __name__ == "__main__":
         total_ll = aggregated["ll"]
 
         update_parameters(total)
-
+        params.close()
+        del params
         del total
         del aggregated
         del queue
@@ -285,11 +287,17 @@ if __name__ == "__main__":
         if args.viterbi_limit >= 0:
             logger.info("Aligning test part.")
             corpus_buffer.limit = args.viterbi_limit
+
+            params = shelve.open("params.shelve")
+            def viterbi_wrapper(buffer):
+                return get_all_viterbi_alignments(buffer, params)
             pool = mp.Pool(processes=args.num_workers)
-            results = pool.map(get_all_viterbi_alignments, corpus_buffer)
+            results = pool.map(viterbi_wrapper, corpus_buffer)
             write_alignments(results, args.file_prefix + ".aligned." + str(it+1))
             pool.close()
             pool.join()
             corpus_buffer.limit = 0
+            params.close()
+            del params
     logger.info("Done.")
 

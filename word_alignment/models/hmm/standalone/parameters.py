@@ -4,7 +4,23 @@ import random
 import numpy as np
 import itertools
 
-from shove import Shove
+import shelve
+
+class Params(object):
+
+    def __init__(self, name="params.shelve"):
+        self.name = name
+        self.open()
+
+    def open(self):
+        self.store = shelve.open(self.name)
+
+    def close(self):
+        self.store.close()
+        self.store = None
+
+
+
 
 def random_prob():
     return random.random()*-1 + 1 # random number between 0 and 1, excluding 0, including 1
@@ -57,7 +73,7 @@ class Parameters(object):
         self.c = 0
         self.add_corpus(corpus)
 
-        self.params = Shove()
+        self.params = shelve.open("params.shelve")
 
     def add_corpus(self, corpus):
         self.c = 0
