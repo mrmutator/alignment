@@ -338,7 +338,7 @@ if __name__ == "__main__":
                 while True:
                     i, buffer = process_queue.get()
                     get_all_viterbi_alignments(buffer, params, result_queue, i)
-            pool = mp.Pool(max(args.num_workers,4), viterbi_wrapper, (process_queue,))
+            pool = mp.Pool(min(args.num_workers,4), viterbi_wrapper, (process_queue,))
             load_params(params, "params.p", p_0=p_0, alpha=alpha)
 
             c = 0
