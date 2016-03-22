@@ -158,7 +158,7 @@ def train_iteration(corpus, queue):
         trans_params = set(["t/" + e_tok + "/" + f_tok for f_tok in f_toks for e_tok in e_toks + ["0"]])
 
         # get parameters
-        current_params = {k: params.get(k, 0.00000001) for k in ["s/" + str(I), "d/" + str(I)] + trans_params}
+        current_params = {k: params.get(k, 0.00000001) for k in ["s/" + str(I), "d/" + str(I)] + list(trans_params)}
         trans_params = [tp for tp in trans_params if current_params[tp] > 0.00000001]
 
         start_prob = np.hstack((current_params["s/" + str(I)], np.ones(I) * (p_0/I)))
