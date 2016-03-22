@@ -320,6 +320,7 @@ if __name__ == "__main__":
         del process_queue
         del manager
         del updater
+        del pool
         logger.info("Likelihood it. %d: %d" % (it+1, total_ll))
 
     # Viterbi
