@@ -315,7 +315,8 @@ if __name__ == "__main__":
             process_queue.put(buffer)
 
         updater.join()
-
+        pool.terminate()
+        pool.join()
         total_ll = ll["ll"]
 
         del params
@@ -349,6 +350,8 @@ if __name__ == "__main__":
             for _ in xrange(c):
                 results.append(result_queue.get())
 
+            pool.terminate()
+            pool.join()
             results = sorted(results, key=lambda t: t[0])
             write_alignments(results, args.file_prefix + ".aligned." + str(it+1))
             corpus_buffer.limit = 0
