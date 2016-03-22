@@ -77,13 +77,16 @@ def get_all_viterbi_alignments(corpus, params, results_queue, worker_num):
         I = len(e_toks)
         al_prob = params["d/"+str(I)]
         start_prob = params["s/"+str(I)]
+        trans_params = set(["t/" + e_tok + "/" + f_tok for f_tok in f_toks for e_tok in e_toks + ["0"]])
+        trans_params = {k: params.get(k, 0.00000001) for k in trans_params}
+
         chart = np.zeros((J, 2*I))
         best = np.zeros((J, 2*I))
         # initialize
         for i, e_tok in enumerate(e_toks):
-            chart[0][i] = params.get("t/" + e_tok + "/" + f_toks[0], 0.0000001) * start_prob[i]
+            chart[0][i] = trans_params["t/" + e_tok + "/" + f_toks[0]] * start_prob[i]
         for i in range(I, I*2):
-            chart[0][i] = params.get("t/0" + "/" + f_toks[0], 0.0000001) * p_0
+            chart[0][i] = trans_params["t/0" + "/" + f_toks[0]] * p_0
 
         # compute chart
         for j, f_tok in enumerate(f_toks[1:]):
@@ -102,7 +105,7 @@ def get_all_viterbi_alignments(corpus, params, results_queue, worker_num):
                         else:
                             values.append(chart[j-1][i_p]*al_prob[i_p-I][i])
                 best_i = np.argmax(values)
-                chart[j][i] = values[best_i] * params.get("t/" + e_tok + "/" + f_tok, 0.0000001)
+                chart[j][i] = values[best_i] * trans_params["t/" + e_tok + "/" + f_tok]
                 best[j][i] = best_i
 
         # get max path
@@ -335,7 +338,7 @@ if __name__ == "__main__":
                 while True:
                     i, buffer = process_queue.get()
                     get_all_viterbi_alignments(buffer, params, result_queue, i)
-            pool = mp.Pool(args.num_workers, viterbi_wrapper, (process_queue,))
+            pool = mp.Pool(max(args.num_workers,4), viterbi_wrapper, (process_queue,))
             load_params(params, "params.p", p_0=p_0, alpha=alpha)
 
             c = 0
