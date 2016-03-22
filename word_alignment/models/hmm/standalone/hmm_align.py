@@ -304,7 +304,7 @@ if __name__ == "__main__":
 
         pool = mp.Pool(args.num_workers-1,worker_wrapper, (process_queue,))
         load_params(params, "params.p", p_0=p_0, alpha=alpha)
-        pnames = params.keys()
+        pnames = set(params.keys())
         updater = mp.Process(target=aggregate_counts, args=(update_queue, ll, num_work, pnames))
         updater.start()
 
