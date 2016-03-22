@@ -58,10 +58,12 @@ class Corpus_Buffer(object):
         self.corpus.reset()
         buffer = []
         c = 0
+        total = 0
         for el in self.corpus:
             buffer.append(el)
             c += 1
-            if c == self.limit:
+            total += 1
+            if total == self.limit:
                 break
             if c == self.buffer_size:
                 yield buffer
