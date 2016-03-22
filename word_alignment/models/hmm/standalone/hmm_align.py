@@ -318,7 +318,8 @@ if __name__ == "__main__":
         pool.terminate()
         pool.join()
         total_ll = ll["ll"]
-
+        manager.shutdown()
+        manager.join()
         del params
         del update_queue
         del process_queue
@@ -352,6 +353,8 @@ if __name__ == "__main__":
 
             pool.terminate()
             pool.join()
+            manager.shutdown()
+            manager.join()
             results = sorted(results, key=lambda t: t[0])
             write_alignments(results, args.file_prefix + ".aligned." + str(it+1))
             corpus_buffer.limit = 0
