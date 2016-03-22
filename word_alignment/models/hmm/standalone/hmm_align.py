@@ -350,5 +350,9 @@ if __name__ == "__main__":
             write_alignments(results, args.file_prefix + ".aligned." + str(it+1))
             corpus_buffer.limit = 0
             del params
+            del pool
+            del process_queue
+            del result_queue
+            del manager
     logger.info("Done.")
 
