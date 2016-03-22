@@ -155,12 +155,11 @@ def train_iteration(corpus, queue):
         I_double = 2 * I
         J = len(f_toks)
 
-        trans_params = ["t/" + e_tok + "/" + f_tok for f_tok in f_toks for e_tok in e_toks + ["0"]]
-
+        trans_params = set(["t/" + e_tok + "/" + f_tok for f_tok in f_toks for e_tok in e_toks + ["0"]])
 
         # get parameters
         current_params = {k: params.get(k, 0.00000001) for k in ["s/" + str(I), "d/" + str(I)] + trans_params}
-
+        trans_params = [tp for tp in trans_params if current_params[tp] > 0.00000001]
 
         start_prob = np.hstack((current_params["s/" + str(I)], np.ones(I) * (p_0/I)))
 
@@ -191,24 +190,28 @@ def train_iteration(corpus, queue):
         f_0 = f_toks[0]
         for i, e_tok in enumerate(e_toks):
             start_counts[(I, i)] += gammas[0][i]
-            lex_counts[(e_tok, f_0)] += gammas[0][i]
-            lex_norm[e_tok] += gammas[0][i]
+            if "t/" + e_tok + "/" + f_0 in trans_params:
+                lex_counts[(e_tok, f_0)] += gammas[0][i]
+                lex_norm[e_tok] += gammas[0][i]
         start_norm[I] += 1
-        zero_sum = np.sum(gammas[0][I:])
-        lex_counts[("0", f_0)] += zero_sum
-        lex_norm["0"] += zero_sum
+        if "t/0/" + f_0 in trans_params:
+            zero_sum = np.sum(gammas[0][I:])
+            lex_counts[("0", f_0)] += zero_sum
+            lex_norm["0"] += zero_sum
 
         for j_p, f_tok in enumerate(f_toks[1:]):
             j = j_p + 1
             t_f_e = np.array([current_params["t/" + e_tok + "/" + f_toks[j]] for e_tok in e_toks + ["0"]*I]) # array of t(f_j|e) for all e
             beta_t_j_i = np.multiply(betas[j], t_f_e)
             alpha_j_p = alphas[j_p]
-            gammas_0_j = np.sum(gammas[j][I:])
-            lex_counts[("0", f_tok)] += gammas_0_j
-            lex_norm["0"] += gammas_0_j
+            if "t/0/"+f_tok in trans_params:
+                gammas_0_j = np.sum(gammas[j][I:])
+                lex_counts[("0", f_tok)] += gammas_0_j
+                lex_norm["0"] += gammas_0_j
             for i, e_tok in enumerate(e_toks):
-                lex_counts[(e_tok, f_tok)] += gammas[j][i]
-                lex_norm[e_tok] += gammas[j][i]
+                if "t/" + e_tok + "/" + f_tok in trans_params:
+                    lex_counts[(e_tok, f_tok)] += gammas[j][i]
+                    lex_norm[e_tok] += gammas[j][i]
                 for i_p in range(I_double):
                     if i_p < I:
                         al_prob_ip = current_params["d/"+ str(I)][i_p]
