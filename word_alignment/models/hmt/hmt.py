@@ -52,38 +52,3 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
         # xi and gamma can probably be computed in main method such that counts can be updated directly
 
     return gammas, xis, log_likelihood
-
-if __name__ == "__main__":
-
-
-    def random_start_prob(I):
-        p = np.random.random(I)
-        Z = np.sum(p)
-        return p / Z
-
-    def random_dist_prob(I):
-        p = np.random.random((I, I))
-        Z = np.sum(p, axis=1)
-        return p / Z[:, np.newaxis]
-
-    def random_emission_prob(e_toks, f_toks):
-        I = len(e_toks)
-        J = len(f_toks)
-        p = np.random.random((J, I))
-        Z = np.sum(p, axis=0) + np.random.random()
-        p = p / Z[np.newaxis, :]
-        probs = {(e_tok, f_tok): p[j,i] for i, e_tok in enumerate(e_toks) for j, f_tok in enumerate(f_toks)}
-        return probs
-
-    f_toks = [0,1,2,3,4,5]
-    e_toks = [0,1,2,3,4]
-    heads = [0, 0, 0, 1, 1, 2]
-
-    I = len(e_toks)
-    start_prob = random_start_prob(I)
-    dist_prob = random_dist_prob(I)
-    trans_prob = random_emission_prob(e_toks, f_toks)
-
-    for _ in xrange(1):
-        _, _, ll = upward_downward(f_toks, e_toks, heads, trans_prob, dist_prob, start_prob)
-        print ll

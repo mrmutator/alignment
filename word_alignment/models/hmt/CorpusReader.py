@@ -1,8 +1,12 @@
 class CorpusReader(object):
-    def __init__(self, corpus_file, limit=None, ):
+    def __init__(self, corpus_file, limit=None, return_order=False):
         self.corpus_file = open(corpus_file, "r")
         self.limit = limit
         self.next = self.__iter_sent
+        if return_order:
+            self.buffer_end = 4
+        else:
+            self.buffer_end = 3
 
     def reset(self):
         self.corpus_file.seek(0)
@@ -17,7 +21,7 @@ class CorpusReader(object):
                 buffer.append(map(int, line.strip().split()))
             b += 1
             if b == 4:
-                yield buffer
+                yield buffer[:self.buffer_end]
                 c += 1
                 if c == self.limit:
                     break
@@ -27,6 +31,12 @@ class CorpusReader(object):
 
     def __iter__(self):
         return self.next()
+
+    def get_length(self):
+        c = 0
+        for _ in self:
+            c += 1
+        return c
 
 
 if __name__ == "__main__":
