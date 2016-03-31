@@ -1,10 +1,13 @@
 import numpy as np
 
-def upward_downward(heads, trans_probs, dist_probs, start_probs, J, I):
+def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs):
     # I already includes the NULL word extension
     # heads = list of dim J, where each position specifies the index of the head in the list (heads[0] = 0)
     # dist_probs = 2I X 2I matrix (rows = from i', cols = to i)
     # trans_probs = J x 2I for the translation probabilities
+
+    I = len(e_toks)
+    J = len(f_toks)
 
     children = [set() for _ in xrange(J)]
     for j, h in enumerate(heads[1:]):
@@ -23,6 +26,7 @@ def upward_downward(heads, trans_probs, dist_probs, start_probs, J, I):
     # upward recursion betas
     betas = np.zeros((J, I))
     betas_p = np.zeros((J, I))
+    log_likelihood = 0
     for j in range(J-1, -1, -1):
         prod = np.ones(I)
         for c in children[j]:
@@ -30,8 +34,10 @@ def upward_downward(heads, trans_probs, dist_probs, start_probs, J, I):
             betas_p_c = np.dot((betas[c] / marginals[c]), dist_probs)
             prod *= betas_p_c
             betas_p[c] = betas_p_c
-        numerator = prod * trans_probs[j] * marginals[j]
+        t_j = np.array([trans_params.get((e_tok, f_toks[j]), 0.00000001) for e_tok in e_toks])
+        numerator = prod * t_j * marginals[j]
         N_j = np.sum(numerator)
+        log_likelihood += np.log(N_j)
         betas[j] = np.divide(numerator, N_j)
 
     # downward recursion gammas and xis
@@ -45,7 +51,7 @@ def upward_downward(heads, trans_probs, dist_probs, start_probs, J, I):
         xis.append(xi)
         # xi and gamma can probably be computed in main method such that counts can be updated directly
 
-    print bla
+    return gammas, xis, log_likelihood
 
 if __name__ == "__main__":
 
@@ -60,18 +66,24 @@ if __name__ == "__main__":
         Z = np.sum(p, axis=1)
         return p / Z[:, np.newaxis]
 
-    def random_emission_prob(J, I):
+    def random_emission_prob(e_toks, f_toks):
+        I = len(e_toks)
+        J = len(f_toks)
         p = np.random.random((J, I))
-        Z = np.sum(p, axis=0) # np.random.random()
-        return p / Z[np.newaxis, :]
+        Z = np.sum(p, axis=0) + np.random.random()
+        p = p / Z[np.newaxis, :]
+        probs = {(e_tok, f_tok): p[j,i] for i, e_tok in enumerate(e_toks) for j, f_tok in enumerate(f_toks)}
+        return probs
 
-    I = 5
-    J = 6
+    f_toks = [0,1,2,3,4,5]
+    e_toks = [0,1,2,3,4]
     heads = [0, 0, 0, 1, 1, 2]
 
+    I = len(e_toks)
     start_prob = random_start_prob(I)
     dist_prob = random_dist_prob(I)
-    trans_prob = random_emission_prob(J, I)
+    trans_prob = random_emission_prob(e_toks, f_toks)
 
     for _ in xrange(1):
-        upward_downward(heads, trans_prob, dist_prob, start_prob, J, I)
+        _, _, ll = upward_downward(f_toks, e_toks, heads, trans_prob, dist_prob, start_prob)
+        print ll
