@@ -125,7 +125,8 @@ class Parameters(object):
                 if total < self.c:
                     subset_id += 1
                     outfile_corpus = open(file_prefix + ".corpus." + str(subset_id), "w")
-                    params_subset = set()
+                    sub_lengths = set()
+                    sub_t = set()
                     subset_c = 0
         if subset_c > 0:
             outfile_corpus.close()
