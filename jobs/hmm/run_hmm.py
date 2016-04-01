@@ -121,6 +121,7 @@ def send_jobs(**params):
             log_file.write(job_path + ": " + eval_job_id + "\n")
 
     log_file.write("Jobs sent successfully.\n")
+    log_file.close()
 
 
 arg_parser = argparse.ArgumentParser()
