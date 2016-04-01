@@ -11,19 +11,18 @@ def get_params(args):
     params['dir'] = os.path.abspath(args.dir)
     params['job_name'] = args.job_name
     params['num_iterations'] = args.num_iterations
-    params['e_path'] = os.path.abspath(args.e)
-    params['f_path'] = os.path.abspath(args.f)
+    params['psnt'] = os.path.abspath(args.psnt)
     params['ibm1_table_path'] = os.path.abspath(args.ibm1_table)
-    params['e_vocab_path'] = os.path.abspath(args.e_vocab)
-    params['f_vocab_path'] = os.path.abspath(args.f_vocab)
     params['group_size'] = args.group_size
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../..'))
     params['num_workers'] = args.num_workers
+    params['buffer_size'] = args.buffer_size
     params['alpha'] = args.alpha
     params['p_0'] = args.p_0
     params['num_nodes'] = args.num_nodes
     params["align1"] = args.align1
+    params["vit_limit"] = args.vit_limit
 
     return params
 
@@ -40,7 +39,7 @@ def make_directories(dir, num_iterations):
 def generate_prepare_job(**params):
     params['it_dir'] = params["dir"] + "/it0"
     params['job_dir'] = params["dir"] + "/jobs0"
-    with open(params['job_template_dir'] + "/template_hmm_prepare_job.txt", "r") as infile:
+    with open(params['job_template_dir'] + "/template_hmt_prepare_job.txt", "r") as infile:
         template = infile.read()
         job_file = template % params
     with open(params['job_dir'] + "/prepare_job.sh", "w") as outfile:
@@ -50,20 +49,20 @@ def generate_iteration_jobs(**params):
     params['it_dir'] = params["dir"] + "/it" + params["it_number"]
     params['prev_it_dir'] = params["dir"] + "/it" + str(int(params["it_number"]) -1)
     params['job_dir'] = params["dir"] + "/jobs" + params["it_number"]
-    with open(params['job_template_dir'] + "/template_hmm_worker_job.txt", "r") as infile:
+    with open(params['job_template_dir'] + "/template_hmt_worker_job.txt", "r") as infile:
         template = infile.read()
         job_file = template % params
     with open(params['job_dir'] + "/worker_job_it" + params["it_number"] + ".sh", "w") as outfile:
         outfile.write(job_file)
 
-    with open(params['job_template_dir'] + "/template_hmm_update_job.txt", "r") as infile:
+    with open(params['job_template_dir'] + "/template_hmt_update_job.txt", "r") as infile:
         template = infile.read()
         job_file = template % params
     with open(params['job_dir'] + "/update_job_it" + params["it_number"] + ".sh", "w") as outfile:
         outfile.write(job_file)
 
     if params["align1"]:
-        with open(params['job_template_dir'] + "/template_hmm_evaluate_job.txt", "r") as infile:
+        with open(params['job_template_dir'] + "/template_hmt_evaluate_job.txt", "r") as infile:
             template = infile.read()
             job_file = template % params
 
@@ -129,12 +128,9 @@ arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-job_name", required=False, default=get_time())
 
-arg_parser.add_argument("-e", required=True)
-arg_parser.add_argument("-f", required=True)
+arg_parser.add_argument("-psnt", required=True)
 
 arg_parser.add_argument("-ibm1_table", required=True, default="")
-arg_parser.add_argument("-e_vocab", required=True, default="")
-arg_parser.add_argument("-f_vocab", required=True, default="")
 
 arg_parser.add_argument("-num_iterations", required=True, type=int)
 
@@ -145,10 +141,11 @@ arg_parser.add_argument("-group_size", required=True, type=int)
 arg_parser.add_argument("-num_nodes", required=True, type=int)
 
 arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
-
+arg_parser.add_argument("-buffer_size", required=False, default=20, type=int)
 
 arg_parser.add_argument('-align1', dest="align1", action="store_true", required=False)
 arg_parser.set_defaults(align1=False)
+arg_parser.add_argument("-vit_limit", required=False, default=0, type=int)
 
 
 arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)

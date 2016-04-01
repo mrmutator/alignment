@@ -1,9 +1,10 @@
+from word_alignment.utils.Corpus_Reader import GIZA_Reader
 import codecs
 import argparse
 
 arg_parser = argparse.ArgumentParser()
-arg_parser.add_argument("corpus")
-arg_parser.add_argument("-parallel_file", required=False, default="")
+arg_parser.add_argument("-snt", required=True)
+arg_parser.add_argument("-raw_f", required=True)
 
 args = arg_parser.parse_args()
 
@@ -11,30 +12,32 @@ args = arg_parser.parse_args()
 from Parser import Spacy_Parser
 parser = Spacy_Parser()
 
-infile = codecs.open(args.corpus, "r", "utf-8")
-order_file = open(args.corpus + ".order", "w")
-outfile = codecs.open(args.corpus + ".parsed", "w", "utf-8")
-
-if args.parallel_file:
-    infile2 = open(args.parallel_file, "r")
-    outfile2 = open(args.parallel_file + ".processed", "w")
-
-for line in infile:
-    assert "_" not in line
-    tokens = line.strip().split()
-    tree = parser.dep_parse(tokens)
+outfile = codecs.open(args.snt + ".parsed", "w", "utf-8")
+filter_file = open(args.snt + ".filtered", "w")
+corpus = GIZA_Reader(args.snt, alignment_order=('e', 'f'))
+raw_infile = codecs.open(args.raw_f, "r", "utf-8")
+skipped = 0
+i = 0
+for e, f_i in corpus:
+    i += 1
+    f_raw = raw_infile.readline()
+    assert "_" not in f_raw
+    f_raw = f_raw.strip().split()
+    assert len(f_raw) == len(f_i)
+    tree = parser.dep_parse(f_raw)
     if tree:
         order, pairs = tree.traverse_with_heads()
-        order_file.write(" ".join(map(str, order)) + "\n")
-        outfile.write(" ".join([p[0] + "_" + str(p[1]) for p in pairs]) + "\n")
-        if args.parallel_file:
-            outfile2.write(infile2.readline())
+        _, f_heads = zip(*pairs)
+        f = map(f_i.__getitem__, order)
+        outfile.write(" ".join(map(str, e)) + "\n")
+        outfile.write(" ".join(map(str, f)) + "\n")
+        outfile.write(" ".join(map(str, f_heads)) + "\n")
+        outfile.write(" ".join(map(str, order)) + "\n\n")
 
     else:
-        order_file.write("SKIPPED\n")
-        if args.parallel_file:
-            infile2.readline()
+        skipped += 1
+        filter_file.write(str(i)+"\n")
 
-infile.close()
 outfile.close()
-order_file.close()
+filter_file.close()
+raw_infile.close()
