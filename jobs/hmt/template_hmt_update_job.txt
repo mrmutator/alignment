@@ -1,0 +1,15 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=24:00:00
+cd "$TMPDIR"
+mkdir data
+cp %(it_dir)s/%(job_name)s.counts.*.gz data/
+gunzip data/%(job_name)s.counts.*.gz
+# call the programs
+module load python
+source %(script_dir)s/venv/bin/activate
+python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir data/
+gzip data/%(job_name)s.params.*
+cp data/%(job_name)s.params.gz %(it_dir)s/
+cp log_likelihood %(it_dir)s/
+wait          # wait until programs are finished

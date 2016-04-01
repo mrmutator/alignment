@@ -181,7 +181,7 @@ arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
 
 args = arg_parser.parse_args()
 
-counts_file_name = re.sub(r"corpus\.(\d)$", r"counts.\1", args.corpus)
+counts_file_name = args.params + ".counts"
 
 update_queue = mp.Queue()
 process_queue = mp.Queue()
