@@ -35,7 +35,7 @@ class Corpus_Buffer(object):
 
 def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, p_0, queue, worker_num):
     all_alignments = []
-    for e_toks, f_toks, f_heads in corpus:
+    for e_toks, f_toks, f_heads, order in corpus:
         I = len(e_toks)
         J = len(f_toks)
 
@@ -79,7 +79,7 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, p_0, queue,
             else:
                 alignment.append(best[j][alignment[head]])
 
-        alignment = [(al, j) for j, al in enumerate(alignment) if al < I]
+        alignment = [(al, order[j]) for j, al in enumerate(alignment) if al < I]
         all_alignments.append(alignment)
 
     queue.put((worker_num, all_alignments))
@@ -154,7 +154,7 @@ def worker_wrapper(process_queue):
         get_all_viterbi_alignments(buffer, t_params, d_params, s_params, args.p_0, results_queue, worker_num)
 
 
-corpus = CorpusReader(args.corpus, limit=args.limit)
+corpus = CorpusReader(args.corpus, limit=args.limit, return_order=True)
 corpus_length = corpus.get_length()
 num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 
