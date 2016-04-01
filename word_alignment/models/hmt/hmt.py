@@ -28,7 +28,7 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
     betas_p = np.zeros((J, I))
     log_likelihood = 0
     for j in range(J-1, -1, -1):
-        prod = np.ones(I)
+        prod = np.ones(I, dtype=np.longfloat)
         for c in children[j]:
             # compute betas_p for j,c
             betas_p_c = np.dot((betas[c] / marginals[c]), dist_probs)
