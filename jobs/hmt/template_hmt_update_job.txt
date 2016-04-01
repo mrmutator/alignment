@@ -10,6 +10,6 @@ module load python
 source %(script_dir)s/venv/bin/activate
 python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir data/
 gzip data/%(job_name)s.params.*
-cp data/%(job_name)s.params.gz %(it_dir)s/
+cp data/%(job_name)s.params.*.gz %(it_dir)s/
 cp log_likelihood %(it_dir)s/
 wait          # wait until programs are finished
