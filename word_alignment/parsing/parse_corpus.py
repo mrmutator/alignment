@@ -13,7 +13,7 @@ from Parser import Spacy_Parser
 parser = Spacy_Parser()
 
 outfile = codecs.open(args.snt + ".parsed", "w", "utf-8")
-
+filter_file = open(args.snt + ".filtered", "w")
 corpus = GIZA_Reader(args.snt, alignment_order=('e', 'f'))
 raw_infile = codecs.open(args.raw_f, "r", "utf-8")
 skipped = 0
@@ -36,7 +36,8 @@ for e, f_i in corpus:
 
     else:
         skipped += 1
-        print "skipped: ", i
+        filter_file.write(str(i)+"\n")
 
 outfile.close()
+filter_file.close()
 raw_infile.close()
