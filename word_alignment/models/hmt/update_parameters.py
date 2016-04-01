@@ -28,7 +28,7 @@ def update_count_file(file_name, total):
 
 
 def write_param_file(count_file_name, normalized_counts):
-    param_file_name = re.sub(r"counts\.(\d)$", r"params.\1", count_file_name)
+    param_file_name = re.sub(r"counts\.(\d+)$", r"params.\1", count_file_name)
     lengths_I = set()
     with open(param_file_name, "w") as outfile:
         with open(count_file_name, "r") as infile:
