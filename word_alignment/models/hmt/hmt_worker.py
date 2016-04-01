@@ -46,7 +46,7 @@ def train_iteration(corpus, t_params, d_params, s_params, p_0, queue):
         I = len(e_toks)
         I_double = 2 * I
 
-        trans_params = {(e_tok, f_tok): t_params[(e_tok, f_tok)] for f_tok in f_toks for e_tok in e_toks + ["0"] if
+        trans_params = {(e_tok, f_tok): t_params[(e_tok, f_tok)] for f_tok in f_toks for e_tok in e_toks + [0] if
                         (e_tok, f_tok) in t_params}
 
         d_probs = d_params[I]
