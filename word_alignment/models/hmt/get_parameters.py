@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-    corpus = CorpusReader(args.corpus, limit=args.limit)
+    corpus = CorpusReader(args.corpus, limit=args.limit, return_order=True)
 
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, p_0=args.p_0,
                  file_prefix=args.output_prefix, random=False)
