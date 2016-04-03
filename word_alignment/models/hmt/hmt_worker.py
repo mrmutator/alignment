@@ -54,7 +54,7 @@ def train_iteration(corpus, t_params, d_params, s_params, p_0, queue):
 
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
-        tmp = np.hstack((d_probs, np.identity(I)))
+        tmp = np.hstack((d_probs, np.identity(I)*p_0))
         dist_mat = np.vstack((tmp, tmp))
 
         gammas, xis, pair_ll = hmt.upward_downward(f_toks, e_toks + [0] * I, f_heads, trans_params, dist_mat,

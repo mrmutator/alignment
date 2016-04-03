@@ -22,7 +22,7 @@ def train_iteration(corpus, trans_prob, dist_params, start_params, p_0, results)
         J = len(f_toks)
         start_prob = np.hstack((start_params[I], np.ones(I) * (p_0/I)))
 
-        tmp = np.hstack((dist_params[I], np.identity(I)))
+        tmp = np.hstack((dist_params[I], np.identity(I)*p_0))
         dist_mat = np.vstack((tmp, tmp))
 
         # initialize alphas, betas and scaling coefficients

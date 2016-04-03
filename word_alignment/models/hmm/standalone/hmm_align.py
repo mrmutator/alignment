@@ -169,7 +169,7 @@ def train_iteration(corpus, queue):
         start_prob = np.hstack((current_params["s/" + str(I)], np.ones(I) * (p_0/I)))
 
 
-        tmp = np.hstack((current_params["d/" + str(I)], np.identity(I)))
+        tmp = np.hstack((current_params["d/" + str(I)], np.identity(I)*p_0))
         dist_mat = np.vstack((tmp, tmp))
 
         # initialize alphas, betas and scaling coefficients

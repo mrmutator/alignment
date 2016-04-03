@@ -42,7 +42,7 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, p_0, queue,
         t_probs = {(e_tok, f_tok): t_params.get((e_tok, f_tok), 0.0000001) for f_tok in f_toks for e_tok in
                    e_toks + [0]}
         d_probs = np.array(d_params[I])
-        tmp = np.hstack((d_probs, np.identity(I)))
+        tmp = np.hstack((d_probs, np.identity(I)*p_0))
         d_probs = np.vstack((tmp, tmp))
         s_probs = np.array(s_params[I])
 
