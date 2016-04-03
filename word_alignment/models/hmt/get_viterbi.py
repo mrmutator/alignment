@@ -165,7 +165,7 @@ pool = mp.Pool(args.num_workers, worker_wrapper, (process_queue,))
 logger.info("Loading parameters.")
 load_params(t_params, d_params, s_params, args.params, p_0=args.p_0, alpha=args.alpha)
 
-corpus_buffer = Corpus_Buffer(corpus)
+corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
 logger.info("Loading corpus.")
 for num_buffer in corpus_buffer:
     process_queue.put(num_buffer)

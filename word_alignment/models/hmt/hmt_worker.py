@@ -208,7 +208,7 @@ load_params(t_params, d_params, s_params, args.params, p_0=args.p_0, alpha=args.
 updater = mp.Process(target=aggregate_counts, args=(update_queue, num_work, counts_file_name))
 updater.start()
 
-corpus_buffer = Corpus_Buffer(corpus)
+corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
 logger.info("Loading corpus.")
 for buffer in corpus_buffer:
     process_queue.put(buffer)
