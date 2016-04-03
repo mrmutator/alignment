@@ -38,36 +38,39 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, p_0, queue,
     for e_toks, f_toks, f_heads, order in corpus:
         I = len(e_toks)
         J = len(f_toks)
+        I_double = 2 * I
 
         t_probs = {(e_tok, f_tok): t_params.get((e_tok, f_tok), 0.0000001) for f_tok in f_toks for e_tok in
                    e_toks + [0]}
         d_probs = np.array(d_params[I])
         tmp = np.hstack((d_probs, np.identity(I)*p_0))
         d_probs = np.vstack((tmp, tmp))
-        s_probs = np.array(s_params[I])
+        s_probs = np.hstack((np.array(s_params[I]), np.ones(I)* (float(p_0)/I)))
 
         e_toks = e_toks + [0] * I
-        dependencies = [[j_ for j_ in range(J) if f_heads[j_] == j] for j in range(J)]
+        dependencies = [set() for _ in xrange(J)]
+        for j, h in enumerate(f_heads[1:]):
+            dependencies[h].add(j+1)
 
-        f = np.zeros((J, 2 * I))
-        best = np.zeros((J, 2 * I), dtype=int)
+        f = np.zeros((J,I_double))
+        best = np.zeros((J, I_double), dtype=int)
 
         for j in reversed(range(1, J)):
-            f_j_in = np.zeros(2 * I)
+            f_j_in = np.zeros(I_double)
             for dep in dependencies[j]:
                 f_j_in += f[dep]
 
-            for i_p in range(2 * I):
-                values = np.zeros(2 * I)
-                for i in range(2 * I):
+            for i_p in range(I_double):
+                values = np.zeros(I_double)
+                for i in range(I_double):
                     values[i] = (np.log(t_probs[(e_toks[i], f_toks[j])]) + np.log(d_probs[i_p, i])) + f_j_in[i]
 
                 best_i = np.argmax(values)
                 best[j][i_p] = best_i
                 f[j][i_p] = values[best_i]
 
-        f[0] = np.array([np.log(s_probs[i]) + np.log(t_probs[(e_toks[i], f_toks[0])]) for i in range(I)]
-                        + [np.log(p_0) + np.log(t_probs[(0, f_toks[0])]) for _ in range(I)])
+        f[0] = np.array([np.log(s_probs[i]) + np.log(t_probs[(e_toks[i], f_toks[0])]) for i in range(I_double)])
+
         for dep in dependencies[0]:
             f[0] += f[dep]
         last_best = np.argmax(f[0])
