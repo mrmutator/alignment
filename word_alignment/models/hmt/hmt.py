@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs):
     # I already includes the NULL word extension
     # heads = list of dim J, where each position specifies the index of the head in the list (heads[0] = 0)
@@ -13,7 +14,7 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
 
     children = [set() for _ in xrange(J)]
     for j, h in enumerate(heads[1:]):
-        children[h].add(j+1)
+        children[h].add(j + 1)
 
     # compute marginals
 
@@ -21,15 +22,14 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
 
     marginals[0] = start_probs
 
-    for j in xrange(J-1):
-        marginals[j+1] = np.dot(marginals[j], dist_probs)
-
+    for j in xrange(J - 1):
+        marginals[j + 1] = np.dot(marginals[j], dist_probs)
 
     # upward recursion betas
     betas = np.zeros((J, I))
     betas_p = np.zeros((J, I))
     log_likelihood = 0
-    for j in range(J-1, -1, -1):
+    for j in range(J - 1, -1, -1):
         prod = np.ones(I, dtype=np.longfloat)
         for c in children[j]:
             # compute betas_p for j,c
