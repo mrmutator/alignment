@@ -5,6 +5,8 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
     # heads = list of dim J, where each position specifies the index of the head in the list (heads[0] = 0)
     # dist_probs = 2I X 2I matrix (rows = from i', cols = to i)
     # trans_probs = J x 2I for the translation probabilities
+    # the gamma here is the xi in the Kondo paper (single posterior)
+    # the xi here is the p(aj|a_pa(j)) (double posterior) in the Kondo paper
 
     I = len(e_toks)
     J = len(f_toks)
@@ -31,7 +33,7 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
         prod = np.ones(I, dtype=np.longfloat)
         for c in children[j]:
             # compute betas_p for j,c
-            betas_p_c = np.dot((betas[c] / marginals[c]), dist_probs)
+            betas_p_c = np.dot(dist_probs, (betas[c] / marginals[c]))
             prod *= betas_p_c
             betas_p[c] = betas_p_c
         t_j = np.array([trans_params.get((e_tok, f_toks[j]), 0.00000001) for e_tok in e_toks])
@@ -46,9 +48,9 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
     xis = [None]
     for j in range(1, J):
         parent = heads[j]
-        gammas[j] = (betas[j] / marginals[j]) * np.dot(dist_probs, (gammas[parent] / betas_p[j]))
-        xi = np.outer((betas[j] / marginals[j]), (gammas[parent] / betas_p[j])) * dist_probs
+        gammas[j] = (betas[j] / marginals[j]) * np.dot((gammas[parent] / betas_p[j]), dist_probs)
+        xi = np.outer((gammas[parent] / betas_p[j]), (betas[j] / marginals[j])) * dist_probs
         xis.append(xi)
-        # xi and gamma can probably be computed in main method such that counts can be updated directly
+        # xi is xi[i_p, i] like dist_matrix
 
     return gammas, xis, log_likelihood
