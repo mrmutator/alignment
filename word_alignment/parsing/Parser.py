@@ -1,5 +1,6 @@
 from spacy.en import English
 from Trees import Dependency_Tree, Dep_Node
+import re
 
 class Spacy_Parser(object):
 
@@ -31,5 +32,60 @@ class Spacy_Parser(object):
                     nodes[tok.head.i].add_left_child(nodes[tok.i], tok.dep_)
                 else:
                     nodes[tok.head.i].add_right_child(nodes[tok.i], tok.dep_)
+
+        return tree
+
+
+class StanfordParser(object):
+
+    def __init__(self):
+        pass
+
+    def dep_parse(self, parse_output_string, strict=False):
+        lines = parse_output_string.strip().split("\n")
+        toks, pos = zip(*[el.split("/") for el in lines[0].split()])
+
+
+        nodes = []
+        tree = Dependency_Tree(tokens = toks, pos_tags=pos)
+        for i, tok in enumerate(toks):
+            nodes.append(Dep_Node(index=i, data={}))
+        last_node = -1
+        for line in lines[2:]:
+            m = re.search("^(.*?)\(.*?-(\d+), .*?-(\d+)\)$", line)
+            rel = m.group(1)
+            head_i = int(m.group(2))-1
+            child_i = int(m.group(3))-1
+            if last_node + 1 != child_i:
+                # missing nodes with no relation because they are punctuation
+                # use heuristics to fit them into the tree
+                for j in xrange(last_node+1, child_i):
+                    nodes[j].add_parent(nodes[j-1], "missing")
+                    nodes[j-1].add_right_child(nodes[j], "missing")
+
+            if head_i == -1:
+                tree.set_root(nodes[child_i])
+                nodes[child_i].add_parent(None, "ROOT")
+            else:
+                if last_node == child_i:
+                    if strict:
+                        return None
+                    continue
+
+                nodes[child_i].add_parent(nodes[head_i], rel)
+                if head_i > child_i:
+                    nodes[head_i].add_left_child(nodes[child_i], rel)
+                else:
+                    nodes[head_i].add_right_child(nodes[child_i], rel)
+
+            last_node = child_i
+
+        if last_node + 1 != len(toks):
+            # missing nodes with no relation because they are punctuation
+            # use heuristics to fit them into the tree
+            for j in xrange(last_node+1, len(toks)):
+                nodes[j].add_parent(nodes[j-1], "missing")
+                nodes[j-1].add_right_child(nodes[j], "missing")
+
 
         return tree
