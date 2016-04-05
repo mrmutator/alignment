@@ -27,6 +27,13 @@ for e, f_i in corpus:
     tree = parser.dep_parse(f_raw)
     if tree:
         order, pairs = tree.traverse_with_heads()
+        # test for weird cases (bug reported)
+        test_order = sorted(order)
+        if test_order != range(len(f_i)):
+            skipped+= 1
+            print "Skipped because of bug."
+            filter_file.write(str(i)+"\n")
+            continue
         _, f_heads = zip(*pairs)
         f = map(f_i.__getitem__, order)
         outfile.write(" ".join(map(str, e)) + "\n")
