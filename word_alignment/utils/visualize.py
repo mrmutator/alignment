@@ -1,4 +1,4 @@
-from utils.Corpus_Reader import Corpus_Reader
+from word_alignment.utils.Corpus_Reader import Corpus_Reader
 import codecs
 import subprocess
 import tempfile
@@ -115,6 +115,6 @@ if __name__ == "__main__":
     else:
         limit = args.limit
 
-    corpus = Corpus_Reader(args.e_file, args.f_file, args.a_file, alignment_order=alignment_order, limit=limit, strings=True)
+    corpus = Corpus_Reader(args.e_file, args.f_file, args.a_file, alignment_order=alignment_order, limit=limit, strings="unicode")
 
     visualize_all(corpus, args.out, max_sent_length=args.max_length)
