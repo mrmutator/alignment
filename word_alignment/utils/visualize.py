@@ -6,6 +6,7 @@ import shutil
 import os
 import re
 from collections import defaultdict
+import math
 
 HEADER = R"""\documentclass[class=minimal,border=0pt]{standalone}
 \usepackage[utf8]{inputenc}
@@ -93,13 +94,13 @@ def make_link(e_pos, f_pos, typ="link"):
     return "\\draw [%s] (f%d) -- (e%d);\n" % (typ, f_pos, e_pos)
 
 def make_deps(heads):
-    deg_unit = 90.0 / (len(heads)-1)
+    deg_unit = 70.0 / (len(heads)-1)
     string = ""
     for i, h in enumerate(heads):
         if h == -1:
             string += "\\draw (root) edge[->] node {} (f%s);\n" % i
             continue
-        deg = abs(h-i) * deg_unit
+        deg = round((abs(h-i) * deg_unit) * (1.0/math.sqrt(abs(h-i))) + 20, 4)
         if h > i:
             string += "\\draw (f%s) edge[->, bend right=%s] node {} (f%s);\n" % (h,deg, i)
         else:
@@ -169,7 +170,6 @@ def visualize_all(corpus, file_name, max_sent_length=0, has_heads=False, gold_al
         if gold_alignments:
             gold = gold_alignments.get_gold_alignments(i+1)
         code = visualize(e,f,a, heads=heads, gold=gold)
-        print code
         make_image(code, "aligned_%d.pdf" % i)
         files.append("aligned_%d.pdf" % i)
 
