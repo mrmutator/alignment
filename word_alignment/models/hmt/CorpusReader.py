@@ -20,7 +20,8 @@ class CorpusReader(object):
             if b != -1:
                 buffer.append(map(int, line.strip().split()))
             b += 1
-            if b == 4:
+            if b == 5:
+                buffer = buffer[:3] + [buffer[4]]
                 yield buffer[:self.buffer_end]
                 c += 1
                 if c == self.limit:
