@@ -1,0 +1,14 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=01:00:00
+# call the programs
+cd "$TMPDIR"
+cp %(dir)s/it0/%(job_name)s.corpus.1.gz corpus.test.gz
+cp %(it_dir)s/%(job_name)s.params.1.gz params.txt.gz
+gunzip params.txt.gz
+gunzip corpus.test.gz
+module load python
+source %(script_dir)s/venv/bin/activate
+python %(script_dir)s/word_alignment/models/hmt_lex/get_viterbi.py -corpus corpus.test  -params params.txt -out_file corpus.aligned -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -buffer_size %(buffer_size)s -limit %(vit_limit)s
+cp corpus.aligned %(it_dir)s/%(job_name)s.aligned.1
+wait          # wait until programs are finished
