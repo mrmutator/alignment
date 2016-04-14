@@ -110,6 +110,7 @@ class Parameters(object):
             outfile_corpus.write(" ".join([str(w) for w in e_toks]) + "\n")
             outfile_corpus.write(" ".join([str(w) for w in f_toks]) + "\n")
             outfile_corpus.write(" ".join([str(h) for h in f_heads]) + "\n")
+            outfile_corpus.write(" ".join(["0" for _ in f_toks]) + "\n")
             outfile_corpus.write(" ".join([str(o) for o in order]) + "\n\n")
             # add parameters
             I = len(e_toks)
