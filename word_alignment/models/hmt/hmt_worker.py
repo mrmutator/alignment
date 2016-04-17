@@ -3,10 +3,9 @@ from collections import Counter
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import CorpusReader
+from CorpusReader import SubcorpusReader
 import logging
 import hmt
-import re
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -197,7 +196,7 @@ def worker_wrapper(process_queue):
         train_iteration(buffer, t_params, d_params, s_params, args.p_0, update_queue)
 
 
-corpus = CorpusReader(args.corpus)
+corpus = SubcorpusReader(args.corpus)
 corpus_length = corpus.get_length()
 num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 

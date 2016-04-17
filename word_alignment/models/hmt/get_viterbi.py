@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import CorpusReader
+from CorpusReader import SubcorpusReader
 import logging
 
 logging.basicConfig(level=logging.DEBUG,
@@ -157,7 +157,7 @@ def worker_wrapper(process_queue):
         get_all_viterbi_alignments(buffer, t_params, d_params, s_params, args.p_0, results_queue, worker_num)
 
 
-corpus = CorpusReader(args.corpus, limit=args.limit, return_order=True)
+corpus = SubcorpusReader(args.corpus, limit=args.limit, return_order=True)
 corpus_length = corpus.get_length()
 num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 

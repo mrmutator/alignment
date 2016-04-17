@@ -110,7 +110,6 @@ class Parameters(object):
             outfile_corpus.write(" ".join([str(w) for w in e_toks]) + "\n")
             outfile_corpus.write(" ".join([str(w) for w in f_toks]) + "\n")
             outfile_corpus.write(" ".join([str(h) for h in f_heads]) + "\n")
-            outfile_corpus.write(" ".join(["0" for _ in f_toks]) + "\n")
             outfile_corpus.write(" ".join([str(o) for o in order]) + "\n\n")
             # add parameters
             I = len(e_toks)
@@ -160,7 +159,7 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-    corpus = CorpusReader(args.corpus, limit=args.limit, return_order=True)
+    corpus = CorpusReader(args.corpus, limit=args.limit)
 
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, p_0=args.p_0,
                  file_prefix=args.output_prefix, random=False)
