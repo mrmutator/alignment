@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def upward_downward(f_toks, e_toks, heads, head_pos,  trans_params, dist_probs, start_probs):
+def upward_downward(f_toks, e_toks, heads, cons,  trans_params, dist_probs, start_probs):
     # I already includes the NULL word extension
     # heads = list of dim J, where each position specifies the index of the head in the list (heads[0] = 0)
     # dist_probs = 2I X 2I matrix (rows = from i', cols = to i)
@@ -22,9 +22,10 @@ def upward_downward(f_toks, e_toks, heads, head_pos,  trans_params, dist_probs, 
 
     marginals[0] = start_probs
 
-    for j in xrange(J - 1):
-        p = head_pos[j+1]
-        marginals[j + 1] = np.dot(marginals[j], dist_probs[p])
+    for j in xrange(1, J):
+        p = cons[j]
+        h = heads[j]
+        marginals[j] = np.dot(marginals[h], dist_probs[p])
 
     # upward recursion betas
     betas = np.zeros((J, I))
@@ -33,7 +34,7 @@ def upward_downward(f_toks, e_toks, heads, head_pos,  trans_params, dist_probs, 
     for j in range(J - 1, -1, -1):
         prod = np.ones(I, dtype=np.longfloat)
         for c in children[j]:
-            p = head_pos[c] # is the same for each c
+            p = cons[c] # is the same for each c
             # compute betas_p for j,c
             betas_p_c = np.dot(dist_probs[p], (betas[c] / marginals[c]))
             prod *= betas_p_c
@@ -50,7 +51,7 @@ def upward_downward(f_toks, e_toks, heads, head_pos,  trans_params, dist_probs, 
     xis = [None]
     for j in range(1, J):
         parent = heads[j]
-        p = head_pos[j]
+        p = cons[j]
         gammas[j] = (betas[j] / marginals[j]) * np.dot((gammas[parent] / betas_p[j]), dist_probs[p])
         xi = np.outer((gammas[parent] / betas_p[j]), (betas[j] / marginals[j])) * dist_probs[p]
         xis.append(xi)

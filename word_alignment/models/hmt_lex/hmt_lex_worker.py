@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import CorpusReader
+from CorpusReader import SubcorpusReader
 import logging
 import hmt_lex
 
@@ -41,7 +41,7 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
     al_counts = Counter()  # (i_p, i)
     al_norm = Counter()  # (i_p)
     ll = 0
-    for e_toks, f_toks, f_heads, pos in corpus:
+    for e_toks, f_toks, f_heads, cons in corpus:
         I = len(e_toks)
         I_double = 2 * I
 
@@ -51,14 +51,12 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
         s_probs = s_params[I]
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
-        head_pos_set = set()
-        head_pos = [None]
-        for head in f_heads[1:]:
-            head_pos_set.add(pos[head])
-            head_pos.append(pos[head])
+        cons_set = set()
+        for con in cons[1:]:
+            cons_set.add(con)
 
         d_probs = dict()
-        for p in head_pos_set:
+        for p in cons_set:
             tmp_prob = np.zeros((I, I))
             jumps = {j: d_params[p, j] for j in xrange(-I+1, I)}
             for i_p in xrange(I):
@@ -70,7 +68,7 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
             d_probs[p] = dist_mat
 
 
-        gammas, xis, pair_ll = hmt_lex.upward_downward(f_toks, e_toks + [0] * I, f_heads, head_pos, trans_params, d_probs,
+        gammas, xis, pair_ll = hmt_lex.upward_downward(f_toks, e_toks + [0] * I, f_heads, cons, trans_params, d_probs,
                                                        start_prob)
 
         # update counts
@@ -90,7 +88,7 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
 
         for j_p, f_tok in enumerate(f_toks[1:]):
             j = j_p + 1
-            p = head_pos[j]
+            p = cons[j]
             if (0, f_tok) in trans_params:
                 gammas_0_j = np.sum(gammas[j][I:])
                 lex_counts[(0, f_tok)] += gammas_0_j
@@ -208,7 +206,7 @@ def worker_wrapper(process_queue):
         train_iteration(buffer, t_params, d_params, s_params, args.alpha, args.p_0, update_queue)
 
 
-corpus = CorpusReader(args.corpus)
+corpus = SubcorpusReader(args.corpus)
 corpus_length = corpus.get_length()
 num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 

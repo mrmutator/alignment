@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import CorpusReader
+from CorpusReader import SubcorpusReader
 import logging
 
 logging.basicConfig(level=logging.DEBUG,
@@ -35,7 +35,7 @@ class Corpus_Buffer(object):
 
 def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, alpha, p_0, queue, worker_num):
     all_alignments = []
-    for e_toks, f_toks, f_heads, pos, order in corpus:
+    for e_toks, f_toks, f_heads, cons, order in corpus:
         I = len(e_toks)
         J = len(f_toks)
         I_double = 2 * I
@@ -43,14 +43,12 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, alpha, p_0,
         t_probs = {(e_tok, f_tok): t_params.get((e_tok, f_tok), 0.0000001) for f_tok in f_toks for e_tok in
                    e_toks + [0]}
 
-        head_pos_set = set()
-        head_pos = [None]
-        for head in f_heads[1:]:
-            head_pos_set.add(pos[head])
-            head_pos.append(pos[head])
+        cons_set = set()
+        for con in cons[1:]:
+            cons_set.add(con)
 
         d_probs = dict()
-        for p in head_pos_set:
+        for p in cons_set:
             tmp_prob = np.zeros((I, I))
             jumps = {j: d_params[p, j] for j in xrange(-I+1, I)}
             for i_p in xrange(I):
@@ -73,7 +71,7 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, alpha, p_0,
         best = np.zeros((J, I_double), dtype=int)
 
         for j in reversed(range(1, J)):
-            p = head_pos[j]
+            p = cons[j]
             f_j_in = np.zeros(I_double)
             for dep in dependencies[j]:
                 f_j_in += f[dep]
@@ -170,7 +168,7 @@ def worker_wrapper(process_queue):
         get_all_viterbi_alignments(buffer, t_params, d_params, s_params, args.alpha, args.p_0, results_queue, worker_num)
 
 
-corpus = CorpusReader(args.corpus, limit=args.limit, return_order=True)
+corpus = SubcorpusReader(args.corpus, limit=args.limit, return_order=True)
 corpus_length = corpus.get_length()
 num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 
