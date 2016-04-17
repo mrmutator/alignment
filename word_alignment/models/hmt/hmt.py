@@ -8,7 +8,6 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
     # trans_probs = J x 2I for the translation probabilities
     # the gamma here is the xi in the Kondo paper (single posterior)
     # the xi here is the p(aj|a_pa(j)) (double posterior) in the Kondo paper
-
     I = len(e_toks)
     J = len(f_toks)
 
@@ -22,8 +21,9 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
 
     marginals[0] = start_probs
 
-    for j in xrange(J - 1):
-        marginals[j + 1] = np.dot(marginals[j], dist_probs)
+    for j in xrange(1, J):
+        h = heads[j]
+        marginals[j] = np.dot(marginals[h], dist_probs)
 
     # upward recursion betas
     betas = np.zeros((J, I))
