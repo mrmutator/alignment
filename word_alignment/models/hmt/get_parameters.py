@@ -4,6 +4,22 @@ import numpy as np
 import argparse
 from CorpusReader import CorpusReader
 
+def reorder(f_toks, pos, rel, dir, order):
+    J = len(f_toks)
+    new_f_toks = [None] * J
+    new_pos = [None] * J
+    new_rel = [None] * J
+    new_dir = [None] * J
+    for j in xrange(J):
+        i = order[j]
+        new_f_toks[i] = f_toks[j]
+        new_pos[i] = pos[j]
+        new_rel[i] = rel[j]
+        new_dir[i] = dir[j]
+    new_f_heads = [0] + range(J-1)
+    new_order = range(J)
+    return new_f_toks, new_f_heads, new_pos, new_rel, new_dir, new_order
+
 class CondVoc(object):
 
     def __init__(self):
@@ -121,7 +137,7 @@ class Parameters(object):
 
         outfile.close()
 
-    def split_data_get_parameters(self, corpus, file_prefix, num_sentences, head_con="", tok_con=""):
+    def split_data_get_parameters(self, corpus, file_prefix, num_sentences, head_con="", tok_con="", hmm=False):
         subset_id = 1
         outfile_corpus = open(file_prefix + ".corpus." + str(subset_id), "w")
         sub_t = set()
@@ -132,6 +148,8 @@ class Parameters(object):
         for e_toks, f_toks, f_heads, pos, rel, dir, order in corpus:
             subset_c += 1
             total += 1
+            if hmm:
+                f_toks, f_heads, pos, rel, dir, order = reorder(f_toks, pos, rel, dir, order)
             outfile_corpus.write(" ".join([str(w) for w in e_toks]) + "\n")
             outfile_corpus.write(" ".join([str(w) for w in f_toks]) + "\n")
             outfile_corpus.write(" ".join([str(h) for h in f_heads]) + "\n")
@@ -181,7 +199,7 @@ class Parameters(object):
             self.write_params(sub_lengths_pos, sub_lengths, sub_t, file_prefix + ".params." + str(subset_id))
 
 
-def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", random=False, cond_head="", cond_tok=""):
+def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", random=False, cond_head="", cond_tok="", hmm=False):
     parameters = Parameters(corpus, p_0=p_0)
 
     if random:
@@ -193,7 +211,7 @@ def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", random=
 
     parameters.initialize_trans_t_file(t_file)
 
-    parameters.split_data_get_parameters(corpus, file_prefix, num_sentences, head_con=cond_head, tok_con=cond_tok)
+    parameters.split_data_get_parameters(corpus, file_prefix, num_sentences, head_con=cond_head, tok_con=cond_tok, hmm=hmm)
     with open(file_prefix+ ".condvoc", "w") as outfile:
         outfile.write(parameters.cond_voc.get_voc())
 
@@ -208,10 +226,11 @@ if __name__ == "__main__":
     arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
     arg_parser.add_argument("-cond_tok", required=False, default="", type=str)
     arg_parser.add_argument("-cond_head", required=False, default="", type=str)
+    arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
 
     args = arg_parser.parse_args()
 
     corpus = CorpusReader(args.corpus, limit=args.limit)
 
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, p_0=args.p_0,
-                 file_prefix=args.output_prefix, random=False, cond_head=args.cond_head, cond_tok=args.cond_tok)
+                 file_prefix=args.output_prefix, random=False, cond_head=args.cond_head, cond_tok=args.cond_tok, hmm=args.hmm)
