@@ -10,8 +10,8 @@ source %(script_dir)s/venv/bin/activate
 python %(script_dir)s/word_alignment/parsing/parse_corpus_spacy.py -snt ef.snt -raw_f corpus.f
 python %(script_dir)s/word_alignment/utils/filter_giza.py ef.snt.filter ef.snt
 %(gold_cmt)spython %(script_dir)s/word_alignment/utils/filter_gold.py ef.snt.filter gold.txt
-python %(script_dir)s/word_alignment/utils/filter_giza.py -filter ef.snt.filter -file corpus.e
-python %(script_dir)s/word_alignment/utils/filter_giza.py -filter ef.snt.filter -file corpus.f
+python %(script_dir)s/word_alignment/parsing/filter_file.py -filter ef.snt.filter -file corpus.e
+python %(script_dir)s/word_alignment/parsing/filter_file.py -filter ef.snt.filter -file corpus.f
 cp ef.snt.filter %(filter_file)s
 cp ef.snt.filtered %(snt_filtered)s
 cp ef.snt.parsed %(psnt_file)s
