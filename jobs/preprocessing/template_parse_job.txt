@@ -4,6 +4,7 @@
 cd "$TMPDIR"
 cp  %(snt_file)s ef.snt
 cp  %(f_file)s corpus.f
+cp  %(e_file)s corpus.e
 %(gold_cmt)scp %(gold_file)s gold.txt
 module load python
 source %(script_dir)s/venv/bin/activate
