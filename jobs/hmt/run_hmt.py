@@ -92,7 +92,7 @@ def generate_iteration_jobs(**params):
         params["part"] = part
         params["vit_limit"] = ""
         if params["align_limits"][part-1] > 0:
-            params["vit_limit"] = "-vit_limit " + str(params["align_limits"][part-1])
+            params["vit_limit"] = "-limit " + str(params["align_limits"][part-1])
         with open(params['job_template_dir'] + "/template_hmt_evaluate_job.txt", "r") as infile:
             template = infile.read()
             job_file = template % params
