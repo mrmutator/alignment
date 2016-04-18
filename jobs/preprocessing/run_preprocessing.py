@@ -123,6 +123,9 @@ arg_parser.add_argument("-PBS_time_parse_job", required=False, default="01:00:00
 arg_parser.add_argument("-PBS_time_mgiza_job", required=False, default="01:00:00", type=str)
 arg_parser.add_argument("-giza_dir", required=False, default="$home/mgiza", type=str)
 
+arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
+arg_parser.set_defaults(no_sub=False)
+
 args = arg_parser.parse_args()
 params = get_params(args)
 
