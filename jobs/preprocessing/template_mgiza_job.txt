@@ -1,0 +1,14 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=%(PBS_time_mgiza_job)s
+cd "$TMPDIR"
+cp %(snt_filtered)s ef.snt
+cp %(e_vcb)s e.vcb
+cp %(f_vcb)s f.vcb
+%(giza_dir)s/mgizapp/bin/snt2cooc cooc.cooc e.vcb f.vcb ef.snt
+%(giza_dir)s/mgizapp/bin/mgiza -s e.vcb -t f.vcb -c ef.snt -CoocurrenceFile cooc.cooc -o ibm1hmm -m1 5 -m2 0 -m3 0 -m4 0 -m5 0 -m6 0 -mh 5 -hmmdumpfrequency 5 -model1dumpfrequency 5 -ncpu 16
+python %(giza_dir)s/mgiza/scripts/merge_alignment.py ibm1hmm.Ahmm.5.part* > Ahmm.merged
+python %(script_dir)s/word_alignment/giza/Parse.py Ahmm.merged
+cp ibm1hmm.t1.5 %(ibm1_table)s
+cp Ahmm.merged.aligned %(giza_aligned)s
+wait

@@ -1,0 +1,12 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=%(PBS_time_prepare_job)s
+cd "$TMPDIR"
+cp %(e_file)s corpus.e
+cp %(f_file)s corpus.f
+
+%(giza_dir)s/mgizapp/bin/plain2snt corpus.e corpus.f
+mv corpus.e_corpus.f.snt %(snt_file)s
+cp corpus.e.vcb %(e_vcb)s
+cp corpus.f.vcb %(f_vcb)s
+wait

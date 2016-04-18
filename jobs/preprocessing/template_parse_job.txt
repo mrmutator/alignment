@@ -1,0 +1,23 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=%(PBS_time_parse_job)s
+cd "$TMPDIR"
+cp  %(snt_file)s ef.snt
+cp  %(f_file)s corpus.f
+%(gold_cmt)scp %(gold_file)s gold.txt
+module load python
+source %(script_dir)s/venv/bin/activate
+python %(script_dir)s/word_alignment/parsing/parse_corpus_spacy.py -snt ef.snt -raw_f corpus.f
+python %(script_dir)s/word_alignment/utils/filter_giza.py ef.snt.filter ef.snt
+%(gold_cmt)spython %(script_dir)s/word_alignment/utils/filter_gold.py ef.snt.filter gold.txt
+python %(script_dir)s/word_alignment/utils/filter_giza.py -filter ef.snt.filter -file corpus.e
+python %(script_dir)s/word_alignment/utils/filter_giza.py -filter ef.snt.filter -file corpus.f
+cp ef.snt.filter %(filter_file)s
+cp ef.snt.filtered %(snt_filtered)s
+cp ef.snt.parsed %(psnt_file)s
+cp ef.snt.posvoc %(pos_voc_file)s
+cp ef.snt.relvoc %(rel_voc_file)s
+cp corpus.e.filtered %(e_filtered)s
+cp corpus.f.filtered %(f_filtered)s
+%(gold_cmt)scp gold.txt.filtered %(gold_file_filtered)s
+wait
