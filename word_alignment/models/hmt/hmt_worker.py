@@ -5,7 +5,7 @@ import multiprocessing as mp
 import argparse
 from CorpusReader import SubcorpusReader
 import logging
-import hmt_lex
+import hmt
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -68,7 +68,7 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
             d_probs[p] = dist_mat
 
 
-        gammas, xis, pair_ll = hmt_lex.upward_downward(f_toks, e_toks + [0] * I, f_heads, cons, trans_params, d_probs,
+        gammas, xis, pair_ll = hmt.upward_downward(f_toks, e_toks + [0] * I, f_heads, cons, trans_params, d_probs,
                                                        start_prob)
 
         # update counts
