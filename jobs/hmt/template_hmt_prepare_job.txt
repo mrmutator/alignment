@@ -1,13 +1,12 @@
 #PBS -S /bin/bash
 #PBS -lnodes=1:cores16
-#PBS -lwalltime=24:00:00
+#PBS -lwalltime=%(PBS_time_prepare_job)s
 cd "$TMPDIR"
 cp  %(psnt)s corpus.psnt
 cp %(ibm1_table_path)s ibm1.table
-# call the programs
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/hmt/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -p_0 %(p_0)s
+python %(script_dir)s/word_alignment/models/hmt/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -p_0 %(p_0)s %(cond_tok)s %(cond_head)s %(hmm)s
 gzip %(job_name)s.*
 cp %(job_name)s.* %(it_dir)s/
-wait          # wait until programs are finished
+wait
