@@ -2,6 +2,7 @@ import argparse
 import time
 import os
 import subprocess
+import numpy as np
 
 def get_time():
     return str(int(time.time()))
@@ -21,8 +22,34 @@ def get_params(args):
     params['alpha'] = args.alpha
     params['p_0'] = args.p_0
     params['num_nodes'] = args.num_nodes
-    params["align1"] = args.align1
-    params["vit_limit"] = args.vit_limit
+    params["cond_head"] = ""
+    params["cond_tok"] = ""
+    params["hmm"] = ""
+    if args.cond_head:
+        params["cond_head"] = "-cond_head " + args.cond_head
+    if args.cond_tok:
+        params["cond_tok"] = "-cond_tok " + args.cond_tok
+    if args.hmm:
+        params["hmm"] = "-hmm"
+    params["align_parts"] = 0
+    params["align_limits"] = []
+
+    if args.align_limit == -1:
+        # align all
+        params["align_parts"] = params["num_nodes"]
+        params["align_limits"] = [0 for _ in xrange(params["num_nodes"])]
+    elif args.align_limit == 0:
+        pass
+    else:
+        params["align_parts"] = int(np.ceil(args.align_limit / float(args.group_size)))
+        params["align_limits"] = [0 for _ in xrange(params["align_parts"])]
+        rest = args.align_limit % args.group_size
+        params["align_limits"][params["align_parts"]-1] = rest
+
+    params['PBS_time_prepare_job'] = args.PBS_time_prepare_job
+    params['PBS_time_worker_job'] = args.PBS_time_worker_job
+    params['PBS_time_update_job'] = args.PBS_time_update_job
+    params['PBS_time_evaluate_job'] = args.PBS_time_evaluate_job
 
     return params
 
@@ -61,12 +88,16 @@ def generate_iteration_jobs(**params):
     with open(params['job_dir'] + "/update_job_it" + params["it_number"] + ".sh", "w") as outfile:
         outfile.write(job_file)
 
-    if params["align1"]:
+    for part in xrange(1, params["align_parts"]+1):
+        params["part"] = part
+        params["vit_limit"] = ""
+        if params["align_limits"][part-1] > 0:
+            params["vit_limit"] = "-vit_limit " + str(params["align_limits"][part-1])
         with open(params['job_template_dir'] + "/template_hmt_evaluate_job.txt", "r") as infile:
             template = infile.read()
             job_file = template % params
 
-        with open(params['job_dir'] + "/evaluate_job_it" + params["it_number"] + ".sh", "w") as outfile:
+        with open(params['job_dir'] + "/evaluate_job_it" + params["it_number"] + "." + str(part) + ".sh", "w") as outfile:
             outfile.write(job_file)
 
 
@@ -109,13 +140,13 @@ def send_jobs(**params):
         last_job_id = update_job_id
 
         # eval job
-        if params["align1"]:
-            job_path = job_dir + "/evaluate_job_it" +str(i) + ".sh"
+        for part in xrange(1, params["align_parts"]+1):
+            job_path = job_dir + "/evaluate_job_it" +str(i) + "." + str(part) + ".sh"
             proc_prepare = subprocess.Popen(['qsub', "-Wdepend=afterok:"+update_job_id, job_path],
                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
             stdout, stderr = proc_prepare.communicate()
             if stderr:
-                raise Exception("Failed sending evaluate job it" + str(i) + " : " + stderr)
+                raise Exception("Failed sending evaluate job it" + str(i) + "." + str(part) +  " : " + stderr)
             eval_job_id = stdout.strip().split(".")[0]
             log_file.write(job_path + ": " + eval_job_id + "\n")
 
@@ -137,21 +168,27 @@ arg_parser.add_argument("-num_iterations", required=True, type=int)
 arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 
+arg_parser.add_argument("-cond_head", required=False, default="", type=str)
+arg_parser.add_argument("-cond_tok", required=False, default="", type=str)
+arg_parser.add_argument('-hmm', dest="hmm", action="store_true", required=False)
+
+
 arg_parser.add_argument("-group_size", required=True, type=int)
 arg_parser.add_argument("-num_nodes", required=True, type=int)
 
 arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
 arg_parser.add_argument("-buffer_size", required=False, default=20, type=int)
 
-arg_parser.add_argument('-align1', dest="align1", action="store_true", required=False)
-arg_parser.set_defaults(align1=False)
-arg_parser.add_argument("-vit_limit", required=False, default=0, type=int)
+arg_parser.add_argument("-align_limit", required=False, default=-1, type=int)
 
 
 arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
 arg_parser.set_defaults(no_sub=False)
 
-
+arg_parser.add_argument("-PBS_time_prepare_job", required=False, default="01:00:00", type=str)
+arg_parser.add_argument("-PBS_time_worker_job", required=False, default="24:00:00", type=str)
+arg_parser.add_argument("-PBS_time_update_job", required=False, default="24:00:00", type=str)
+arg_parser.add_argument("-PBS_time_evaluate_job", required=False, default="01:00:00", type=str)
 args = arg_parser.parse_args()
 params = get_params(args)
 

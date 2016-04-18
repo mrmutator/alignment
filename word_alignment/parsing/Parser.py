@@ -19,20 +19,25 @@ class Spacy_Parser(object):
             return None
 
         nodes = []
-        tree = Dependency_Tree(tokens = [t.orth_ for t in parsed], pos_tags=[t.tag_ for t in parsed])
+        tree = Dependency_Tree(tokens = [t.orth_ for t in parsed], pos_tags=[t.tag_ for t in parsed],
+                               relations=[t.dep_ for t in parsed], directions=[])
         for tok in parsed:
             nodes.append(Dep_Node(index=tok.i, data={"lemma": tok.lemma_}))
+        directions = []
         for tok in parsed:
             if tok.head is tok:
                 tree.set_root(nodes[tok.i])
                 nodes[tok.i].add_parent(None, "ROOT")
+                directions.append(-1)
             else:
                 nodes[tok.i].add_parent(nodes[tok.head.i], tok.dep_)
                 if tok.head.i > tok.i:
                     nodes[tok.head.i].add_left_child(nodes[tok.i], tok.dep_)
+                    directions.append(1)
                 else:
                     nodes[tok.head.i].add_right_child(nodes[tok.i], tok.dep_)
-
+                    directions.append(0)
+        tree.directions = directions
         return tree
 
 

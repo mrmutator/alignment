@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import CorpusReader
+from CorpusReader import SubcorpusReader
 import logging
 
 logging.basicConfig(level=logging.DEBUG,
@@ -33,18 +33,33 @@ class Corpus_Buffer(object):
             yield self.num, buffer
 
 
-def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, p_0, queue, worker_num):
+def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, alpha, p_0, queue, worker_num):
     all_alignments = []
-    for e_toks, f_toks, f_heads, order in corpus:
+    for e_toks, f_toks, f_heads, cons, order in corpus:
         I = len(e_toks)
         J = len(f_toks)
         I_double = 2 * I
 
         t_probs = {(e_tok, f_tok): t_params.get((e_tok, f_tok), 0.0000001) for f_tok in f_toks for e_tok in
                    e_toks + [0]}
-        d_probs = np.array(d_params[I])
-        tmp = np.hstack((d_probs, np.identity(I)*p_0))
-        d_probs = np.vstack((tmp, tmp))
+
+        cons_set = set()
+        for con in cons[1:]:
+            cons_set.add(con)
+
+        d_probs = dict()
+        for p in cons_set:
+            tmp_prob = np.zeros((I, I))
+            jumps = {j: d_params[p, j] for j in xrange(-I+1, I)}
+            for i_p in xrange(I):
+                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)]) + p_0
+                tmp_prob[i_p, :] = np.array(
+                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * (1.0 / I)) for i in xrange(I)])
+            tmp = np.hstack((tmp_prob, np.identity(I)*p_0))
+            dist_mat = np.vstack((tmp, tmp))
+            d_probs[p] = dist_mat
+
+
         s_probs = np.hstack((np.array(s_params[I]), np.ones(I)* (float(p_0)/I)))
 
         e_toks = e_toks + [0] * I
@@ -56,6 +71,7 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, p_0, queue,
         best = np.zeros((J, I_double), dtype=int)
 
         for j in reversed(range(1, J)):
+            p = cons[j]
             f_j_in = np.zeros(I_double)
             for dep in dependencies[j]:
                 f_j_in += f[dep]
@@ -63,7 +79,7 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, p_0, queue,
             for i_p in range(I_double):
                 values = np.zeros(I_double)
                 for i in range(I_double):
-                    values[i] = (np.log(t_probs[(e_toks[i], f_toks[j])]) + np.log(d_probs[i_p, i])) + f_j_in[i]
+                    values[i] = (np.log(t_probs[(e_toks[i], f_toks[j])]) + np.log(d_probs[p][i_p, i])) + f_j_in[i]
 
                 best_i = np.argmax(values)
                 best[j][i_p] = best_i
@@ -88,10 +104,9 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, p_0, queue,
     queue.put((worker_num, all_alignments))
 
 
-def load_params(t_params, d_params, s_params, file_name, p_0=0.2, alpha=0.0):
+def load_params(t_params, d_params, s_params, file_name, p_0=0.2):
     lengths = set()
     temp_start_params = dict()
-    jumps = dict()
     infile = open(file_name, "r")
     for line in infile:
         els = line.strip().split(" ")
@@ -102,9 +117,10 @@ def load_params(t_params, d_params, s_params, file_name, p_0=0.2, alpha=0.0):
             p = float(els[3])
             t_params[(e, f)] = p
         elif p_type == "j":
-            j = int(els[1])
-            p = float(els[2])
-            jumps[j] = p
+            pos = int(els[1])
+            j = int(els[2])
+            p = float(els[3])
+            d_params[(pos, j)] = p
         elif p_type == "s":
             I = int(els[1])
             i = int(els[2])
@@ -114,14 +130,9 @@ def load_params(t_params, d_params, s_params, file_name, p_0=0.2, alpha=0.0):
         else:
             raise Exception("Should not happen.")
     infile.close()
-    for I in lengths:
-        tmp_prob = np.zeros((I, I))
-        for i_p in xrange(I):
-            norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)]) + p_0
-            tmp_prob[i_p, :] = np.array(
-                [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * (1.0 / I)) for i in xrange(I)])
-        d_params[I] = tmp_prob
 
+
+    for I in lengths:
         tmp2_prob = np.zeros(I)
         for i in xrange(I):
             tmp2_prob[i] = temp_start_params[I, i]
@@ -154,16 +165,16 @@ s_params = manager.dict()
 def worker_wrapper(process_queue):
     while True:
         worker_num, buffer = process_queue.get()
-        get_all_viterbi_alignments(buffer, t_params, d_params, s_params, args.p_0, results_queue, worker_num)
+        get_all_viterbi_alignments(buffer, t_params, d_params, s_params, args.alpha, args.p_0, results_queue, worker_num)
 
 
-corpus = CorpusReader(args.corpus, limit=args.limit, return_order=True)
+corpus = SubcorpusReader(args.corpus, limit=args.limit, return_order=True)
 corpus_length = corpus.get_length()
 num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 
 pool = mp.Pool(args.num_workers, worker_wrapper, (process_queue,))
 logger.info("Loading parameters.")
-load_params(t_params, d_params, s_params, args.params, p_0=args.p_0, alpha=args.alpha)
+load_params(t_params, d_params, s_params, args.params, p_0=args.p_0)
 
 corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
 logger.info("Loading corpus.")

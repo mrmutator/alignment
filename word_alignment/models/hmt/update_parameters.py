@@ -23,13 +23,14 @@ def update_count_file(file_name, total):
             if len(k) == 1:
                 k = int(k[0])
             else:
-                k = (int(k[0]), int(k[1]))
+                k = tuple(map(int, k))
             total[count_i][k] += v
 
 
 def write_param_file(count_file_name, normalized_counts):
     param_file_name = re.sub(r"counts\.(\d+)$", r"params.\1", count_file_name)
     lengths_I = set()
+    pos_jumps = defaultdict(set)
     with open(param_file_name, "w") as outfile:
         with open(count_file_name, "r") as infile:
             infile.readline()
@@ -44,6 +45,11 @@ def write_param_file(count_file_name, normalized_counts):
                 elif count_i == 5:
                     k = int(k)
                     lengths_I.add(k)
+                elif count_i == 2:
+                    k_str = k.split(" ")
+                    k_int = (int(k_str[0]), int(k_str[1]), int(k_str[2]))
+                    jmp = k_int[2]-k_int[1]
+                    pos_jumps[k_int[0]].add(jmp)
 
         for I in lengths_I:
             for i in xrange(I):
@@ -51,11 +57,12 @@ def write_param_file(count_file_name, normalized_counts):
                 key_str = ["s"] + map(str, [I, i, value])
                 outfile.write(" ".join(key_str) + "\n")
 
-        max_I = max(lengths_I)
-        for jmp in xrange(-max_I + 1, max_I):
-            value = normalized_counts["jmp_prob"][jmp]
-            key_str = ["j"] + map(str, [jmp, value])
-            outfile.write(" ".join(key_str) + "\n")
+        for p in pos_jumps:
+            max_I = max(pos_jumps[p])+1
+            for jmp in xrange(-max_I + 1, max_I):
+                value = normalized_counts["jmp_prob"][p, jmp]
+                key_str = ["j"] + map(str, [p, jmp, value])
+                outfile.write(" ".join(key_str) + "\n")
 
 
 def normalize_trans(queue):
@@ -67,8 +74,8 @@ def normalize_trans(queue):
 
 def normalize_jumps(queue):
     jmp_prob = defaultdict(int)
-    for (i_p, i), count in al_counts.iteritems():
-        jmp_prob[i - i_p] += count / al_norm[i_p]
+    for (p, i_p, i), count in al_counts.iteritems():
+        jmp_prob[p, i - i_p] += count / al_norm[p, i_p]
     queue.put(("jmp_prob", jmp_prob))
 
 

@@ -44,10 +44,12 @@ class Dep_Node(object):
 
 class Dependency_Tree(object):
 
-    def __init__(self, tokens, pos_tags, root=None):
+    def __init__(self, tokens, pos_tags, relations, directions, root=None):
         self.root = root
         self.source_tokens = tokens
         self.source_pos_tags = pos_tags
+        self.relations = relations
+        self.directions = directions
 
     def get_root(self):
         return self.root
