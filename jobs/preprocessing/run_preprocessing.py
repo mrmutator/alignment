@@ -3,6 +3,7 @@ import time
 import os
 import subprocess
 
+DEFAULT_MGIZA_DIR = "$HOME/mgiza"
 
 def get_time():
     return str(int(time.time()))
@@ -13,7 +14,12 @@ def get_params(args):
     params['dir'] = os.path.abspath(args.dir)
     params['e_file'] = os.path.abspath(args.e)
     params['f_file'] = os.path.abspath(args.f)
-    params['giza_dir'] = os.path.abspath(args.giza_dir)
+    if not args.giza_dir:
+        params['giza_dir'] = DEFAULT_MGIZA_DIR
+    else:
+        params['giza_dir'] = os.path.abspath(args.giza_dir)
+
+
     params['PBS_time_prepare_job'] = args.PBS_time_prepare_job
     params['PBS_time_parse_job'] = args.PBS_time_parse_job
     params['PBS_time_mgiza_job'] = args.PBS_time_mgiza_job
@@ -75,7 +81,7 @@ def generate_mgiza_job(**params):
 
 
 def send_jobs(**params):
-    log_file = open(params["job_name"] + ".log", "w")
+    log_file = open("preprocessing.log", "w")
     job_dir = params["job_dir"]
 
     # prepare dataset job
@@ -121,7 +127,7 @@ arg_parser.add_argument("-gold", required=False, type=str, default="")
 arg_parser.add_argument("-PBS_time_prepare_job", required=False, default="00:05:00", type=str)
 arg_parser.add_argument("-PBS_time_parse_job", required=False, default="01:00:00", type=str)
 arg_parser.add_argument("-PBS_time_mgiza_job", required=False, default="01:00:00", type=str)
-arg_parser.add_argument("-giza_dir", required=False, default="$home/mgiza", type=str)
+arg_parser.add_argument("-giza_dir", required=False, default="", type=str)
 
 arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
 arg_parser.set_defaults(no_sub=False)
