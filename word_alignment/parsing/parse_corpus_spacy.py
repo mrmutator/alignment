@@ -34,7 +34,7 @@ from Parser import Spacy_Parser
 parser = Spacy_Parser()
 
 outfile = codecs.open(args.snt + ".parsed", "w", "utf-8")
-filter_file = open(args.snt + ".filtered", "w")
+filter_file = open(args.snt + ".filter", "w")
 pos_voc_file = open(args.snt + ".posvoc", "w")
 rel_voc_file = open(args.snt + ".relvoc", "w")
 corpus = GIZA_Reader(args.snt, alignment_order=('e', 'f'))
