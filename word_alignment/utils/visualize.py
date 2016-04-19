@@ -1,4 +1,3 @@
-from word_alignment.utils.Corpus_Reader import Corpus_Reader
 import codecs
 import subprocess
 import tempfile
@@ -8,7 +7,8 @@ import re
 from collections import defaultdict
 import math
 
-HEADER = R"""\documentclass[class=minimal,border=0pt]{standalone}
+HEADER = R"""\nonstopmode
+\documentclass[class=minimal,border=0pt]{standalone}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{tikz}
@@ -31,6 +31,79 @@ FOOTER = r"""\end{tikzpicture}
 \end{document}"""
 
 ESCAPE = r'(&|%|\$|#|_|{|}|~|\^)'
+
+class DataReader(object):
+
+    def __init__(self, e_file, f_file, alignment_files, labels=[], dep=[], alignment_order=('e', 'f'), limit=0):
+        self.limit = limit
+        self.e_file = codecs.open(e_file, "r", "utf-8")
+        self.f_file = codecs.open(f_file, "r", "utf-8")
+        self.alignment_files = [open(f, "r") for f in alignment_files]
+        if len(labels) != len(self.alignment_files):
+            self.labels = ["file " + str(i+1) for i in xrange(len(self.alignment_files))]
+        else:
+            self.labels = labels
+        if len(dep) != len(self.alignment_files):
+            self.dep = [True for _ in xrange(len(self.alignment_files))]
+        else:
+            self.dep = dep
+
+        self.next = self.__iter_source_dep
+
+        if alignment_order==('e', 'f'):
+            self.order = self.__convert_to_int_e_f
+        elif alignment_order==('f', 'e'):
+            self.order = self.__convert_to_int_f_e
+        else:
+            raise Exception("No valid alignment order.")
+
+    def reset(self):
+        for al in self.alignment_files:
+            al.seek(0)
+        self.e_file.seek(0)
+        self.f_file.seek(0)
+
+    def get_f(self):
+        f_split = self.f_file.readline().strip().split()
+        try:
+            toks, heads = zip(*[t.split("_") for t in f_split])
+        except ValueError:
+            toks = f_split
+            heads = []
+        return toks, map(int, heads)
+
+    def get_als(self):
+        return [map(self.order, re.findall("(\d+)-(\d+)", a.readline().strip())) for a in self.alignment_files]
+
+
+    def __iter_source_dep(self):
+        self.reset()
+
+        e_line = self.e_file.readline()
+
+
+        c = 0
+        while(e_line):
+            c += 1
+            e_toks = e_line.strip().split()
+            f_toks, heads = self.get_f()
+            als = self.get_als()
+            if self.limit and c > self.limit:
+                break
+            yield e_toks, f_toks, heads, als
+            e_line = self.e_file.readline()
+
+
+    def __iter__(self):
+        return self.next()
+
+    def __convert_to_int_e_f(self, tpl):
+        return int(tpl[0]), int(tpl[1])
+
+    def __convert_to_int_f_e(self, tpl):
+        return int(tpl[1]), int(tpl[0])
+
+
 
 class GoldFile(object):
 
@@ -65,6 +138,8 @@ class GoldFile(object):
 def analyze_alignments(als, sure, probable):
     correct = set()
     wrong = set()
+    sure = set(sure)
+    probable = set(probable)
     for al in als:
         al_correct = False
         if al in sure:
@@ -107,7 +182,7 @@ def make_deps(heads):
             string += "\\draw (f%s) edge[->, bend left=%s] node {} (f%s);\n" % (h,deg, i)
     return string
 
-def visualize(e,f,a, heads=False, gold=None):
+def visualize(e,f,a, heads=[], gold=None):
     if heads:
         root = heads.index(-1)
     string = "\\node (f0) [word] {%s};\n" % f[0]
@@ -132,13 +207,13 @@ def visualize(e,f,a, heads=False, gold=None):
 
     return string
 
-def make_image(code, file_name):
+def make_image(code, file_name, label=""):
     target_name = file_name
     file_name = file_name.split("/")[-1]
     current = os.getcwd()
     temp = tempfile.mkdtemp()
     os.chdir(temp)
-
+    code += "\\node (label) [word, below of=e0] {\\fontsize{6}{15.0}\\selectfont %s};\n" % label
     outfile = codecs.open(file_name + ".tex", "w", "utf-8")
     outfile.write(HEADER + code + FOOTER)
     outfile.close()
@@ -155,25 +230,37 @@ def visualize_all(corpus, file_name, max_sent_length=0, has_heads=False, gold_al
     temp = tempfile.mkdtemp()
     os.chdir(temp)
 
-    files = []
-    for i, (a,e,f) in enumerate(corpus):
+    labels = corpus.labels
+    dep = corpus.dep
+
+    all_files = []
+    for i, (e, f, f_heads, als) in enumerate(corpus):
+        files = []
         if max_sent_length and max(len(e), len(f)) > max_sent_length:
             continue
-        heads = None
-        if has_heads:
-            f, heads = zip(*[t.split("_") for t in f])
-            heads = map(int, heads)
-        else:
-            if "_" in f[0]:
-                raise Exception("F has head annotations. Use -dep option.")
         gold = []
         if gold_alignments:
             gold = gold_alignments.get_gold_alignments(i+1)
-        code = visualize(e,f,a, heads=heads, gold=gold)
-        make_image(code, "aligned_%d.pdf" % i)
-        files.append("aligned_%d.pdf" % i)
+        for a_i, a in enumerate(als):
+            tmp_heads = []
+            if dep[a_i]:
+                tmp_heads = f_heads
+            code = visualize(e,f,a, heads=tmp_heads, gold=gold)
+            ftemp_name = "aligned_%d.%d.pdf" % (i, a_i)
+            make_image(code, ftemp_name, label="Sent. " + str(i+1) + ", %s" % labels[a_i])
+            files.append(ftemp_name)
 
-    proc = subprocess.Popen(["pdftk"] + files + ["cat", "output", "merged.pdf"])
+        if len(files) > 1:
+            merged_file_name = "merged.%d.pdf" % i
+            # pdfjam aligned_0.pdf aligned_1.pdf --nup 1x2 --outfile test.pdf
+            proc = subprocess.Popen(["pdfjam"] + files + ["--nup", "1x2", "--fitpaper",
+                                     "true", "--outfile", merged_file_name])
+            proc.communicate()
+            all_files.append(merged_file_name)
+        else:
+            all_files.append(ftemp_name)
+
+    proc = subprocess.Popen(["pdftk"] + all_files + ["cat", "output", "merged.pdf"])
     proc.communicate()
 
     os.chdir(current)
@@ -184,16 +271,17 @@ def visualize_all(corpus, file_name, max_sent_length=0, has_heads=False, gold_al
 if __name__ == "__main__":
     import argparse
     arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("out")
     arg_parser.add_argument("e_file")
     arg_parser.add_argument("f_file")
-    arg_parser.add_argument("a_file")
-    arg_parser.add_argument("out")
+    arg_parser.add_argument("a_files", nargs="+")
     arg_parser.add_argument("-al_order", default="ef")
     arg_parser.add_argument("-limit", default=0, type=int)
     arg_parser.add_argument("-max_length", default=0, type=int)
-    arg_parser.add_argument('-dep', dest='dep', action='store_true', default=False)
     arg_parser.add_argument('-gold', default="", required=False)
     arg_parser.add_argument('-gold_order', default="ef", required=False)
+    arg_parser.add_argument('-labels', default="", required=False, nargs="+")
+    arg_parser.add_argument('-dep', default="", required=False, nargs="+")
 
 
     args = arg_parser.parse_args()
@@ -210,7 +298,15 @@ if __name__ == "__main__":
     else:
         limit = args.limit
 
-    corpus = Corpus_Reader(args.e_file, args.f_file, args.a_file, alignment_order=alignment_order, limit=limit, strings="unicode")
+    labels = []
+    if args.labels:
+        labels = args.labels
+    dep = []
+    if args.dep:
+        dep = map(bool, map(int, args.dep))
+
+
+    corpus = DataReader(args.e_file, args.f_file, args.a_files, labels=labels, dep=dep, alignment_order=alignment_order, limit=args.limit)
 
     if args.gold:
         if args.gold_order == "ef":
@@ -223,4 +319,4 @@ if __name__ == "__main__":
     else:
         gold = None
 
-    visualize_all(corpus, args.out, max_sent_length=args.max_length, has_heads=args.dep, gold_alignments=gold)
+    visualize_all(corpus, args.out, max_sent_length=args.max_length, gold_alignments=gold)
