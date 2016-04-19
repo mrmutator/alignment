@@ -15,6 +15,8 @@ HEADER = R"""\nonstopmode
 \usepackage{color}
 \usetikzlibrary{shapes.geometric, arrows, positioning}
 \tikzstyle{word} = [text centered]
+\tikzstyle{wordnull} = [text centered, blue]
+\tikzstyle{wordnullwrong} = [text centered, red]
 \tikzstyle{correct} = [thick, green]
 \tikzstyle{wrong} = [thick, red]
 \tikzstyle{possible} = [dotted]
@@ -140,19 +142,43 @@ def analyze_alignments(als, sure, probable):
     wrong = set()
     sure = set(sure)
     probable = set(probable)
+    S = len(sure)
+    A = len(als)
+    a_s = 0
+    a_p = 0
     for al in als:
         al_correct = False
         if al in sure:
             al_correct = True
             correct.add(al)
             sure.remove(al)
+            a_s += 1
+            a_p += 1
         if al in probable:
             al_correct = True
             correct.add(al)
             probable.remove(al)
+            a_p += 1
         if not al_correct:
             wrong.add(al)
-    return correct, wrong, sure, probable
+
+    recall = float(a_s) / S
+    precision = float(a_p) / A
+    fmeasure = (2 * precision * recall) / (precision + recall)
+    aer = 1 - ((a_s + a_p) / float(A + S))
+    eval = (precision, recall, fmeasure, aer)
+    eval = " ".join(map("{:6.4f}".format, [round(x, 4) for x in eval]))
+    return correct, wrong, sure, probable, eval
+
+def get_null(J, a):
+    _, f = zip(*a)
+    aligned = set(f)
+    null = []
+    for j in xrange(J):
+        if j not in aligned:
+            null.append(j)
+
+    return null
 
 
 
@@ -161,9 +187,12 @@ def escape(string):
     string = re.sub(r"\^", "\\^{}", string)
     return re.sub(ESCAPE, r"\\\1", string)
 
-def make_node(tok, pos, side):
+def make_node(tok, pos, side, null=False):
+    null_color = ""
+    if null:
+        null_color = "blue, "
     tok = escape(tok)
-    return "\\node (%s%d) [word, my right of=%s%d] {%s};\n" % (side, pos, side, pos-1, tok)
+    return "\\node (%s%d) [word, %smy right of=%s%d] {%s};\n" % (side, pos, null_color, side, pos-1, tok)
 
 def make_link(e_pos, f_pos, typ="link"):
     return "\\draw [%s] (f%d) -- (e%d);\n" % (typ, f_pos, e_pos)
@@ -183,17 +212,22 @@ def make_deps(heads):
     return string
 
 def visualize(e,f,a, heads=[], gold=None):
+    nulls = get_null(len(f), a)
     if heads:
         root = heads.index(-1)
-    string = "\\node (f0) [word] {%s};\n" % f[0]
+    null_color = ""
+    if 0 in nulls:
+        null_color = ", blue"
+    string = "\\node (f0) [word%s] {%s};\n" % (null_color, f[0])
     string += "\\node (e0) [word, my below of=f0] {%s};\n" % e[0]
     for i, f_tok in enumerate(f[1:]):
-        string += make_node(f_tok, i+1, "f")
+        string += make_node(f_tok, i+1, "f", null=i+1 in nulls)
     for i, e_tok in enumerate(e[1:]):
         string += make_node(e_tok, i+1, "e")
+    eval = ()
     if gold:
         sure, probable = gold
-        correct, wrong, sure, probable = analyze_alignments(a, sure, probable)
+        correct, wrong, sure, probable, eval = analyze_alignments(a, sure, probable)
         for coll, typ in [(correct, "correct"), (wrong, "wrong"), (sure, "sure"), (probable, "possible")]:
             for e_pos, f_pos in coll:
                 string += make_link(e_pos, f_pos, typ=typ)
@@ -205,7 +239,7 @@ def visualize(e,f,a, heads=[], gold=None):
         string += make_deps(heads)
 
 
-    return string
+    return string, eval
 
 def make_image(code, file_name, label=""):
     target_name = file_name
@@ -225,7 +259,7 @@ def make_image(code, file_name, label=""):
     os.rename(temp + "/" + file_name + ".pdf",target_name)
     shutil.rmtree(temp)
 
-def visualize_all(corpus, file_name, max_sent_length=0, has_heads=False, gold_alignments=None):
+def visualize_all(corpus, file_name, max_sent_length=0, gold_alignments=None):
     current = os.getcwd()
     temp = tempfile.mkdtemp()
     os.chdir(temp)
@@ -245,15 +279,15 @@ def visualize_all(corpus, file_name, max_sent_length=0, has_heads=False, gold_al
             tmp_heads = []
             if dep[a_i]:
                 tmp_heads = f_heads
-            code = visualize(e,f,a, heads=tmp_heads, gold=gold)
+            code, eval = visualize(e,f,a, heads=tmp_heads, gold=gold)
             ftemp_name = "aligned_%d.%d.pdf" % (i, a_i)
-            make_image(code, ftemp_name, label="Sent. " + str(i+1) + ", %s" % labels[a_i])
+            make_image(code, ftemp_name, label="Sent. " + str(i+1) + ", %s : %s" % (labels[a_i], eval))
             files.append(ftemp_name)
 
         if len(files) > 1:
             merged_file_name = "merged.%d.pdf" % i
             # pdfjam aligned_0.pdf aligned_1.pdf --nup 1x2 --outfile test.pdf
-            proc = subprocess.Popen(["pdfjam"] + files + ["--nup", "1x2", "--fitpaper",
+            proc = subprocess.Popen(["pdfjam"] + files + ["--nup", "1x" + str(len(als)), "--fitpaper",
                                      "true", "--outfile", merged_file_name])
             proc.communicate()
             all_files.append(merged_file_name)
