@@ -27,11 +27,12 @@ class POSVoc(object):
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-snt", required=True)
 arg_parser.add_argument("-raw_f", required=True)
+arg_parser.add_argument('-fix_punctuation', dest='fix_punctuation', action='store_true', default=False)
 args = arg_parser.parse_args()
 
 # at the moment only one parser supported
 from Parser import Spacy_Parser
-parser = Spacy_Parser()
+parser = Spacy_Parser(fix_punctuation=args.fix_punctuation)
 
 outfile = codecs.open(args.snt + ".parsed", "w", "utf-8")
 filter_file = open(args.snt + ".filter", "w")

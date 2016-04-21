@@ -2,10 +2,14 @@ from spacy.en import English
 from Trees import Dependency_Tree, Dep_Node
 import re
 
+PUNCTUATION = {"!", ".", ",", "--", "-", ":", ";", "?"}
+
+
 class Spacy_Parser(object):
 
-    def __init__(self):
+    def __init__(self, fix_punctuation=False):
         self.parser = English()
+        self.fix_punctuation = fix_punctuation
 
     def dep_parse(self, tokens):
         if isinstance(tokens, list):
@@ -38,6 +42,21 @@ class Spacy_Parser(object):
                     nodes[tok.head.i].add_right_child(nodes[tok.i], tok.dep_)
                     directions.append(0)
         tree.directions = directions
+
+        if self.fix_punctuation:
+            last_tok = parsed[-1]
+            if last_tok.orth_ in PUNCTUATION:
+                head_of_last = parsed[last_tok.head.i]
+                if head_of_last.head is head_of_last and head_of_last is not last_tok:
+                    # last token is attached to root and is punctuation. Fix tree
+                    nodes[-1].add_parent(None, "ROOT")
+                    tree.set_root(nodes[-1])
+                    nodes[head_of_last.i].add_parent(nodes[-1], "ROOT2")
+                    nodes[-1].left_children = [(nodes[head_of_last.i], "ROOT2")] + nodes[-1].left_children
+                    assert nodes[head_of_last.i].right_children[-1][0] is nodes[-1]
+                    nodes[head_of_last.i].right_children.pop()
+
+
         return tree
 
 
