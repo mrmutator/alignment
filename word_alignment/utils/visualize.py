@@ -36,10 +36,10 @@ ESCAPE = r'(&|%|\$|#|_|{|}|~|\^)'
 
 class DataReader(object):
 
-    def __init__(self, e_file, f_file, alignment_files, labels=[], dep=[], alignment_order=('e', 'f'), limit=0):
+    def __init__(self, e_file, f_files, alignment_files, labels=[], dep=[], alignment_order=('e', 'f'), limit=0):
         self.limit = limit
         self.e_file = codecs.open(e_file, "r", "utf-8")
-        self.f_file = codecs.open(f_file, "r", "utf-8")
+        self.f_files = [codecs.open(f, "r", "utf-8") for f in f_files]
         self.alignment_files = [open(f, "r") for f in alignment_files]
         if len(labels) != len(self.alignment_files):
             self.labels = ["file " + str(i+1) for i in xrange(len(self.alignment_files))]
@@ -63,16 +63,20 @@ class DataReader(object):
         for al in self.alignment_files:
             al.seek(0)
         self.e_file.seek(0)
-        self.f_file.seek(0)
+        for f in self.f_files:
+            f.seek(0)
 
     def get_f(self):
-        f_split = self.f_file.readline().strip().split()
-        try:
-            toks, heads = zip(*[t.split("_") for t in f_split])
-        except ValueError:
-            toks = f_split
-            heads = []
-        return toks, map(int, heads)
+        results = []
+        for f in self.f_files:
+            f_split = f.readline().strip().split()
+            try:
+                toks, heads = zip(*[t.split("_") for t in f_split])
+            except ValueError:
+                toks = f_split
+                heads = []
+            results.append((toks, map(int, heads)))
+        return results
 
     def get_als(self):
         return [map(self.order, re.findall("(\d+)-(\d+)", a.readline().strip())) for a in self.alignment_files]
@@ -88,11 +92,11 @@ class DataReader(object):
         while(e_line):
             c += 1
             e_toks = e_line.strip().split()
-            f_toks, heads = self.get_f()
+            f_pairs = self.get_f()
             als = self.get_als()
             if self.limit and c > self.limit:
                 break
-            yield e_toks, f_toks, heads, als
+            yield e_toks, f_pairs, als
             e_line = self.e_file.readline()
 
 
@@ -268,14 +272,18 @@ def visualize_all(corpus, file_name, max_sent_length=0, gold_alignments=None):
     dep = corpus.dep
 
     all_files = []
-    for i, (e, f, f_heads, als) in enumerate(corpus):
+    for i, (e, f_pairs, als) in enumerate(corpus):
         files = []
-        if max_sent_length and max(len(e), len(f)) > max_sent_length:
+        if max_sent_length and max(len(e), len(f_pairs[0][0])) > max_sent_length:
             continue
         gold = []
         if gold_alignments:
             gold = gold_alignments.get_gold_alignments(i+1)
         for a_i, a in enumerate(als):
+            f_i = a_i
+            if a_i >= len(f_pairs):
+                f_i = 0
+            f, f_heads = f_pairs[f_i]
             tmp_heads = []
             if dep[a_i]:
                 tmp_heads = f_heads
@@ -305,10 +313,10 @@ def visualize_all(corpus, file_name, max_sent_length=0, gold_alignments=None):
 if __name__ == "__main__":
     import argparse
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("out")
-    arg_parser.add_argument("e_file")
-    arg_parser.add_argument("f_file")
-    arg_parser.add_argument("a_files", nargs="+")
+    arg_parser.add_argument("-out")
+    arg_parser.add_argument("-e_file")
+    arg_parser.add_argument("-f_files", nargs="+")
+    arg_parser.add_argument("-a_files", nargs="+")
     arg_parser.add_argument("-al_order", default="ef")
     arg_parser.add_argument("-limit", default=0, type=int)
     arg_parser.add_argument("-max_length", default=0, type=int)
@@ -340,7 +348,7 @@ if __name__ == "__main__":
         dep = map(bool, map(int, args.dep))
 
 
-    corpus = DataReader(args.e_file, args.f_file, args.a_files, labels=labels, dep=dep, alignment_order=alignment_order, limit=args.limit)
+    corpus = DataReader(args.e_file, args.f_files, args.a_files, labels=labels, dep=dep, alignment_order=alignment_order, limit=args.limit)
 
     if args.gold:
         if args.gold_order == "ef":
