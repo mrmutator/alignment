@@ -160,7 +160,10 @@ class Parameters(object):
             conditions = [-1]
             for j in range(1, len(f_toks)):
                 par = f_heads[j]
-                con_tok = [None, None, None, None, None, None]
+                orig_tok_pos = order[j]
+                orig_head_pos = order[par]
+                parent_distance = abs(orig_head_pos-orig_tok_pos)
+                con_tok = [None, None, None, None, None, None, None]
                 if "p" in head_con:
                     con_tok[0] =  pos[par]
                 if "r" in head_con:
@@ -173,6 +176,8 @@ class Parameters(object):
                     con_tok[4] = rel[j]
                 if "d" in tok_con:
                     con_tok[5] = dir[j]
+                if "l" in tok_con:
+                    con_tok[6] = parent_distance
 
                 cond_id = self.cond_voc.get_id(tuple(con_tok))
                 conditions.append(cond_id)
