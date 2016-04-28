@@ -194,7 +194,7 @@ arg_parser.add_argument("-PBS_time_evaluate_job", required=False, default="01:00
 args = arg_parser.parse_args()
 params = get_params(args)
 
-assert params.init.strip() in ["u", "r"] or params.init.strip().startswith("s")
+assert args.init.strip() in ["u", "r"] or args.init.strip().startswith("s")
 
 # make directories
 make_directories(params['dir'], params['num_iterations'])
