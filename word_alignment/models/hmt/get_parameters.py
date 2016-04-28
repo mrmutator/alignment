@@ -3,6 +3,7 @@ import random
 import numpy as np
 import argparse
 from CorpusReader import CorpusReader
+from scipy.stats import norm
 
 def reorder(f_toks, pos, rel, dir, order):
     J = len(f_toks)
@@ -99,6 +100,13 @@ class Parameters(object):
     def initialize_dist_uniformly(self):
         for jmp in xrange(-max(self.lengths) + 1, max(self.lengths)):
             self.j_params[jmp] = 0.5  # number doesn't matter
+
+    def initialize_jumps_smartly(self, scale=1):
+        jmps = range(-max(self.lengths) + 1, max(self.lengths))
+        ps = norm.pdf(jmps, loc=0, scale=scale)
+        ps = ps / np.sum(ps)
+        for k in xrange(len(ps)):
+            self.j_params[jmps[k]] = ps[k]
 
     def initialize_trans_t_file(self, t_file):
         trans_dict = defaultdict(dict)
@@ -204,15 +212,20 @@ class Parameters(object):
             self.write_params(sub_lengths_pos, sub_lengths, sub_t, file_prefix + ".params." + str(subset_id))
 
 
-def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", random=False, cond_head="", cond_tok="", hmm=False):
+def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init='u', cond_head="", cond_tok="", hmm=False):
     parameters = Parameters(corpus, p_0=p_0)
 
-    if random:
+    if init=="r":
         parameters.initialize_dist_randomly()
         parameters.initialize_start_randomly()
-    else:
+    elif init=="u":
         parameters.initialize_dist_uniformly()
         parameters.initialize_start_uniformly()
+
+    elif init.startswith("s"):
+        scale = float(init[1:])
+        parameters.initialize_start_uniformly()
+        parameters.initialize_jumps_smartly(scale=scale)
 
     parameters.initialize_trans_t_file(t_file)
 
@@ -232,10 +245,14 @@ if __name__ == "__main__":
     arg_parser.add_argument("-cond_tok", required=False, default="", type=str)
     arg_parser.add_argument("-cond_head", required=False, default="", type=str)
     arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
+    arg_parser.add_argument('-init', required=False, default='u')
 
     args = arg_parser.parse_args()
+
+    assert args.init.strip() in ["r", "u"] or args.init.strip().startswith("s")
+
 
     corpus = CorpusReader(args.corpus, limit=args.limit)
 
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, p_0=args.p_0,
-                 file_prefix=args.output_prefix, random=False, cond_head=args.cond_head, cond_tok=args.cond_tok, hmm=args.hmm)
+                 file_prefix=args.output_prefix, init=args.init, cond_head=args.cond_head, cond_tok=args.cond_tok, hmm=args.hmm)

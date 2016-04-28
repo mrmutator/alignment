@@ -21,6 +21,7 @@ def get_params(args):
     params['buffer_size'] = args.buffer_size
     params['alpha'] = args.alpha
     params['p_0'] = args.p_0
+    params['init'] = args.init
     params['num_nodes'] = args.num_nodes
     params["cond_head"] = ""
     params["cond_tok"] = ""
@@ -167,6 +168,7 @@ arg_parser.add_argument("-num_iterations", required=True, type=int)
 
 arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
+arg_parser.add_argument("-init", required=False, default="u", type=str)
 
 arg_parser.add_argument("-cond_head", required=False, default="", type=str)
 arg_parser.add_argument("-cond_tok", required=False, default="", type=str)
@@ -192,6 +194,7 @@ arg_parser.add_argument("-PBS_time_evaluate_job", required=False, default="01:00
 args = arg_parser.parse_args()
 params = get_params(args)
 
+assert params.init.strip() in ["u", "r"] or params.init.strip().startswith("s")
 
 # make directories
 make_directories(params['dir'], params['num_iterations'])
