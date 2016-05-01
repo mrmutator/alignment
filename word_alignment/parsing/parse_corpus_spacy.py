@@ -27,7 +27,7 @@ class POSVoc(object):
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-snt", required=True)
 arg_parser.add_argument("-raw_f", required=True)
-arg_parser.add_argument('-fix_punctuation', dest='fix_punctuation', action='store_true', default=False)
+arg_parser.add_argument('-fix_punctuation', dest='fix_punctuation', action='store_true', default=True)
 args = arg_parser.parse_args()
 
 # at the moment only one parser supported
