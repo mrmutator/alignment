@@ -202,8 +202,11 @@ def make_link(e_pos, f_pos, typ="link"):
     return "\\draw [%s] (f%d) -- (e%d);\n" % (typ, f_pos, e_pos)
 
 def make_deps(heads):
-    deg_unit = 70.0 / (len(heads)-1)
     string = ""
+    if len(heads) <= 1:
+        return string
+    deg_unit = 70.0 / (len(heads)-1)
+
     for i, h in enumerate(heads):
         if h == -1:
             string += "\\draw (root) edge[->] node {} (f%s);\n" % i
