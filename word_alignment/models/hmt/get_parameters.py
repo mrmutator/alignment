@@ -166,12 +166,14 @@ class Parameters(object):
             I = len(e_toks)
             sub_lengths.add(I)
             conditions = [-1]
+            tree_level = [0]
             for j in range(1, len(f_toks)):
                 par = f_heads[j]
+                tree_level.append(tree_level[par]+1)
                 orig_tok_pos = order[j]
                 orig_head_pos = order[par]
                 parent_distance = abs(orig_head_pos-orig_tok_pos)
-                con_tok = [None, None, None, None, None, None, None]
+                con_tok = [None, None, None, None, None, None, None, None]
                 if "p" in head_con:
                     con_tok[0] =  pos[par]
                 if "r" in head_con:
@@ -186,6 +188,8 @@ class Parameters(object):
                     con_tok[5] = dir[j]
                 if "l" in tok_con:
                     con_tok[6] = parent_distance
+                if "t" in tok_con:
+                    con_tok[7] = tree_level[j]
 
                 cond_id = self.cond_voc.get_id(tuple(con_tok))
                 conditions.append(cond_id)
