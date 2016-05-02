@@ -168,7 +168,10 @@ def analyze_alignments(als, sure, probable):
 
     recall = float(a_s) / S
     precision = float(a_p) / A
-    fmeasure = (2 * precision * recall) / (precision + recall)
+    try:
+        fmeasure = (2 * precision * recall) / (precision + recall)
+    except ZeroDivisionError:
+        fmeasure = 0.0
     aer = 1 - ((a_s + a_p) / float(A + S))
     eval = (precision, recall, fmeasure, aer)
     eval = " ".join(map("{:6.4f}".format, [round(x, 4) for x in eval]))
