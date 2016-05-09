@@ -40,7 +40,7 @@ def get_params(args):
         params["hmm"] = "-hmm"
     params["mixed"] = ""
     if args.mixed:
-        params["mixed"] = "-mixed " + args.mixed
+        params["mixed"] = "-mixed \"" + args.mixed + '"'
     params["align_parts"] = 0
     params["align_limits"] = []
 
