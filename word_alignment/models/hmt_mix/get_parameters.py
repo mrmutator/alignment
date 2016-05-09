@@ -8,10 +8,17 @@ from ReorderTrees import TreeNode
 
 
 def reorder(data, order):
+    """
+    Order is a list with same length as data that specifies for each position of data, which rank it has in the new order.
+    :param data:
+    :param order:
+    :return:
+    """
     new_data = [None] * len(data)
     for i, j in enumerate(order):
         new_data[j] = data[i]
     return new_data
+
 
 def hmm_reorder(f_toks, pos, rel, dir, order):
     # HMM reorder
@@ -20,9 +27,10 @@ def hmm_reorder(f_toks, pos, rel, dir, order):
     new_pos = reorder(pos, order)
     new_rel = reorder(rel, order)
     new_dir = reorder(dir, order)
-    new_f_heads = [0] + range(J-1)
+    new_f_heads = [0] + range(J - 1)
     new_order = range(J)
     return new_f_toks, new_f_heads, new_pos, new_rel, new_dir, new_order
+
 
 def make_mixed_data(f_heads, pos, order, reorder_tags=[]):
     root = TreeNode(0, -1, None, None)
@@ -38,15 +46,17 @@ def make_mixed_data(f_heads, pos, order, reorder_tags=[]):
             p.add_right_child(n)
         nodes.append(n)
     hmm_toks = []
-    for j in xrange(len(nodes)-1, -1, -1):
+    for j in xrange(len(nodes) - 1, -1, -1):
         hmm_toks += nodes[j].reorder(reorder_tags)
     new_order, new_heads = zip(*actual_root.traverse_head_first())
     new_heads = map(new_order.index, new_heads)
+    reordered_hmm_toks = map(new_order.index, hmm_toks)
+    new_order = map(new_order.index, range(len(f_heads)))
 
-    return new_order, new_heads, map(new_order.index, hmm_toks)
+    return new_order, new_heads, reordered_hmm_toks
+
 
 class CondVoc(object):
-
     def __init__(self):
         self.i2v = dict()
         self.v2i = dict()
@@ -128,7 +138,7 @@ class Parameters(object):
     def initialize_jumps_smartly(self, scale=1):
         jmps = range(-max(self.lengths) + 1, max(self.lengths))
         ps = norm.pdf(jmps, loc=0, scale=scale)
-        ps[max(self.lengths)-1] = ps[max(self.lengths)-1]*0.1
+        ps[max(self.lengths) - 1] = ps[max(self.lengths) - 1] * 0.1
         ps = ps / np.sum(ps)
         for k in xrange(len(ps)):
             self.j_params[jmps[k]] = ps[k]
@@ -206,18 +216,17 @@ class Parameters(object):
                 tok_con = tj_tok_con
                 hmm_j = False
                 if j in hmm_transitions:
-                    print "yes"
                     hmm_j = True
                     head_con = cj_head_con
                     tok_con = cj_tok_con
                 par = f_heads[j]
-                tree_level.append(tree_level[par]+1)
+                tree_level.append(tree_level[par] + 1)
                 orig_tok_pos = order[j]
                 orig_head_pos = order[par]
-                parent_distance = abs(orig_head_pos-orig_tok_pos)
+                parent_distance = abs(orig_head_pos - orig_tok_pos)
                 con_tok = [None, None, None, None, None, None, None, None, hmm_j]
                 if "p" in head_con:
-                    con_tok[0] =  pos[par]
+                    con_tok[0] = pos[par]
                 if "r" in head_con:
                     con_tok[1] = rel[par]
                 if "d" in head_con:
@@ -262,10 +271,10 @@ def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init='u
                  cj_cond_head="", cj_con_tok="", hmm=False, mixed_model=[]):
     parameters = Parameters(corpus, p_0=p_0)
 
-    if init=="r":
+    if init == "r":
         parameters.initialize_dist_randomly()
         parameters.initialize_start_randomly()
-    elif init=="u":
+    elif init == "u":
         parameters.initialize_dist_uniformly()
         parameters.initialize_start_uniformly()
 
@@ -279,7 +288,7 @@ def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init='u
     parameters.split_data_get_parameters(corpus, file_prefix, num_sentences, tj_head_con=tj_cond_head,
                                          tj_tok_con=tj_cond_tok, cj_head_con=cj_cond_head, cj_tok_con=cj_con_tok,
                                          hmm=hmm, mixed_model=mixed_model)
-    with open(file_prefix+ ".condvoc", "w") as outfile:
+    with open(file_prefix + ".condvoc", "w") as outfile:
         outfile.write(parameters.cond_voc.get_voc())
 
 
@@ -295,7 +304,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-tj_cond_head", required=False, default="", type=str)
     arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
     arg_parser.add_argument('-init', required=False, default='u')
-    arg_parser.add_argument('-mixed',required=False, default="")
+    arg_parser.add_argument('-mixed', required=False, default="")
     arg_parser.add_argument("-cj_cond_tok", required=False, default="", type=str)
     arg_parser.add_argument("-cj_cond_head", required=False, default="", type=str)
 
@@ -303,9 +312,10 @@ if __name__ == "__main__":
 
     assert args.init.strip() in ["r", "u"] or args.init.strip().startswith("s")
 
-
     corpus = CorpusReader(args.corpus, limit=args.limit)
 
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, p_0=args.p_0,
-                 file_prefix=args.output_prefix, init=args.init, tj_cond_head=args.tj_cond_head, tj_cond_tok=args.tj_cond_tok,
-                 cj_con_tok=args.cj_cond_tok, cj_cond_head=args.cj_cond_head, hmm=args.hmm, mixed_model=map(int, args.mixed.split()))
+                 file_prefix=args.output_prefix, init=args.init, tj_cond_head=args.tj_cond_head,
+                 tj_cond_tok=args.tj_cond_tok,
+                 cj_con_tok=args.cj_cond_tok, cj_cond_head=args.cj_cond_head, hmm=args.hmm,
+                 mixed_model=map(int, args.mixed.split()))
