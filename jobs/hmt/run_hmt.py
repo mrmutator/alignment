@@ -23,15 +23,24 @@ def get_params(args):
     params['p_0'] = args.p_0
     params['init'] = args.init
     params['num_nodes'] = args.num_nodes
-    params["cond_head"] = ""
-    params["cond_tok"] = ""
+    params["cj_cond_head"] = ""
+    params["cj_cond_tok"] = ""
+    if args.cj_cond_head:
+        params["cj_cond_head"] = "-cj_cond_head " + args.cj_cond_head
+    if args.cj_cond_tok:
+        params["cj_cond_tok"] = "-cj_cond_tok " + args.cj_cond_tok
+    params["tj_cond_head"] = ""
+    params["tj_cond_tok"] = ""
     params["hmm"] = ""
-    if args.cond_head:
-        params["cond_head"] = "-cond_head " + args.cond_head
-    if args.cond_tok:
-        params["cond_tok"] = "-cond_tok " + args.cond_tok
+    if args.tj_cond_head:
+        params["tj_cond_head"] = "-tj_cond_head " + args.tj_cond_head
+    if args.tj_cond_tok:
+        params["tj_cond_tok"] = "-tj_cond_tok " + args.tj_cond_tok
     if args.hmm:
         params["hmm"] = "-hmm"
+    params["mixed"] = ""
+    if args.mixed:
+        params["mixed"] = "-mixed " + args.mixed
     params["align_parts"] = 0
     params["align_limits"] = []
 
@@ -170,9 +179,14 @@ arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 arg_parser.add_argument("-init", required=False, default="u", type=str)
 
-arg_parser.add_argument("-cond_head", required=False, default="", type=str)
-arg_parser.add_argument("-cond_tok", required=False, default="", type=str)
+arg_parser.add_argument("-tj_cond_head", required=False, default="", type=str)
+arg_parser.add_argument("-tj_cond_tok", required=False, default="", type=str)
+
+arg_parser.add_argument("-cj_cond_head", required=False, default="", type=str)
+arg_parser.add_argument("-cj_cond_tok", required=False, default="", type=str)
+
 arg_parser.add_argument('-hmm', dest="hmm", action="store_true", required=False)
+arg_parser.add_argument("-mixed", required=False, default="", type=str)
 
 
 arg_parser.add_argument("-group_size", required=True, type=int)
