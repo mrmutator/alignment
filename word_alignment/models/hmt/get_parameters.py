@@ -48,6 +48,7 @@ def make_mixed_data(f_heads, pos, order, reorder_tags=[]):
     hmm_toks = []
     for j in xrange(len(nodes) - 1, -1, -1):
         hmm_toks += nodes[j].reorder(reorder_tags)
+    actual_root = root.right_children[0]
     new_order, new_heads = zip(*actual_root.traverse_head_first())
     new_heads = map(new_order.index, new_heads)
     reordered_hmm_toks = map(new_order.index, hmm_toks)

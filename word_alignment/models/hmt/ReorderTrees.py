@@ -22,8 +22,8 @@ class TreeNode(object):
                 children = list(self.left_children)
                 self.left_children = []
                 # I have left children that become my ancestors
-                for j in range(1, len(self.left_children)):
-                    assert self.left_children[j].o > self.left_children[j - 1].o
+                for j in range(1, len(children)):
+                    assert children[j].o > children[j - 1].o
 
                 reordered_toks.append(self.j)
                 if self.o > my_head.o:
@@ -38,11 +38,13 @@ class TreeNode(object):
                 children[0].head = my_head
 
                 for i, c in enumerate(children[1:]):
-                    c.head = children[i]
-                    children[i].right_children.append(c)
+                    right_most = children[i].get_rightmost()
+                    c.head = right_most
+                    right_most.right_children.append(c)
                     reordered_toks.append(c.j)
-                children[-1].right_children.append(self)
-                self.head = children[-1]
+                right_most = children[-1].get_rightmost()
+                right_most.right_children.append(self)
+                self.head = right_most
 
         return reordered_toks
 
@@ -52,59 +54,15 @@ class TreeNode(object):
             result += c.traverse_head_first()
         return result
 
+    def get_rightmost(self):
+        if not self.right_children:
+            return self
+        else:
+            return self.right_children[-1].get_rightmost()
 
-if __name__ == "__main__":
-
-    def make_mixed_data(f_heads, pos, order, reorder_tags=[]):
-        root = TreeNode(0, -1, None, None)
-        actual_root = TreeNode(0, order[0], pos[0], root)
-        root.right_children.append(actual_root)
-        nodes = [actual_root]
-        for j in xrange(1, len(f_heads)):
-            p = nodes[f_heads[j]]
-            n = TreeNode(j, order[j], pos[j], p)
-            if order[j] < p.o:
-                p.add_left_child(n)
-            else:
-                p.add_right_child(n)
-            nodes.append(n)
-        hmm_toks = []
-        for j in xrange(len(nodes) - 1, -1, -1):
-            hmm_toks += nodes[j].reorder(reorder_tags)
-        new_order, new_heads = zip(*actual_root.traverse_head_first())
-        new_heads = map(new_order.index, new_heads)
-        reordered_hmm_toks = map(new_order.index, hmm_toks)
-        new_order = map(new_order.index, range(len(f_heads)))
-
-        return new_order, new_heads, reordered_hmm_toks
-
-
-    def reorder(data, order):
-        new_data = [None] * len(data)
-        for i, j in enumerate(order):
-            new_data[j] = data[i]
-        return new_data
-
-
-    f_toks = ["lead", "program", "a", "greater", "building", "might", "to"]
-    dir = [-1, 0, 0, 0, 0, 0, 1]
-    rel = ["r", "sbj", "det", "adj", "nn", "mod", "nprep"]
-    f_heads = [0, 0, 1, 1, 1, 0, 0]
-    pos = [0, 1, 0, 0, 0, 0, 0]
-    order = [5, 3, 0, 1, 2, 4, 6]
-    reorder_tags = [1]
-
-    new_order, f_heads, hmm_transitions = make_mixed_data(f_heads, pos, order, reorder_tags)
-    order = reorder(order, new_order)
-    f_toks = reorder(f_toks, new_order)
-    pos = reorder(pos, new_order)
-    dir = reorder(dir, new_order)
-    rel = reorder(rel, new_order)
-
-    print new_order
-    print f_toks
-    print order
-    print pos
-    print dir
-    print rel
-    print hmm_transitions
+    def get_structure(self):
+        s = "("+str(self.o)
+        for c in self.left_children + self.right_children:
+            s += c.get_structure()
+        s += " )"
+        return s
