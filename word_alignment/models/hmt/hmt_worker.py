@@ -41,6 +41,7 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
     al_counts = Counter()  # (i_p, i)
     al_norm = Counter()  # (i_p)
     ll = 0
+    start_norm_coeff = 1.0 - p_0
     for e_toks, f_toks, f_heads, cons in corpus:
         I = len(e_toks)
         I_double = 2 * I
@@ -76,11 +77,11 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
         # add start counts and counts for lex f_0
         f_0 = f_toks[0]
         for i, e_tok in enumerate(e_toks):
-            start_counts[(I, i)] += gammas[0][i]
+            start_counts[(I, i)] += gammas[0][i] * start_norm_coeff
+            start_norm[I] += gammas[0][i]
             if (e_tok, f_0) in trans_params:
                 lex_counts[(e_tok, f_0)] += gammas[0][i]
                 lex_norm[e_tok] += gammas[0][i]
-        start_norm[I] += 1
         if (0, f_0) in trans_params:
             zero_sum = np.sum(gammas[0][I:])
             lex_counts[(0, f_0)] += zero_sum
