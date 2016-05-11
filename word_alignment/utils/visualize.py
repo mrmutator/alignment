@@ -71,11 +71,18 @@ class DataReader(object):
         for f in self.f_files:
             f_split = f.readline().strip().split()
             try:
-                toks, heads = zip(*[t.split("_") for t in f_split])
+                toks, rtype, heads = zip(*[t.split("_") for t in f_split])
+                rtype = map(int, rtype)
+                heads = map(int, heads)
+                heads = zip(heads, rtype)
             except ValueError:
-                toks = f_split
-                heads = []
-            results.append((toks, map(int, heads)))
+                try:
+                    toks, heads = zip(*[t.split("_") for t in f_split])
+                    heads = [(int(h), 0) for h in heads]
+                except:
+                    toks = f_split
+                    heads = []
+            results.append((toks, heads))
         return results
 
     def get_als(self):
@@ -210,21 +217,24 @@ def make_deps(heads):
         return string
     deg_unit = 70.0 / (len(heads)-1)
 
-    for i, h in enumerate(heads):
+    for i, (h, rtype) in enumerate(heads):
+        color = ""
+        if rtype:
+            color = ", orange"
         if h == -1:
             string += "\\draw (root) edge[->] node {} (f%s);\n" % i
             continue
         deg = round((abs(h-i) * deg_unit) * (1.0/math.sqrt(abs(h-i))) + 20, 4)
         if h > i:
-            string += "\\draw (f%s) edge[->, bend right=%s] node {} (f%s);\n" % (h,deg, i)
+            string += "\\draw (f%s) edge[->, bend right=%s%s] node {} (f%s);\n" % (h,deg, color, i)
         else:
-            string += "\\draw (f%s) edge[->, bend left=%s] node {} (f%s);\n" % (h,deg, i)
+            string += "\\draw (f%s) edge[->, bend left=%s%s] node {} (f%s);\n" % (h,deg, color, i)
     return string
 
 def visualize(e,f,a, heads=[], gold=None):
     nulls = get_null(len(f), a)
     if heads:
-        root = heads.index(-1)
+        root = heads.index((-1, 0))
     null_color = ""
     if 0 in nulls:
         null_color = ", blue"
