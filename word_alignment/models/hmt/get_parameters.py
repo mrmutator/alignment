@@ -6,6 +6,14 @@ from CorpusReader import CorpusReader
 from scipy.stats import norm
 from ReorderTrees import TreeNode
 
+def read_reorder_file(f):
+    reorder_dict = dict()
+    with open(f, "r") as infile:
+        for line in infile:
+            pos, left, right = map(int, line.strip().split())
+            reorder_dict[pos] = (left, right)
+    return reorder_dict
+
 
 def reorder(data, order):
     """
@@ -32,7 +40,7 @@ def hmm_reorder(f_toks, pos, rel, dir, order):
     return new_f_toks, new_f_heads, new_pos, new_rel, new_dir, new_order
 
 
-def make_mixed_data(f_heads, pos, order, reorder_tags=[]):
+def make_mixed_data(f_heads, pos, order, reorder_dict={}):
     root = TreeNode(0, -1, None, None)
     actual_root = TreeNode(0, order[0], pos[0], root)
     root.right_children.append(actual_root)
@@ -47,7 +55,10 @@ def make_mixed_data(f_heads, pos, order, reorder_tags=[]):
         nodes.append(n)
     hmm_toks = []
     for j in xrange(len(nodes) - 1, -1, -1):
-        hmm_toks += nodes[j].reorder(reorder_tags)
+        n = nodes[j]
+        left, right = reorder_dict.get(n.p, (0, 0))
+        if left or right:
+            hmm_toks += n.reorder_chain(left=left, right=right)
     actual_root = root.right_children[0]
     new_order, new_heads = zip(*actual_root.traverse_head_first())
     new_heads = map(new_order.index, new_heads)
@@ -182,7 +193,7 @@ class Parameters(object):
         outfile.close()
 
     def split_data_get_parameters(self, corpus, file_prefix, num_sentences, tj_head_con="", tj_tok_con="",
-                                  cj_head_con="", cj_tok_con="", hmm=False, mixed_model=[]):
+                                  cj_head_con="", cj_tok_con="", hmm=False, mixed_model={}):
         subset_id = 1
         outfile_corpus = open(file_prefix + ".corpus." + str(subset_id), "w")
         sub_t = set()
@@ -269,7 +280,7 @@ class Parameters(object):
 
 
 def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init='u', tj_cond_head="", tj_cond_tok="",
-                 cj_cond_head="", cj_con_tok="", hmm=False, mixed_model=[]):
+                 cj_cond_head="", cj_con_tok="", hmm=False, mixed_model={}):
     parameters = Parameters(corpus, p_0=p_0)
 
     if init == "r":
@@ -319,4 +330,4 @@ if __name__ == "__main__":
                  file_prefix=args.output_prefix, init=args.init, tj_cond_head=args.tj_cond_head,
                  tj_cond_tok=args.tj_cond_tok,
                  cj_con_tok=args.cj_cond_tok, cj_cond_head=args.cj_cond_head, hmm=args.hmm,
-                 mixed_model=map(int, args.mixed.split()))
+                 mixed_model=read_reorder_file(args.mixed))
