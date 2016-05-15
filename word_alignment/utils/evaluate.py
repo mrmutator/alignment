@@ -56,9 +56,6 @@ class Evaluation(object):
     def recall(self):
         return len(self.alignments.intersection(self.sure)) / float(len(self.sure))
 
-    def accuracy(self):
-        return len(self.alignments.intersection(self.probable)) / float(len(self.probable))
-
     def f1_measure(self):
         p = self.precision()
         r = self.recall()
@@ -72,8 +69,7 @@ class Evaluation(object):
         print "\t".join([self.alignment_file] + map("{:6.4f}".format, [round(self.precision(), 4),
                                                                        round(self.recall(), 4),
                                                                        round(self.f1_measure(), 4),
-                                                                       round(self.aer(), 4),
-                                                                       round(self.accuracy(), 4)]))
+                                                                       round(self.aer(), 4)]))
 
 
 if __name__ == "__main__":
