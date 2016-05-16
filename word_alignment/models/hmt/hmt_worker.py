@@ -6,6 +6,7 @@ import argparse
 from CorpusReader import SubcorpusReader
 import logging
 import hmt
+import itertools
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -32,7 +33,7 @@ class Corpus_Buffer(object):
             yield buffer
 
 
-def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
+def train_iteration(buffer, alpha, p_0, queue):
     # set all counts to zero
     lex_counts = Counter()  # (e,f)
     lex_norm = Counter()  # e
@@ -42,16 +43,14 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
     al_norm = Counter()  # (i_p)
     ll = 0
     start_norm_coeff = 1.0 - p_0
+
+    corpus, trans_params, d_params, s_params = buffer
     for e_toks, f_toks, f_heads, cons in corpus:
         I = len(e_toks)
         I_double = 2 * I
 
-        trans_params = {(e_tok, f_tok): t_params[(e_tok, f_tok)] for f_tok in f_toks for e_tok in e_toks + [0] if
-                        (e_tok, f_tok) in t_params}
-
         s_probs = s_params[I]
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
-
         cons_set = set()
         for con in cons[1:]:
             cons_set.add(con)
@@ -111,7 +110,7 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
     queue.put((lex_counts, lex_norm, al_counts, al_norm, start_counts, start_norm, ll))
 
 
-def load_params(t_params, d_params, s_params, file_name, p_0=0.2):
+def load_params(t_params, d_params, s_params, file_name):
     lengths = set()
     temp_start_params = dict()
     infile = open(file_name, "r")
@@ -148,14 +147,16 @@ def load_params(t_params, d_params, s_params, file_name, p_0=0.2):
 
 
 
-def aggregate_counts(queue, num_work, counts_file):
+def aggregate_counts(queue, counts_file):
     # total = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
     # total_ll = 0
     initial = queue.get()
     total = initial[:-1]
     total_ll = initial[-1]
-    for _ in xrange(num_work - 1):
+    while True:
         counts = queue.get()
+        if counts is None:
+            break
         for i, c in enumerate(counts[:-1]):
             total[i].update(c)
         total_ll += counts[-1]
@@ -176,6 +177,7 @@ def aggregate_counts(queue, num_work, counts_file):
                     k = str(k)
                 v = str(v)
                 outfile.write("\t".join([t, k, v]) + "\n")
+    logger.info("Counts written.")
 
 
 #############################################
@@ -194,33 +196,66 @@ args = arg_parser.parse_args()
 counts_file_name = args.params + ".counts"
 
 update_queue = mp.Queue()
-process_queue = mp.Queue()
-manager = mp.Manager()
-t_params = manager.dict()
-d_params = manager.dict()
-s_params = manager.dict()
+process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers-1)/4)))
+t_params = dict()
+d_params = dict()
+s_params = dict()
 
 
 def worker_wrapper(process_queue):
     while True:
         buffer = process_queue.get()
-        train_iteration(buffer, t_params, d_params, s_params, args.alpha, args.p_0, update_queue)
+        if buffer is None:
+            return
+
+        train_iteration(buffer, args.alpha, args.p_0, update_queue)
 
 
 corpus = SubcorpusReader(args.corpus)
 corpus_length = corpus.get_length()
 num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 
-pool = mp.Pool(args.num_workers - 1, worker_wrapper, (process_queue,))
-logger.info("Loading parameters.")
-load_params(t_params, d_params, s_params, args.params, p_0=args.p_0)
+pool = []
+for w in xrange(args.num_workers-1):
+    p = mp.Process(target=worker_wrapper, args=(process_queue,))
+    p.start()
+    pool.append(p)
 
-updater = mp.Process(target=aggregate_counts, args=(update_queue, num_work, counts_file_name))
+logger.info("Loading parameters.")
+load_params(t_params, d_params, s_params, args.params)
+
+updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
 updater.start()
 
 corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
-logger.info("Loading corpus.")
-for buffer in corpus_buffer:
-    process_queue.put(buffer)
-logger.info("Waiting to finish")
+logger.info("Starting worker processes..")
+for buff in corpus_buffer:
+    # get all t-params of buffer
+    required_ts= set()
+    required_Is = set()
+    required_cons_j = set()
+    for e_toks, f_toks, f_heads, cons in buff:
+        for e_tok in e_toks + [0]:
+            for f_tok in f_toks:
+                required_ts.add((e_tok, f_tok))
+        I = len(e_toks)
+        required_Is.add(I)
+        for con in cons[1:]:
+            for jmp in xrange(-I +1, I):
+                required_cons_j.add((con, jmp))
+
+    # get a copy from shared dicts
+    t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
+    s_probs = {I_: np.copy(s_params[I_]) for I_ in required_Is}
+    d_probs = {cj: d_params[cj] for cj in required_cons_j}
+    process_queue.put((buff, t_probs, d_probs, s_probs))
+# Send termination signal
+for _ in xrange(args.num_workers-1):
+    process_queue.put(None)
+logger.info("Entire corpus loaded.")
+for p in pool:
+    p.join()
+# Send termination signal
+update_queue.put(None)
+logger.info("Waiting for update process to terminate.")
 updater.join()
