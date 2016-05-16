@@ -172,9 +172,14 @@ def analyze_alignments(als, sure, probable):
             a_p += 1
         if not al_correct:
             wrong.add(al)
-
-    recall = float(a_s) / S
-    precision = float(a_p) / A
+    try:
+        recall = float(a_s) / S
+    except ZeroDivisionError:
+        recall = 0.0
+    try:
+        precision = float(a_p) / A
+    except ZeroDivisionError:
+        precision = 0.0
     try:
         fmeasure = (2 * precision * recall) / (precision + recall)
     except ZeroDivisionError:
@@ -185,6 +190,8 @@ def analyze_alignments(als, sure, probable):
     return correct, wrong, sure, probable, eval
 
 def get_null(J, a):
+    if not a:
+        return []
     _, f = zip(*a)
     aligned = set(f)
     null = []
