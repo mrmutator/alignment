@@ -201,8 +201,6 @@ def get_null(J, a):
 
     return null
 
-
-
 def escape(string):
     string = re.sub(r"\\", "\\textbackslash", string)
     string = re.sub(r"\^", "\\^{}", string)
