@@ -7,6 +7,8 @@ from scipy.stats import norm
 from ReorderTrees import TreeNode
 
 def read_reorder_file(f):
+    if not f:
+        return None
     reorder_dict = dict()
     with open(f, "r") as infile:
         for line in infile:
