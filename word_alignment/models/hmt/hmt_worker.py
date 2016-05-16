@@ -32,7 +32,7 @@ class Corpus_Buffer(object):
             yield buffer
 
 
-def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
+def train_iteration(corpus, t_params_s, d_params_s, s_params_s, alpha, p_0, queue):
     # set all counts to zero
     lex_counts = Counter()  # (e,f)
     lex_norm = Counter()  # e
@@ -42,16 +42,31 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
     al_norm = Counter()  # (i_p)
     ll = 0
     start_norm_coeff = 1.0 - p_0
+    # get all t-params of buffer
+    required_ts= set()
+    required_Is = set()
+    required_cons_j = set()
+    for e_toks, f_toks, f_heads, cons in corpus:
+        for e_tok in e_toks + [0]:
+            for f_tok in f_toks:
+                required_ts.add((e_tok, f_tok))
+        I = len(e_toks)
+        required_Is.add(I)
+        for con in cons[1:]:
+            for jmp in xrange(-I +1, I):
+                required_cons_j.add((con, jmp))
+
+    # get a copy from shared dicts
+    trans_params = {ef: t_params_s[ef] for ef in required_ts if ef in t_params_s}
+    s_params = {I_: np.copy(s_params_s[I_]) for I_ in required_Is}
+    d_params = {cj: d_params_s[cj] for cj in required_cons_j}
+
     for e_toks, f_toks, f_heads, cons in corpus:
         I = len(e_toks)
         I_double = 2 * I
 
-        trans_params = {(e_tok, f_tok): t_params[(e_tok, f_tok)] for f_tok in f_toks for e_tok in e_toks + [0] if
-                        (e_tok, f_tok) in t_params}
-
         s_probs = s_params[I]
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
-
         cons_set = set()
         for con in cons[1:]:
             cons_set.add(con)
@@ -111,7 +126,7 @@ def train_iteration(corpus, t_params, d_params, s_params, alpha, p_0, queue):
     queue.put((lex_counts, lex_norm, al_counts, al_norm, start_counts, start_norm, ll))
 
 
-def load_params(t_params, d_params, s_params, file_name, p_0=0.2):
+def load_params(t_params, d_params, s_params, file_name):
     lengths = set()
     temp_start_params = dict()
     infile = open(file_name, "r")
@@ -213,7 +228,7 @@ num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 
 pool = mp.Pool(args.num_workers - 1, worker_wrapper, (process_queue,))
 logger.info("Loading parameters.")
-load_params(t_params, d_params, s_params, args.params, p_0=args.p_0)
+load_params(t_params, d_params, s_params, args.params)
 
 updater = mp.Process(target=aggregate_counts, args=(update_queue, num_work, counts_file_name))
 updater.start()
