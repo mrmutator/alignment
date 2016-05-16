@@ -6,6 +6,7 @@ import argparse
 from CorpusReader import SubcorpusReader
 import logging
 import hmt
+import itertools
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -163,14 +164,16 @@ def load_params(t_params, d_params, s_params, file_name):
 
 
 
-def aggregate_counts(queue, num_work, counts_file):
+def aggregate_counts(queue, counts_file):
     # total = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
     # total_ll = 0
     initial = queue.get()
     total = initial[:-1]
     total_ll = initial[-1]
-    for _ in xrange(num_work - 1):
+    while True:
         counts = queue.get()
+        if counts is None:
+            break
         for i, c in enumerate(counts[:-1]):
             total[i].update(c)
         total_ll += counts[-1]
@@ -191,6 +194,7 @@ def aggregate_counts(queue, num_work, counts_file):
                     k = str(k)
                 v = str(v)
                 outfile.write("\t".join([t, k, v]) + "\n")
+    logger.info("Counts written.")
 
 
 #############################################
@@ -219,6 +223,8 @@ s_params = manager.dict()
 def worker_wrapper(process_queue):
     while True:
         buffer = process_queue.get()
+        if buffer is None:
+            return
         train_iteration(buffer, t_params, d_params, s_params, args.alpha, args.p_0, update_queue)
 
 
@@ -226,16 +232,27 @@ corpus = SubcorpusReader(args.corpus)
 corpus_length = corpus.get_length()
 num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
 
-pool = mp.Pool(args.num_workers - 1, worker_wrapper, (process_queue,))
+pool = []
+for w in xrange(args.num_workers-1):
+    p = mp.Process(target=worker_wrapper, args=(process_queue,))
+    p.start()
+    pool.append(p)
+
 logger.info("Loading parameters.")
 load_params(t_params, d_params, s_params, args.params)
 
-updater = mp.Process(target=aggregate_counts, args=(update_queue, num_work, counts_file_name))
+updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
 updater.start()
 
 corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
-logger.info("Loading corpus.")
-for buffer in corpus_buffer:
-    process_queue.put(buffer)
-logger.info("Waiting to finish")
+logger.info("Starting worker processes..")
+iters = itertools.chain(corpus_buffer, (None,)*(args.num_workers-1))
+for buff in iters:
+    process_queue.put(buff)
+logger.info("Entire corpus loaded.")
+for p in pool:
+    p.join()
+# Send termination signal
+update_queue.put(None)
+logger.info("Waiting for update process to terminate.")
 updater.join()
