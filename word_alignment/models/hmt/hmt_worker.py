@@ -197,7 +197,7 @@ args = arg_parser.parse_args()
 counts_file_name = args.params + ".counts"
 
 update_queue = mp.Queue()
-process_queue = mp.Queue()
+process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers-1)/4)))
 t_params = dict()
 d_params = dict()
 s_params = dict()
