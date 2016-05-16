@@ -45,7 +45,6 @@ def train_iteration(buffer, alpha, p_0, queue):
     start_norm_coeff = 1.0 - p_0
 
     corpus, trans_params, d_params, s_params = buffer
-
     for e_toks, f_toks, f_heads, cons in corpus:
         I = len(e_toks)
         I_double = 2 * I
@@ -206,7 +205,7 @@ s_params = dict()
 def worker_wrapper(process_queue):
     while True:
         buffer = process_queue.get()
-        if buffer[0] is None:
+        if buffer is None:
             return
 
         train_iteration(buffer, args.alpha, args.p_0, update_queue)
@@ -230,13 +229,12 @@ updater.start()
 
 corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
 logger.info("Starting worker processes..")
-iters = itertools.chain(corpus_buffer, (None,)*(args.num_workers-1))
-for buff in iters:
+for buff in corpus_buffer:
     # get all t-params of buffer
     required_ts= set()
     required_Is = set()
     required_cons_j = set()
-    for e_toks, f_toks, f_heads, cons in corpus:
+    for e_toks, f_toks, f_heads, cons in buff:
         for e_tok in e_toks + [0]:
             for f_tok in f_toks:
                 required_ts.add((e_tok, f_tok))
@@ -247,10 +245,13 @@ for buff in iters:
                 required_cons_j.add((con, jmp))
 
     # get a copy from shared dicts
-    trans_params = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-    s_params = {I_: np.copy(s_params[I_]) for I_ in required_Is}
-    d_params = {cj: d_params[cj] for cj in required_cons_j}
-    process_queue.put((buff, t_params, d_params, s_params))
+    t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
+    s_probs = {I_: np.copy(s_params[I_]) for I_ in required_Is}
+    d_probs = {cj: d_params[cj] for cj in required_cons_j}
+    process_queue.put((buff, t_probs, d_probs, s_probs))
+# Send termination signal
+for _ in xrange(args.num_workers-1):
+    process_queue.put(None)
 logger.info("Entire corpus loaded.")
 for p in pool:
     p.join()
