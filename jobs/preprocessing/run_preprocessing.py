@@ -43,6 +43,7 @@ def get_params(args):
     params['giza_aligned'] = os.path.abspath(os.path.join(params['giza_result_dir'], 'giza.aligned'))
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../..'))
+    params["source_lang"] = args.source_lang
 
     params["gold_cmt"] = ""
     if not args.gold:
@@ -123,6 +124,7 @@ arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-e", required=True)
 arg_parser.add_argument("-f", required=True)
 arg_parser.add_argument("-gold", required=False, type=str, default="")
+arg_parser.add_argument('-source_lang', required=False, default="en")
 
 arg_parser.add_argument("-PBS_time_prepare_job", required=False, default="00:05:00", type=str)
 arg_parser.add_argument("-PBS_time_parse_job", required=False, default="01:00:00", type=str)

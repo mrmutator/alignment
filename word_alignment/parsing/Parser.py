@@ -1,4 +1,4 @@
-from spacy.en import English
+import spacy
 from Trees import Dependency_Tree, Dep_Node
 import re
 
@@ -7,8 +7,8 @@ PUNCTUATION = {"!", ".", ",", "--", "-", ":", ";", "?"}
 
 class Spacy_Parser(object):
 
-    def __init__(self, fix_punctuation=False):
-        self.parser = English()
+    def __init__(self, fix_punctuation=False, lang="en"):
+        self.parser = spacy.load(lang)
         self.fix_punctuation = fix_punctuation
 
     def dep_parse(self, tokens):
