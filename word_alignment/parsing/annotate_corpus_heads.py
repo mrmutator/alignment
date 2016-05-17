@@ -70,12 +70,13 @@ if __name__ == "__main__":
             pos_pairs = zip(pos, order)
             new_pos, _ = zip(*sorted(pos_pairs, key=lambda t: t[1]))
             new_pos = map(pos_dict.get, new_pos)
+            new_pos = ["/" + pos_dict.get(t) for t in new_pos]
         else:
             new_pos = ["" for t in toks]
         new_heads, _ = zip(*sorted(pairs, key=lambda t: t[1]))
         new_heads = map(order.__getitem__, new_heads)
         new_heads[order[0]] = -1  # root
-        annotated = [t + "/" + new_pos[i] +  "_" + str(new_heads[i]) for i, t in enumerate(toks)]
+        annotated = [t + new_pos[i] +  "_" + str(new_heads[i]) for i, t in enumerate(toks)]
         outfile.write(" ".join(annotated) + "\n")
 
     infile.close()
