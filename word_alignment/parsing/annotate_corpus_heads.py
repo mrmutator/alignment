@@ -69,7 +69,6 @@ if __name__ == "__main__":
         if args.pos_voc:
             pos_pairs = zip(pos, order)
             new_pos, _ = zip(*sorted(pos_pairs, key=lambda t: t[1]))
-            new_pos = map(pos_dict.get, new_pos)
             new_pos = ["/" + pos_dict.get(t) for t in new_pos]
         else:
             new_pos = ["" for t in toks]
