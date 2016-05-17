@@ -4,6 +4,34 @@ import os
 import subprocess
 import numpy as np
 
+def get_file_length(f):
+    c = 0
+    with open(f, "r") as infile:
+        for _ in infile:
+            c += 1
+    return c
+
+def check_num_nodes_group_size(params):
+    psnt = params['psnt']
+    raw_length = get_file_length(psnt)
+    file_length = raw_length / 8
+    assert raw_length % 8 == 0
+    covered = params["group_size"] * params["num_nodes"]
+    if file_length > covered:
+        raise Exception("Current group_size / number of node configuration does not cover entire corpus file.")
+    if np.ceil(float(file_length) / params["group_size"]) < params["num_nodes"]:
+        raise Exception("Too many nodes specified for current configuration.")
+
+def check_paths(params):
+    check_list = ["psnt", "ibm1_table_path", "job_template_dir", "script_dir"]
+    for c in check_list:
+        if not os.path.exists(params[c]):
+            raise Exception("Path does not exist for parameter %s: <%s>" % (c, params[c]))
+    if params["mixed"]:
+        if not os.path.exists(params["mixed"][7:]):
+            raise Exception("Path does not exist for parameter %s: <%s>" % ("mixed", params["mixed"][7:]))
+
+
 def get_time():
     return str(int(time.time()))
 
@@ -201,6 +229,9 @@ arg_parser.add_argument("-align_limit", required=False, default=-1, type=int)
 arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
 arg_parser.set_defaults(no_sub=False)
 
+arg_parser.add_argument('-ignore_checks', dest='ignore_checks', action='store_true', required=False)
+arg_parser.set_defaults(ignore_checks=False)
+
 arg_parser.add_argument("-PBS_time_prepare_job", required=False, default="00:20:00", type=str)
 arg_parser.add_argument("-PBS_time_worker_job", required=False, default="00:20:00", type=str)
 arg_parser.add_argument("-PBS_time_update_job", required=False, default="00:20:00", type=str)
@@ -209,6 +240,10 @@ args = arg_parser.parse_args()
 params = get_params(args)
 
 assert args.init.strip() in ["u", "r"] or args.init.strip().startswith("s")
+
+if not args.ignore_checks:
+    check_num_nodes_group_size(params)
+check_paths(params)
 
 # make directories
 make_directories(params['dir'], params['num_iterations'])
