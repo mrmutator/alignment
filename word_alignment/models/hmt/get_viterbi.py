@@ -33,7 +33,7 @@ class Corpus_Buffer(object):
             yield self.num, buffer
 
 
-def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, alpha, p_0, queue, worker_num):
+def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, alpha, p_0, fertility, queue, worker_num):
     all_alignments = []
     for e_toks, f_toks, f_heads, cons, order in corpus:
         I = len(e_toks)
@@ -51,10 +51,13 @@ def get_all_viterbi_alignments(corpus, t_params, d_params, s_params, alpha, p_0,
         for p in cons_set:
             tmp_prob = np.zeros((I, I))
             jumps = {j: d_params[p, j] for j in xrange(-I+1, I)}
+            if fertility:
+                jumps[0] = 0.0
             for i_p in xrange(I):
-                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)]) + p_0
+                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)]) + p_0 + fertility
                 tmp_prob[i_p, :] = np.array(
-                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * (1.0 / I)) for i in xrange(I)])
+                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * (1.0 / I)) if not fertility or  i != i_p
+                     else fertility * (1-alpha) + (alpha * (1.0 / I)) for i in xrange(I)])
             tmp = np.hstack((tmp_prob, np.identity(I)*p_0))
             dist_mat = np.vstack((tmp, tmp))
             d_probs[p] = dist_mat
@@ -149,6 +152,7 @@ arg_parser.add_argument("-out_file", required=True)
 arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
 arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
 arg_parser.add_argument("-alpha", required=False, type=float, default=0.0)
+arg_parser.add_argument("-fertility", required=False, type=float, default=0.0)
 arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
 arg_parser.add_argument("-limit", required=False, type=int, default=0)
 
@@ -165,7 +169,8 @@ s_params = manager.dict()
 def worker_wrapper(process_queue):
     while True:
         worker_num, buffer = process_queue.get()
-        get_all_viterbi_alignments(buffer, t_params, d_params, s_params, args.alpha, args.p_0, results_queue, worker_num)
+        get_all_viterbi_alignments(buffer, t_params, d_params, s_params, args.alpha, args.p_0, args.fertility,
+                                   results_queue, worker_num)
 
 
 corpus = SubcorpusReader(args.corpus, limit=args.limit, return_order=True)
