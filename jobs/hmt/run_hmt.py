@@ -241,9 +241,10 @@ params = get_params(args)
 
 assert args.init.strip() in ["u", "r"] or args.init.strip().startswith("s")
 
+check_paths(params)
 if not args.ignore_checks:
     check_num_nodes_group_size(params)
-check_paths(params)
+
 
 # make directories
 make_directories(params['dir'], params['num_iterations'])
