@@ -68,6 +68,7 @@ if __name__ == "__main__":
 
     infile = codecs.open(args.f_raw, "r", "utf-8")
     outfile = codecs.open(args.f_raw + ".annotated", "w", "utf-8")
+    outfile2 = open(args.f_raw + ".paramtypes", "w")
     corpus = SubcorpusReader(args.subcorpus_file, return_order=True)
     for _, _, heads, cons, order in corpus:
         toks = infile.readline().strip().split()
@@ -82,6 +83,8 @@ if __name__ == "__main__":
         new_heads[order[0]] = -1  # root
         annotated = [t + "_" + param_annotation[i] +  "_" + str(new_heads[i]) for i, t in enumerate(toks)]
         outfile.write(" ".join(annotated) + "\n")
+        outfile2.write(" ".join(map(str, [param_annotation[i] for i, _ in enumerate(toks)])) + "\n")
 
     infile.close()
     outfile.close()
+    outfile2.close()
