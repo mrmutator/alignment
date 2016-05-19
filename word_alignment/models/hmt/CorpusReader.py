@@ -75,6 +75,24 @@ class SubcorpusReader(object):
             c += 1
         return c
 
+class Corpus_Buffer(object):
+    def __init__(self, corpus, buffer_size=20):
+        self.buffer_size = buffer_size
+        self.corpus = corpus
+
+    def __iter__(self):
+        self.corpus.reset()
+        buffer = []
+        c = 0
+        for el in self.corpus:
+            buffer.append(el)
+            c += 1
+            if c == self.buffer_size:
+                yield buffer
+                buffer = []
+                c = 0
+        if c > 0:
+            yield buffer
 
 
 if __name__ == "__main__":

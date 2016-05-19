@@ -3,33 +3,13 @@ from collections import Counter
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import SubcorpusReader
+from CorpusReader import SubcorpusReader, Corpus_Buffer
 import logging
 import hmt
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
-
-
-class Corpus_Buffer(object):
-    def __init__(self, corpus, buffer_size=20):
-        self.buffer_size = buffer_size
-        self.corpus = corpus
-
-    def __iter__(self):
-        self.corpus.reset()
-        buffer = []
-        c = 0
-        for el in self.corpus:
-            buffer.append(el)
-            c += 1
-            if c == self.buffer_size:
-                yield buffer
-                buffer = []
-                c = 0
-        if c > 0:
-            yield buffer
 
 
 def train_iteration(buffer, alpha, p_0, queue):
@@ -207,9 +187,6 @@ def worker_wrapper(process_queue):
 
 
 corpus = SubcorpusReader(args.corpus)
-corpus_length = corpus.get_length()
-num_work = int(np.ceil(float(corpus_length) / args.buffer_size))
-
 pool = []
 for w in xrange(args.num_workers - 1):
     p = mp.Process(target=worker_wrapper, args=(process_queue,))
