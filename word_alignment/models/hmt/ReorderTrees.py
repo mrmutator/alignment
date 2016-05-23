@@ -7,48 +7,14 @@ class TreeNode(object):
         self.left_children = []
         self.right_children = []
 
+    def __repr__(self):
+        return str(self.o)
+
     def add_left_child(self, c):
         self.left_children.append(c)
 
     def add_right_child(self, c):
         self.right_children.append(c)
-
-
-    # This is reorder np-left only
-    # def reorder(self, pos_list):
-    #     reordered_toks = []
-    #
-    #     if self.p in pos_list:
-    #         my_head = self.head
-    #         if len(self.left_children) > 0:
-    #             children = list(self.left_children)
-    #             self.left_children = []
-    #             # I have left children that become my ancestors
-    #             for j in range(1, len(children)):
-    #                 assert children[j].o > children[j - 1].o
-    #
-    #             reordered_toks.append(self.j)
-    #             if self.o > my_head.o:
-    #                 # I'm a right child of my head
-    #                 ci = my_head.right_children.index(self)
-    #                 my_head.right_children[ci] = children[0]
-    #             else:
-    #                 # I'm a left child
-    #                 ci = my_head.left_children.index(self)
-    #                 my_head.left_children[ci] = children[0]
-    #
-    #             children[0].head = my_head
-    #
-    #             for i, c in enumerate(children[1:]):
-    #                 right_most = children[i].get_rightmost()
-    #                 c.head = right_most
-    #                 right_most.right_children.append(c)
-    #                 reordered_toks.append(c.j)
-    #             right_most = children[-1].get_rightmost()
-    #             right_most.right_children.append(self)
-    #             self.head = right_most
-    #
-    #     return reordered_toks
 
     def reorder_chain(self, left=False, right=False):
         reordered_toks = []
@@ -69,6 +35,11 @@ class TreeNode(object):
                 for c in self.right_children[-1].left_children:
                     right_positions += c.traverse()
                 _, reordered_right = zip(*sorted(right_positions, key=lambda t: t[0]))
+                for n in xrange(1, len(reordered_right)):
+                    if reordered_right[n-1].o != reordered_right[n].o -1:
+                        return reordered_toks
+                if reordered_right[0].o != self.o +1:
+                    return reordered_toks
                 for i in xrange(len(reordered_right)-1):
                     reordered_right[i].right_children = [reordered_right[i+1]]
                     reordered_right[i].left_children = []
@@ -93,6 +64,11 @@ class TreeNode(object):
                 for c in self.left_children:
                     left_positions += c.traverse()
                 _, reordered_left = zip(*sorted(left_positions, key=lambda t: t[0]))
+                for n in xrange(1, len(reordered_left)):
+                    if reordered_left[n-1].o != reordered_left[n].o-1:
+                        return reordered_toks
+                if reordered_left[-1].o != self.o-1:
+                    return reordered_toks
                 for i in xrange(1, len(reordered_left)):
                     reordered_left[i-1].right_children = [reordered_left[i]]
                     reordered_left[i-1].left_children = []
@@ -154,6 +130,11 @@ class TreeNode(object):
         if len(self.right_children) > 1:
             return False
         if self.right_children:
-            return self.right_children[0].check_strict()
-        else:
-            return True
+            children_check =  self.right_children[0].check_strict()
+            if not children_check:
+                return False
+            else:
+                os,_ = zip(*self.right_children[0].traverse())
+                if min(os) != self.o + 1:
+                    return False
+        return True
