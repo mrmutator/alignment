@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 
-def train_iteration(buffer, alpha, p_0, queue):
+def train_iteration(buffer, alpha, p_0, fertility, queue):
     # set all counts to zero
     lex_counts = Counter()  # (e,f)
     lex_norm = Counter()  # e
@@ -38,10 +38,13 @@ def train_iteration(buffer, alpha, p_0, queue):
         for p in cons_set:
             tmp_prob = np.zeros((I, I))
             jumps = {j: d_params[p, j] for j in xrange(-I + 1, I)}
+            if fertility:
+                jumps[0] = 0.0
             for i_p in xrange(I):
-                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)]) + p_0
+                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)]) + p_0 + fertility
                 tmp_prob[i_p, :] = np.array(
-                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * (1.0 / I)) for i in xrange(I)])
+                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * (1.0 / I)) if not fertility or  i != i_p
+                     else fertility * (1-alpha) + (alpha * (1.0 / I)) for i in xrange(I)])
             tmp = np.hstack((tmp_prob, np.identity(I) * p_0))
             dist_mat = np.vstack((tmp, tmp))
             d_probs[p] = dist_mat
@@ -80,8 +83,9 @@ def train_iteration(buffer, alpha, p_0, queue):
                         actual_i_p = i_p
                     else:
                         actual_i_p = i_p - I
-                    al_counts[(p, actual_i_p, i)] += xis[j][i_p][i]
-                    al_norm[p, actual_i_p] += gammas[j_p][i_p]
+                    if not fertility or i != i_p:
+                        al_counts[(p, actual_i_p, i)] += xis[j][i_p][i]
+                        al_norm[p, actual_i_p] += gammas[j_p][i_p]
 
         ll += pair_ll
 
@@ -164,6 +168,7 @@ arg_parser.add_argument("-params", required=True)
 arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
 arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
 arg_parser.add_argument("-alpha", required=False, type=float, default=0.0)
+arg_parser.add_argument("-fertility", required=False, type=float, default=0.0)
 arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
 
 args = arg_parser.parse_args()
@@ -183,7 +188,7 @@ def worker_wrapper(process_queue):
         if buffer is None:
             return
 
-        train_iteration(buffer, args.alpha, args.p_0, update_queue)
+        train_iteration(buffer, args.alpha, args.p_0, args.fertility, update_queue)
 
 
 corpus = SubcorpusReader(args.corpus)
