@@ -183,14 +183,9 @@ for num_buffer, buff in enumerate(corpus_buffer):
 for _ in xrange(args.num_workers):
     process_queue.put(None)
 logger.info("Entire corpus loaded.")
-for p in pool:
-    p.join()
-results_queue.put(None)
 results = [None] * (num_buffer + 1)
-while True:
+for _ in xrange(num_buffer+1):
     res = results_queue.get()
-    if res is None:
-        break
     i, als = res
     results[i] = als
 
