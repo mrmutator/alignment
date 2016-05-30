@@ -6,7 +6,7 @@ cp  %(psnt)s corpus.psnt
 cp %(ibm1_table_path)s ibm1.table
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/hmt/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -p_0 %(p_0)s -init %(init)s %(cj_cond_tok)s %(cj_cond_head)s %(tj_cond_tok)s %(tj_cond_head)s %(hmm)s %(mixed)s
+python %(script_dir)s/word_alignment/models/hmt/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -p_0 %(p_0)s -init_t %(init_t)s -init_c %(init_c)s %(cj_cond_tok)s %(cj_cond_head)s %(tj_cond_tok)s %(tj_cond_head)s %(hmm)s %(mixed)s
 gzip %(job_name)s.*
 cp %(job_name)s.* %(it_dir)s/
 wait

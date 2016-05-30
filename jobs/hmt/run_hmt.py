@@ -50,7 +50,8 @@ def get_params(args):
     params['alpha'] = args.alpha
     params['p_0'] = args.p_0
     params['fertility'] = args.fertility
-    params['init'] = args.init
+    params['init_c'] = args.init_c
+    params['init_t'] = args.init_t
     params['num_nodes'] = args.num_nodes
     params["cj_cond_head"] = ""
     params["cj_cond_tok"] = ""
@@ -207,7 +208,8 @@ arg_parser.add_argument("-num_iterations", required=True, type=int)
 arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 arg_parser.add_argument("-fertility", required=False, default=0.0, type=float)
-arg_parser.add_argument("-init", required=False, default="u", type=str)
+arg_parser.add_argument("-init_t", required=False, default=1.0, type=float)
+arg_parser.add_argument("-init_c", required=False, default=1.0, type=float)
 
 arg_parser.add_argument("-tj_cond_head", required=False, default="", type=str)
 arg_parser.add_argument("-tj_cond_tok", required=False, default="", type=str)
