@@ -243,8 +243,6 @@ arg_parser.add_argument("-PBS_time_evaluate_job", required=False, default="01:00
 args = arg_parser.parse_args()
 params = get_params(args)
 
-assert args.init.strip() in ["u", "r"] or args.init.strip().startswith("s")
-
 check_paths(params)
 if not args.ignore_checks:
     check_num_nodes_group_size(params)
