@@ -22,11 +22,17 @@ def train_iteration(buffer, alpha, p_0, fertility, queue):
     al_norm = Counter()  # (i_p)
     ll = 0
     start_norm_coeff = 1.0 - p_0
+    norm_coeff = start_norm_coeff
+    if fertility:
+        norm_coeff = 1.0 - p_0 - fertility
 
     corpus, trans_params, d_params, s_params = buffer
     for e_toks, f_toks, f_heads, cons in corpus:
         I = len(e_toks)
         I_double = 2 * I
+        uniform = 1.0 / I
+        if fertility:
+            uniform = 1.0 / (I-1)
 
         s_probs = s_params[I]
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
@@ -41,10 +47,12 @@ def train_iteration(buffer, alpha, p_0, fertility, queue):
             if fertility:
                 jumps[0] = 0.0
             for i_p in xrange(I):
-                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)]) + p_0 + fertility
+                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)])
                 tmp_prob[i_p, :] = np.array(
-                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * (1.0 / I)) if not fertility or  i != i_p
-                     else fertility * (1-alpha) + (alpha * (1.0 / I)) for i in xrange(I)])
+                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * uniform) if not fertility or i_p  != i else 0.0 for i in xrange(I)])
+            tmp_prob = tmp_prob * norm_coeff
+            if fertility:
+                tmp_prob = tmp_prob + (np.identity(I)*fertility)
             tmp = np.hstack((tmp_prob, np.identity(I) * p_0))
             dist_mat = np.vstack((tmp, tmp))
             d_probs[p] = dist_mat
