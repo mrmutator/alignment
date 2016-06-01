@@ -12,10 +12,16 @@ logger = logging.getLogger()
 def get_all_viterbi_alignments(buffer, alpha, p_0, fertility, queue):
     worker_num, corpus, t_probs, d_params, s_params = buffer
     all_alignments = []
+    norm_coeff = 1.0 - p_0
+    if fertility:
+        norm_coeff = 1.0 - p_0 - fertility
     for e_toks, f_toks, f_heads, cons, order in corpus:
         I = len(e_toks)
         J = len(f_toks)
         I_double = 2 * I
+        uniform = 1.0 / I
+        if fertility:
+            uniform = 1.0 / (I-1)
 
         cons_set = set()
         for con in cons[1:]:
@@ -24,15 +30,17 @@ def get_all_viterbi_alignments(buffer, alpha, p_0, fertility, queue):
         d_probs = dict()
         for p in cons_set:
             tmp_prob = np.zeros((I, I))
-            jumps = {j: d_params[p, j] for j in xrange(-I+1, I)}
+            jumps = {j: d_params[p, j] for j in xrange(-I + 1, I)}
             if fertility:
                 jumps[0] = 0.0
             for i_p in xrange(I):
-                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)]) + p_0 + fertility
+                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)])
                 tmp_prob[i_p, :] = np.array(
-                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * (1.0 / I)) if not fertility or  i != i_p
-                     else fertility * (1-alpha) + (alpha * (1.0 / I)) for i in xrange(I)])
-            tmp = np.hstack((tmp_prob, np.identity(I)*p_0))
+                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * uniform) if not fertility or i_p  != i else 0.0 for i in xrange(I)])
+            tmp_prob = tmp_prob * norm_coeff
+            if fertility:
+                tmp_prob = tmp_prob + (np.identity(I)*fertility)
+            tmp = np.hstack((tmp_prob, np.identity(I) * p_0))
             dist_mat = np.vstack((tmp, tmp))
             d_probs[p] = dist_mat
 
