@@ -31,7 +31,7 @@ def train_iteration(buffer, alpha, p_0, fertility, queue):
         I = len(e_toks)
         I_double = 2 * I
         uniform = 1.0 / I
-        if fertility:
+        if fertility and I > 1:
             uniform = 1.0 / (I-1)
 
         s_probs = s_params[I]

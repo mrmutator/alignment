@@ -20,7 +20,7 @@ def get_all_viterbi_alignments(buffer, alpha, p_0, fertility, queue):
         J = len(f_toks)
         I_double = 2 * I
         uniform = 1.0 / I
-        if fertility:
+        if fertility and I > 1:
             uniform = 1.0 / (I-1)
 
         cons_set = set()
