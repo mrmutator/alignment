@@ -4,6 +4,7 @@
 cd "$TMPDIR"
 cp %(dir)s/it0/%(job_name)s.corpus.%(part)s.gz corpus.test.gz
 cp %(it_dir)s/%(job_name)s.params.%(part)s.gz params.txt.gz
+%(cp_exempt_file)s
 gunzip params.txt.gz
 gunzip corpus.test.gz
 module load python

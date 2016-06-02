@@ -87,8 +87,10 @@ def get_params(args):
         params["align_limits"][params["align_parts"]-1] = rest
 
     params["exempt_chain_params"] = ""
+    params["cp_exempt_file"] = ""
     if args.exempt_chain_params:
-        params["exempt_chain_params"] = "-exempt_chain_params " + os.path.abspath(os.path.join(params['dir'], 'it0/'+params["job_name"] + ".condvoc"))
+        params["cp_exempt_file"] = "cp " + os.path.abspath(os.path.join(params['dir'], 'it0/'+params["job_name"] + ".condvoc.gz")) + " condvoc.txt.gz\ngunzip condvoc.txt.gz"
+        params["exempt_chain_params"] = "-exempt_chain_params condvoc.txt"
 
     params['PBS_time_prepare_job'] = args.PBS_time_prepare_job
     params['PBS_time_worker_job'] = args.PBS_time_worker_job
