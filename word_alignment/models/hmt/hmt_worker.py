@@ -6,13 +6,26 @@ import argparse
 from CorpusReader import SubcorpusReader, Corpus_Buffer
 import logging
 import hmt
+import re
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
 
+def get_chain_params(condvoc_file):
+    hmm_chain_params = set()
+    with open(condvoc_file, "r") as infile:
+        for line in infile:
+            i, data = line.split("\t")
+            hmm_str = re.search("\.*(True|False)\)", data).group(1)
+            if hmm_str == "True":
+                hmm_chain_params.add(int(i))
+            else:
+                assert hmm_str == "False"
+    return hmm_chain_params
 
-def train_iteration(buffer, alpha, p_0, fertility, queue):
+
+def train_iteration(buffer, alpha, p_0, fertility_const, chain_cons, queue):
     # set all counts to zero
     lex_counts = Counter()  # (e,f)
     lex_norm = Counter()  # e
@@ -22,17 +35,13 @@ def train_iteration(buffer, alpha, p_0, fertility, queue):
     al_norm = Counter()  # (i_p)
     ll = 0
     start_norm_coeff = 1.0 - p_0
-    norm_coeff = start_norm_coeff
-    if fertility:
-        norm_coeff = 1.0 - p_0 - fertility
+
 
     corpus, trans_params, d_params, s_params = buffer
     for e_toks, f_toks, f_heads, cons in corpus:
         I = len(e_toks)
         I_double = 2 * I
-        uniform = 1.0 / I
-        if fertility and I > 1:
-            uniform = 1.0 / (I-1)
+        uniform_const = 1.0 / I
 
         s_probs = s_params[I]
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
@@ -44,8 +53,15 @@ def train_iteration(buffer, alpha, p_0, fertility, queue):
         for p in cons_set:
             tmp_prob = np.zeros((I, I))
             jumps = {j: d_params[p, j] for j in xrange(-I + 1, I)}
-            if fertility:
+            norm_coeff = start_norm_coeff
+            fertility = 0
+            uniform = uniform_const
+            if p not in chain_cons:
+                fertility = fertility_const
                 jumps[0] = 0.0
+                norm_coeff = 1.0 - p_0 - fertility_const
+                if I > 1:
+                    uniform = 1.0 / (I - 1)
             for i_p in xrange(I):
                 norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)])
                 tmp_prob[i_p, :] = np.array(
@@ -78,6 +94,9 @@ def train_iteration(buffer, alpha, p_0, fertility, queue):
         for j_p, f_tok in enumerate(f_toks[1:]):
             j = j_p + 1
             p = cons[j]
+            fertility = True
+            if p in chain_cons:
+                fertility = False
             if (0, f_tok) in trans_params:
                 gammas_0_j = np.sum(gammas[j][I:])
                 lex_counts[(0, f_tok)] += gammas_0_j
@@ -169,78 +188,82 @@ def aggregate_counts(queue, counts_file):
 
 #############################################
 # main
+if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-corpus", required=True)
+    arg_parser.add_argument("-params", required=True)
+    arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
+    arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
+    arg_parser.add_argument("-alpha", required=False, type=float, default=0.0)
+    arg_parser.add_argument("-fertility", required=False, type=float, default=0.0)
+    arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
+    arg_parser.add_argument('-exempt_chain_params', required=False, type=str, default="")
 
-arg_parser = argparse.ArgumentParser()
-arg_parser.add_argument("-corpus", required=True)
-arg_parser.add_argument("-params", required=True)
-arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
-arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
-arg_parser.add_argument("-alpha", required=False, type=float, default=0.0)
-arg_parser.add_argument("-fertility", required=False, type=float, default=0.0)
-arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
+    args = arg_parser.parse_args()
 
-args = arg_parser.parse_args()
+    counts_file_name = args.params + ".counts"
 
-counts_file_name = args.params + ".counts"
-
-update_queue = mp.Queue()
-process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers - 1) / 4)))
-t_params = dict()
-d_params = dict()
-s_params = dict()
-
-
-def worker_wrapper(process_queue):
-    while True:
-        buffer = process_queue.get()
-        if buffer is None:
-            return
-
-        train_iteration(buffer, args.alpha, args.p_0, args.fertility, update_queue)
+    update_queue = mp.Queue()
+    process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers - 1) / 4)))
+    t_params = dict()
+    d_params = dict()
+    s_params = dict()
+    chain_cons = set()
+    if args.exempt_chain_params:
+        chain_cons = get_chain_params(args.exempt_chain_params)
 
 
-corpus = SubcorpusReader(args.corpus)
-pool = []
-for w in xrange(args.num_workers - 1):
-    p = mp.Process(target=worker_wrapper, args=(process_queue,))
-    p.start()
-    pool.append(p)
+    def worker_wrapper(process_queue):
+        while True:
+            buffer = process_queue.get()
+            if buffer is None:
+                return
 
-logger.info("Loading parameters.")
-load_params(t_params, d_params, s_params, args.params)
+            train_iteration(buffer, args.alpha, args.p_0, args.fertility, chain_cons, update_queue)
 
-updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
-updater.start()
 
-corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
-logger.info("Starting worker processes..")
-for buff in corpus_buffer:
-    # get all t-params of buffer
-    required_ts = set()
-    required_Is = set()
-    required_cons_j = set()
-    for e_toks, f_toks, f_heads, cons in buff:
-        for e_tok in e_toks + [0]:
-            for f_tok in f_toks:
-                required_ts.add((e_tok, f_tok))
-        I = len(e_toks)
-        required_Is.add(I)
-        for con in cons[1:]:
-            for jmp in xrange(-I + 1, I):
-                required_cons_j.add((con, jmp))
+    corpus = SubcorpusReader(args.corpus)
+    pool = []
+    for w in xrange(args.num_workers - 1):
+        p = mp.Process(target=worker_wrapper, args=(process_queue,))
+        p.start()
+        pool.append(p)
 
-    # get a copy from shared dicts
-    t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-    s_probs = {I_: np.copy(s_params[I_]) for I_ in required_Is}
-    d_probs = {cj: d_params[cj] for cj in required_cons_j}
-    process_queue.put((buff, t_probs, d_probs, s_probs))
-# Send termination signal
-for _ in xrange(args.num_workers - 1):
-    process_queue.put(None)
-logger.info("Entire corpus loaded.")
-for p in pool:
-    p.join()
-# Send termination signal
-update_queue.put(None)
-logger.info("Waiting for update process to terminate.")
-updater.join()
+    logger.info("Loading parameters.")
+    load_params(t_params, d_params, s_params, args.params)
+
+    updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
+    updater.start()
+
+    corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
+    logger.info("Starting worker processes..")
+    for buff in corpus_buffer:
+        # get all t-params of buffer
+        required_ts = set()
+        required_Is = set()
+        required_cons_j = set()
+        for e_toks, f_toks, f_heads, cons in buff:
+            for e_tok in e_toks + [0]:
+                for f_tok in f_toks:
+                    required_ts.add((e_tok, f_tok))
+            I = len(e_toks)
+            required_Is.add(I)
+            for con in cons[1:]:
+                for jmp in xrange(-I + 1, I):
+                    required_cons_j.add((con, jmp))
+
+        # get a copy from shared dicts
+        t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
+        s_probs = {I_: np.copy(s_params[I_]) for I_ in required_Is}
+        d_probs = {cj: d_params[cj] for cj in required_cons_j}
+        process_queue.put((buff, t_probs, d_probs, s_probs))
+    # Send termination signal
+    for _ in xrange(args.num_workers - 1):
+        process_queue.put(None)
+    logger.info("Entire corpus loaded.")
+    for p in pool:
+        p.join()
+    # Send termination signal
+    update_queue.put(None)
+    logger.info("Waiting for update process to terminate.")
+    updater.join()

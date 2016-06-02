@@ -9,7 +9,7 @@ gunzip params.txt.gz
 gunzip corpus.psnt.gz
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/hmt/hmt_worker.py -corpus corpus.psnt -params params.txt -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -fertility %(fertility)s -buffer_size %(buffer_size)s
+python %(script_dir)s/word_alignment/models/hmt/hmt_worker.py -corpus corpus.psnt -params params.txt -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -fertility %(fertility)s %(exempt_chain_params)s -buffer_size %(buffer_size)s
 gzip params.txt.counts
 cp params.txt.counts.gz %(it_dir)s/%(job_name)s.counts.${part}.gz
 wait

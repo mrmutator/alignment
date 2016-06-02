@@ -86,6 +86,10 @@ def get_params(args):
         rest = args.align_limit % args.group_size
         params["align_limits"][params["align_parts"]-1] = rest
 
+    params["exempt_chain_params"] = ""
+    if args.exempt_chain_params:
+        params["exempt_chain_params"] = "-exempt_chain_params " + os.path.abspath(os.path.join(params['dir'], 'it0/'+params["job_name"] + ".condvoc"))
+
     params['PBS_time_prepare_job'] = args.PBS_time_prepare_job
     params['PBS_time_worker_job'] = args.PBS_time_worker_job
     params['PBS_time_update_job'] = args.PBS_time_update_job
@@ -208,6 +212,7 @@ arg_parser.add_argument("-num_iterations", required=True, type=int)
 arg_parser.add_argument("-alpha", required=False, default=0.0, type=float)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 arg_parser.add_argument("-fertility", required=False, default=0.0, type=float)
+arg_parser.add_argument('-exempt_chain_params', dest="exempt_chain_params", action="store_true", required=False)
 arg_parser.add_argument("-init_t", required=False, default=1.0, type=float)
 arg_parser.add_argument("-init_c", required=False, default=1.0, type=float)
 
