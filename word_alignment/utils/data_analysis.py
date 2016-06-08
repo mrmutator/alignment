@@ -56,7 +56,7 @@ class ParentIndex(object):
                 self.pos[pos].add(self.i)
                 self.rel[rel].add(self.i)
                 self.dir[dir].add(self.i)
-                return self.data[(pos, rel, dir)]
+                return self.i
 
     def get_pos_dist(self):
         for pos in self.pos:
@@ -73,7 +73,7 @@ class ParentIndex(object):
 
 class Statistics(object):
 
-    def __init__(self, corpus, gold_file, gold_order, sure_only=True):
+    def __init__(self, corpus, gold_file, gold_order, sure_only=True, pos_voc_file=None, rel_voc_file=None):
         self.gold_aligned = defaultdict(lambda: defaultdict(set))
         self.stats = defaultdict(lambda: defaultdict(int))
 
@@ -81,11 +81,29 @@ class Statistics(object):
         self.min_i = 0
 
         self.read_gold_file(gold_file, gold_order, sure_only=sure_only)
+        print self.gold_aligned
         self.cond_voc = ParentIndex()
         self.read_corpus(corpus)
         self.array_length = abs(self.min_i) + self.max_i + 1
         self.make_arrays()
+        self.pos_voc = dict()
+        self.rel_voc = dict()
 
+        if pos_voc_file:
+            self.pos_voc = self.read_cond_voc_file(pos_voc_file)
+        if rel_voc_file:
+            self.rel_voc = self.read_cond_voc_file(rel_voc_file)
+
+
+
+    def read_cond_voc_file(self, fname):
+        voc = dict()
+        with open(fname, "r") as infile:
+            for line in infile:
+                i, lbl = line.strip().split()
+                i = int(i)
+                voc[i] = lbl
+        return voc
 
 
     def read_gold_file(self, file_name, order=("e", "f"), sure_only=True):
@@ -118,17 +136,17 @@ class Statistics(object):
                 children[h].add(j + 1)
 
             for j in xrange(J):
-                p, r, d = pos[j], rel[j], dir[j]
-                cond_id = self.cond_voc.add(p, r, d)
-
                 parents_aligned = self.gold_aligned[sent_num][j]
-                if not parents_aligned:
+                if not parents_aligned or (not children[j]):
                     continue
+                p, r, d = pos[j], rel[j], dir[j]
+
                 parent_weight = 1.0 / len(parents_aligned)
                 for c in children[j]:
                     c_aligned = self.gold_aligned[sent_num][c]
                     for i_p in parents_aligned:
                         for i in c_aligned:
+                            cond_id = self.cond_voc.add(p, r, d)
                             rel_dist = i - i_p
                             self.stats[cond_id][rel_dist] += parent_weight
                             if rel_dist > self.max_i:
@@ -143,7 +161,6 @@ class Statistics(object):
             for i, j in enumerate(xrange(self.min_i, self.max_i+1)):
                 array[i] = self.stats[cond_id][j]
             self.stats[cond_id] = array
-            print array
 
     def get_pos_dist(self):
         dist_dict = dict()
@@ -169,16 +186,37 @@ class Statistics(object):
             array = np.zeros(self.array_length)
             for i in indices:
                 array += self.stats[i]
-            dist_dict[dir] = array / np.sum(array)
+            dist_dict[dir] = array
         return dist_dict
 
     def compute_results(self, dist_dict):
+        results = dict()
         for key, dist in dist_dict.iteritems():
             reorder_probs = np.array([np.sum(dist[:abs(self.min_i)]), dist[abs(self.min_i)], np.sum(dist[abs(self.min_i)+1:])])
+            # smoothing:
+            dist += np.ones(len(dist))
+            dist = dist / np.sum(dist)
+            reorder_probs += np.ones(3)
+            reorder_probs = reorder_probs / np.sum(reorder_probs)
             dist_logs = np.log(dist)
             reorder_logs = np.log(reorder_probs)
             dist_entropy = -np.sum(np.multiply(dist, dist_logs))
+            reorder_entropy = -np.sum(np.multiply(reorder_probs, reorder_logs))
+            results[key] = reorder_probs, reorder_entropy, dist_entropy
+        return results
 
+    def make_stats(self):
+        pos_dist = self.get_pos_dist()
+        pos_results = self.compute_results(pos_dist)
+        for key, v in pos_results.iteritems():
+            key = self.pos_voc.get(key, key)
+            print key, v
+
+        rel_dist = self.get_rel_dist()
+        rel_results = self.compute_results(rel_dist)
+        for key, v in rel_results.iteritems():
+            key = self.rel_voc.get(key, key)
+            print key, v
 
 
 if __name__ == "__main__":
@@ -186,10 +224,13 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-gold", required=True)
+    arg_parser.add_argument("-pos_voc", required=False, default="")
+    arg_parser.add_argument("-rel_voc", required=False, default="")
 
     args = arg_parser.parse_args()
 
-    stat = Statistics(args.corpus, args.gold, ("f", "e"))
+    stat = Statistics(args.corpus, args.gold, ("f", "e"), pos_voc_file=args.pos_voc, rel_voc_file=args.rel_voc)
+    stat.make_stats()
 
 
 # read gold file
