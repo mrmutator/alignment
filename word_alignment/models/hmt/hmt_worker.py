@@ -56,7 +56,7 @@ def train_iteration(buffer, alpha, p_0, fertility_const, chain_cons, queue):
             norm_coeff = start_norm_coeff
             fertility = 0
             uniform = uniform_const
-            if p not in chain_cons:
+            if fertility_const and p not in chain_cons:
                 fertility = fertility_const
                 jumps[0] = 0.0
                 norm_coeff = 1.0 - p_0 - fertility_const
