@@ -1,5 +1,6 @@
 from collections import defaultdict
 import numpy as np
+import itertools
 
 class CorpusReader(object):
     def __init__(self, corpus_file, limit=None):
@@ -65,12 +66,50 @@ class CondIndex(object):
                 return self.i
 
     def get_dist(self, parent="", tok=""):
-        dists = dict()
-        conditions = [x in parent for x in "prd"] + [x in tok for xin in "prd"]
+        dist_keys = []
+        conditions = [x in parent for x in "prd"] + [x in tok for x in  "prd"]
         targets = [self.pos_p, self.rel_p, self.dir_p, self.pos_c, self.rel_c, self.dir_c]
         for i, c in enumerate(conditions):
             if c:
-                dists[i] = targets[i].keys()
+                dist_keys.append(targets[i].keys())
+            else:
+                dist_keys.append([None])
+
+        parent_keys = dist_keys[:3]
+        child_keys = dist_keys[3:]
+
+        parent_combinations = itertools.product(*parent_keys)
+        child_combinations = itertools.product(*child_keys)
+
+        parent_dists = dict()
+        for p, r, d in parent_combinations:
+            all = set(range(self.i))
+            if p is not None:
+                all = all.intersection(self.pos_p[p])
+            if r is not None:
+                all = all.intersection(self.rel_p[r])
+            if d is not None:
+                all = all.intersection(self.dir_p[d])
+            parent_dists[p, r, d] = all
+
+        child_dists = dict()
+        for p, r, d in child_combinations:
+            all = set(range(self.i))
+            if p is not None:
+                all = all.intersection(self.pos_c[p])
+            if r is not None:
+                all = all.intersection(self.rel_c[r])
+            if d is not None:
+                all = all.intersection(self.dir_c[d])
+            child_dists[p, r, d] = all
+
+        all = dict()
+        for (pp, pr, pd), p_set in parent_dists.iteritems():
+            for (cp, cr, cd), c_set in child_dists.iteritems():
+                total = p_set.intersection(c_set)
+                if total:
+                    all[pp, pr, pd, cp, cr, cd] = total
+        return all
 
 
     def get_pos_p_dist(self):
@@ -106,6 +145,7 @@ class Statistics(object):
     def __init__(self, corpus, gold_file, gold_order, sure_only=True, pos_voc_file=None, rel_voc_file=None):
         self.gold_aligned = defaultdict(lambda: defaultdict(set))
         self.stats = defaultdict(lambda: defaultdict(int))
+        self.cond_freq = defaultdict(int)
 
         self.max_i = 0
         self.min_i = 0
@@ -117,6 +157,7 @@ class Statistics(object):
         self.make_arrays()
         self.pos_voc = dict()
         self.rel_voc = dict()
+        self.dir_voc = {-1: "l", 1:  "r", None: "---"}
 
         if pos_voc_file:
             self.pos_voc = self.read_cond_voc_file(pos_voc_file)
@@ -127,6 +168,7 @@ class Statistics(object):
 
     def read_cond_voc_file(self, fname):
         voc = dict()
+        voc[None] = "---"
         with open(fname, "r") as infile:
             for line in infile:
                 i, lbl = line.strip().split()
@@ -187,6 +229,7 @@ class Statistics(object):
                             cond_id = self.cond_voc.add(p_par, r_par, d_par, p_c, r_c, d_c)
                             rel_dist = i - i_p
                             self.stats[cond_id][rel_dist] += parent_weight
+                            self.cond_freq[cond_id] += parent_weight
                             if rel_dist > self.max_i:
                                 self.max_i = rel_dist
                             if rel_dist < self.min_i:
@@ -201,44 +244,26 @@ class Statistics(object):
             self.stats[cond_id] = array
 
     def get_dist(self, parent_con, tok_con):
-
-
-
-    def get_pos_dist(self):
         dist_dict = dict()
-        for pos, indices in self.cond_voc.get_pos_dist():
+        freq_dict = dict()
+        for comb, indices in self.cond_voc.get_dist(parent_con, tok_con).iteritems():
+            count = 0
             array = np.zeros(self.array_length)
             for i in indices:
                 array += self.stats[i]
-            dist_dict[pos] = array
-        return dist_dict
-
-    def get_rel_dist(self):
-        dist_dict = dict()
-        for rel, indices in self.cond_voc.get_rel_dist():
-            array = np.zeros(self.array_length)
-            for i in indices:
-                array += self.stats[i]
-            dist_dict[rel] = array
-        return dist_dict
-
-    def get_dir_dist(self):
-        dist_dict = dict()
-        for dir, indices in self.cond_voc.get_dir_dist():
-            array = np.zeros(self.array_length)
-            for i in indices:
-                array += self.stats[i]
-            dist_dict[dir] = array
-        return dist_dict
+                count += self.cond_freq[i]
+            dist_dict[comb] = array
+            freq_dict[comb] = count
+        return dist_dict, freq_dict
 
     def compute_results(self, dist_dict):
         results = dict()
         for key, dist in dist_dict.iteritems():
             reorder_probs = np.array([np.sum(dist[:abs(self.min_i)]), dist[abs(self.min_i)], np.sum(dist[abs(self.min_i)+1:])])
             # smoothing:
-            dist += np.ones(len(dist))
+            dist += (np.ones(len(dist)) * 0.0000001)
             dist = dist / np.sum(dist)
-            reorder_probs += np.ones(3)
+            reorder_probs += (np.ones(3) * 0.0000001)
             reorder_probs = reorder_probs / np.sum(reorder_probs)
             dist_logs = np.log(dist)
             reorder_logs = np.log(reorder_probs)
@@ -248,17 +273,40 @@ class Statistics(object):
         return results
 
     def make_stats(self):
-        pos_dist = self.get_pos_dist()
-        pos_results = self.compute_results(pos_dist)
-        for key, v in sorted(pos_results.items(), key= lambda t: t[1][1]):
-            key = self.pos_voc.get(key, key)
-            print key, v
+        combos = ["", "p", "r", "d", "pr", "pd", "rd", "prd"]
+        aggregated_results = dict()
+        for p_comb in combos:
+            for c_comb in combos:
+                if not p_comb and not c_comb:
+                    continue
+                print "Computing ", p_comb, c_comb
+                dist, freq = self.get_dist(p_comb, c_comb)
+                results = self.compute_results(dist)
+                aggregated_reorder = 0
+                aggregated_pos = 0
+                norm = 0
+                for key, v in results.iteritems():
+                    f = freq[key]
+                    norm += f
+                    aggregated_reorder += f * v[1]
+                    aggregated_pos += f * v[2]
+                aggregated_pos = float(aggregated_pos) / norm
+                aggregated_reorder = float(aggregated_reorder) / norm
+                aggregated_results[p_comb, c_comb] = (aggregated_reorder, aggregated_pos)
 
-        rel_dist = self.get_rel_dist()
-        rel_results = self.compute_results(rel_dist)
-        for key, v in sorted(rel_results.items(), key=lambda t: t[1][1]):
-            key = self.rel_voc.get(key, key)
-            print key, v
+        for k, v in sorted(aggregated_results.items(), key=lambda t: t[1][0]):
+            print k, v
+                # for (pp, pr, pd, cp, cr, cd), v in sorted(results.items(), key= lambda t: t[1][1]):
+                #     f = freq[pp, pr, pd, cp, cr, cd]
+                #     pp = self.pos_voc.get(pp, pp)
+                #     pr = self.rel_voc.get(pr, pr)
+                #     pd = self.dir_voc.get(pd, pd)
+                #     cp = self.pos_voc.get(cp, cp)
+                #     cr = self.rel_voc.get(cr, cr)
+                #     cd = self.dir_voc.get(cd, cd)
+                #
+                #     print pp, pr, pd, cp, cr, cd, np.round(v[0], decimals=3), f
+
 
 
 if __name__ == "__main__":
