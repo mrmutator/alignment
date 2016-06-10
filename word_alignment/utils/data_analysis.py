@@ -37,38 +37,68 @@ class CorpusReader(object):
             c += 1
         return c
 
-class ParentIndex(object):
+class CondIndex(object):
 
     def __init__(self):
         self.i = 0
         self.data = dict()
-        self.pos = defaultdict(set)
-        self.rel = defaultdict(set)
-        self.dir = defaultdict(set)
+        self.pos_p = defaultdict(set)
+        self.rel_p = defaultdict(set)
+        self.dir_p = defaultdict(set)
+        self.pos_c = defaultdict(set)
+        self.rel_c = defaultdict(set)
+        self.dir_c = defaultdict(set)
 
 
-    def add(self, pos, rel, dir):
-            if (pos, rel, dir) in self.data:
-                return self.data[(pos, rel, dir)]
+    def add(self, pos_p, rel_p, dir_p, pos_c, rel_c, dir_c):
+            if (pos_p, rel_p, dir_p, pos_c, rel_c, dir_c) in self.data:
+                return self.data[(pos_p, rel_p, dir_p, pos_c, rel_c, dir_c)]
             else:
                 self.i += 1
-                self.data[(pos, rel, dir)] = self.i
-                self.pos[pos].add(self.i)
-                self.rel[rel].add(self.i)
-                self.dir[dir].add(self.i)
+                self.data[(pos_p, rel_p, dir_p, pos_c, rel_c, dir_c)] = self.i
+                self.pos_p[pos_p].add(self.i)
+                self.rel_p[rel_p].add(self.i)
+                self.dir_p[dir_p].add(self.i)
+                self.pos_c[pos_c].add(self.i)
+                self.rel_c[rel_c].add(self.i)
+                self.dir_c[dir_c].add(self.i)
                 return self.i
 
-    def get_pos_dist(self):
-        for pos in self.pos:
-            yield pos, self.pos[pos]
+    def get_dist(self, parent="", tok=""):
+        dists = dict()
+        conditions = [x in parent for x in "prd"] + [x in tok for xin in "prd"]
+        targets = [self.pos_p, self.rel_p, self.dir_p, self.pos_c, self.rel_c, self.dir_c]
+        for i, c in enumerate(conditions):
+            if c:
+                dists[i] = targets[i].keys()
 
-    def get_rel_dist(self):
-        for rel in self.rel:
-            yield rel, self.rel[rel]
 
-    def get_dir_dist(self):
-        for dir in self.dir:
-            yield dir, self.dir[dir]
+    def get_pos_p_dist(self):
+        for pos in self.pos_p:
+            yield pos, self.pos_p[pos]
+
+    def get_rel_p_dist(self):
+        for rel in self.rel_p:
+            yield rel, self.rel_p[rel]
+
+    def get_dir_p_dist(self):
+        for dir in self.dir_p:
+            yield dir, self.dir_p[dir]
+
+
+    def get_pos_c_dist(self):
+        for pos in self.pos_c:
+            yield pos, self.pos_c[pos]
+
+
+    def get_rel_c_dist(self):
+        for rel in self.rel_c:
+            yield rel, self.rel_c[rel]
+
+
+    def get_dir_c_dist(self):
+        for dir in self.dir_c:
+            yield dir, self.dir_c[dir]
 
 
 class Statistics(object):
@@ -81,8 +111,7 @@ class Statistics(object):
         self.min_i = 0
 
         self.read_gold_file(gold_file, gold_order, sure_only=sure_only)
-        print self.gold_aligned
-        self.cond_voc = ParentIndex()
+        self.cond_voc = CondIndex()
         self.read_corpus(corpus)
         self.array_length = abs(self.min_i) + self.max_i + 1
         self.make_arrays()
@@ -130,6 +159,14 @@ class Statistics(object):
 
 
         for sent_num, (e_toks, f_toks, f_heads, pos, rel, dir, order) in enumerate(corpus):
+            # reorder to normal order
+            order_indices, _  = zip(*sorted(list(enumerate(order)), key=lambda t: t[1]))
+            f_toks = map(f_toks.__getitem__, order_indices)
+            pos = map(pos.__getitem__, order_indices)
+            rel = map(rel.__getitem__, order_indices)
+            dir = map(dir.__getitem__, order_indices)
+            f_heads = [order[f_heads[oi]] for oi in order_indices]
+
             J = len(f_toks)
             children = [set() for _ in xrange(J)]
             for j, h in enumerate(f_heads[1:]):
@@ -139,14 +176,15 @@ class Statistics(object):
                 parents_aligned = self.gold_aligned[sent_num][j]
                 if not parents_aligned or (not children[j]):
                     continue
-                p, r, d = pos[j], rel[j], dir[j]
+                p_par, r_par, d_par = pos[j], rel[j], dir[j]
 
                 parent_weight = 1.0 / len(parents_aligned)
                 for c in children[j]:
                     c_aligned = self.gold_aligned[sent_num][c]
+                    p_c, r_c, d_c = pos[c], rel[c], dir[c]
                     for i_p in parents_aligned:
                         for i in c_aligned:
-                            cond_id = self.cond_voc.add(p, r, d)
+                            cond_id = self.cond_voc.add(p_par, r_par, d_par, p_c, r_c, d_c)
                             rel_dist = i - i_p
                             self.stats[cond_id][rel_dist] += parent_weight
                             if rel_dist > self.max_i:
@@ -161,6 +199,10 @@ class Statistics(object):
             for i, j in enumerate(xrange(self.min_i, self.max_i+1)):
                 array[i] = self.stats[cond_id][j]
             self.stats[cond_id] = array
+
+    def get_dist(self, parent_con, tok_con):
+
+
 
     def get_pos_dist(self):
         dist_dict = dict()
@@ -208,13 +250,13 @@ class Statistics(object):
     def make_stats(self):
         pos_dist = self.get_pos_dist()
         pos_results = self.compute_results(pos_dist)
-        for key, v in pos_results.iteritems():
+        for key, v in sorted(pos_results.items(), key= lambda t: t[1][1]):
             key = self.pos_voc.get(key, key)
             print key, v
 
         rel_dist = self.get_rel_dist()
         rel_results = self.compute_results(rel_dist)
-        for key, v in rel_results.iteritems():
+        for key, v in sorted(rel_results.items(), key=lambda t: t[1][1]):
             key = self.rel_voc.get(key, key)
             print key, v
 
