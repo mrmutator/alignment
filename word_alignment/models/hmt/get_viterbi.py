@@ -31,7 +31,7 @@ def get_all_viterbi_alignments(buffer, alpha, p_0, fertility_const, chain_cons, 
             fertility = 0
             uniform = uniform_const
             norm_coeff = start_norm_coeff
-            if p not in chain_cons:
+            if fertility_const and p not in chain_cons:
                 fertility = fertility_const
                 jumps[0] = 0.0
                 norm_coeff = 1.0 - p_0 - fertility_const
@@ -47,7 +47,6 @@ def get_all_viterbi_alignments(buffer, alpha, p_0, fertility_const, chain_cons, 
             tmp = np.hstack((tmp_prob, np.identity(I) * p_0))
             dist_mat = np.vstack((tmp, tmp))
             d_probs[p] = dist_mat
-            print np.sum(dist_mat, axis=1)
 
         s_probs = np.hstack((np.array(s_params[I]), np.ones(I) * (float(p_0) / I)))
 
