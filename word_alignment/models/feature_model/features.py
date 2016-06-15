@@ -1,6 +1,6 @@
 # Reminder: don't confuse j with actual order[j]
 
-def extract_static_dist_features(e_toks, f_toks, f_heads, pos, rel, dir, order, j):
+def extract_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_p):
     """
     Extracts static features for a given position j.
     Returns a list that contains the feature names which
@@ -21,24 +21,7 @@ def extract_static_dist_features(e_toks, f_toks, f_heads, pos, rel, dir, order, 
 
     return feature_statements
 
-def extract_dynamic_dist_features(e_toks, f_toks, f_heads, pos, rel, dir, order, j, i_p):
-    """
-    Extracts dynamic features for a given j and i_p (alignment point of parent of j).
-    Returns a list that contains the feature names which
-    have a True binary value.
-    Only use features here that cannot be extracted beforehand as a preprocessing step.
-    """
-    feature_statements= []
-    if i_p == 0:
-        feature_statements.append("aligned_to_first")
-    if i_p == len(e_toks)-1:
-        feature_statements.append("aligned_to_last")
-    if i_p >= len(e_toks):
-        feature_statements.append("aligned_to_null")
-    return feature_statements
-
-
-def extract_static_start_features(e_toks, f_toks, f_heads, pos, rel, dir, order):
+def extract_start_features(e_toks, f_toks, f_heads, pos, rel, order):
     """
     Extracts static features for start position
     Returns a list that contains the feature names which
@@ -59,3 +42,39 @@ def extract_static_start_features(e_toks, f_toks, f_heads, pos, rel, dir, order)
     feature_statements.append(fname)
 
     return feature_statements
+
+class Features(object):
+    # static and dynamic features
+    # static ones are stored in subcorpus file so they don't need to be extracted again
+    # dynamic ones need to be accounted for (reserve a spot in feature vector) and generate weights
+
+    def __init__(self, extract_func=lambda:[]):
+        self.feature_num = 0
+        self.feature_dict = dict()
+        self.extract = extract_func
+
+    def add(self, feat):
+        if feat not in self.feature_dict:
+            self.feature_dict[feat] = self.feature_num
+            self.feature_num += 1
+        return self.feature_dict[feat]
+
+    def get_feat_id(self, feat):
+        return self.feature_dict[feat]
+
+    def get_voc(self):
+        output = ""
+        for k in sorted(self.feature_dict, key=self.feature_dict.get):
+            output += str(self.feature_dict[k]) + "\t" + k + "\n"
+        return output
+
+    def load_voc(self, fname):
+        tmp_dict = dict()
+        with open(fname, "r") as infile:
+            for line in infile:
+                i, f = line.strip().split("\t")
+                tmp_dict[f] = int(i)
+        self.feature_dict = tmp_dict
+        self.feature_num = max(tmp_dict.values())
+
+

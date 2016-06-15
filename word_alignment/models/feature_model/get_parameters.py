@@ -39,47 +39,6 @@ def random_weight():
     return random.uniform(-1, 1)
 
 
-class Features(object):
-    # static and dynamic features
-    # static ones are stored in subcorpus file so they don't need to be extracted again
-    # dynamic ones need to be accounted for (reserve a spot in feature vector) and generate weights
-
-    def __init__(self, static_func=lambda:[], dynamic_func=lambda:[]):
-        self.feature_num = 0
-        self.feature_dict = dict()
-        self.extract_static = static_func
-        self.extract_dynamic = dynamic_func
-
-    def add(self, feat):
-        if feat not in self.feature_dict:
-            self.feature_dict[feat] = self.feature_num
-            self.feature_num += 1
-        return self.feature_dict[feat]
-
-    def add_features(self, e_toks, f_toks, f_heads, pos, rel, dir, order, dynamic=False):
-        statics = self.extract_static(e_toks, f_toks, f_heads, pos, rel, dir, order, j)
-        for feat_set in statics:
-            for feat_name in feat_set:
-                self.add(feat_name)
-
-        if dynamic:
-            I = len(e_toks)
-            I_double = 2*I
-            for j in range(1, len(f_toks)):
-                for i_p in xrange(-I_double+1, I_double):
-                    for feat_name in self.extract_dynamic(e_toks, f_toks, f_heads, pos, rel, dir, order, j, i_p):
-                        self.add(feat_name)
-
-    def get_feat_id(self, feat):
-        return self.feature_dict[feat]
-
-    def get_voc(self):
-        output = ""
-        for k in sorted(self.feature_dict, key=self.feature_dict.get):
-            output += str(self.feature_dict[k]) + "\t" + k + "\n"
-        return output
-
-
 class Parameters(object):
     def __init__(self, corpus, hmm=False):
         self.corpus = corpus
@@ -87,9 +46,8 @@ class Parameters(object):
         self.global_max_I = 0
         self.hmm = hmm
 
-        self.start_features = Features(static_func=features.extract_static_start_features)
-        self.dist_features = Features(static_func=features.extract_static_dist_features,
-                                      dynamic_func=features.extract_dynamic_dist_features)
+        self.start_features = features.Features(extract_func=features.extract_start_features)
+        self.dist_features = features.Features(extract_func=features.extract_dist_features)
         self.c = 0
 
         self.add_corpus(corpus)
@@ -103,23 +61,17 @@ class Parameters(object):
                 f_toks, f_heads, pos, rel, dir, order = hmm_reorder(f_toks, pos, rel, dir, order)
 
             I = len(e_toks)
-            I_double = 2*I
             if I > self.global_max_I:
                 self.global_max_I = I
 
             for j, f in enumerate(f_toks):
                 if j == 0:
-                    feat_set = self.start_features.extract_static(e_toks, f_toks, f_heads, pos, rel, dir, order)
+                    feat_set = self.start_features.extract(e_toks, f_toks, f_heads, pos, rel, order)
                     for feat_name in feat_set:
                         self.start_features.add(feat_name)
                 else:
-                    # static features
-                    feat_set = self.dist_features.extract_static(e_toks, f_toks, f_heads, pos, rel, dir, order, j)
-                    for feat_name in feat_set:
-                        self.dist_features.add(feat_name)
-                    # dynamic features: extract now so we can set up weight parameters
-                    for i_p in xrange(-I_double + 1, I_double):
-                        for feat_name in self.dist_features.extract_dynamic(e_toks, f_toks, f_heads, pos, rel, dir, order, j, i_p):
+                    for i_p in xrange(I):
+                        for feat_name in self.dist_features.extract(e_toks, f_toks, f_heads, pos, rel, order, j, i_p):
                             self.dist_features.add(feat_name)
 
                 # lexical parameters
@@ -189,18 +141,22 @@ class Parameters(object):
             outfile_corpus.write(" ".join([str(w) for w in e_toks]) + "\n")
             outfile_corpus.write(" ".join([str(w) for w in f_toks]) + "\n")
             outfile_corpus.write(" ".join([str(h) for h in f_heads]) + "\n")
+            outfile_corpus.write(" ".join([str(p) for p in pos]) + "\n")
+            outfile_corpus.write(" ".join([str(r) for r in rel]) + "\n")
             outfile_corpus.write(" ".join([str(o) for o in order]) + "\n")
 
 
             for j, f in enumerate(f_toks):
                 if j == 0:
                     # start features
-                    feat_set = self.start_features.extract_static(e_toks, f_toks, f_heads, pos, rel, dir, order)
+                    feat_set = self.start_features.extract(e_toks, f_toks, f_heads, pos, rel, order)
                     outfile_corpus.write(str(j) + "\t" + " ".join(map(str, map(self.start_features.get_feat_id, feat_set))) + "\n")
                 else:
                     # static dist features
-                    feat_set = self.dist_features.extract_static(e_toks, f_toks, f_heads, pos, rel, dir, order, j)
-                    outfile_corpus.write(str(j) + "\t" + " ".join(map(str, map(self.dist_features.get_feat_id, feat_set))) + "\n")
+                    for i_p in xrange(I):
+                        feat_set = self.dist_features.extract(e_toks, f_toks, f_heads, pos, rel, order, j, i_p)
+                        outfile_corpus.write(str(j) + "," + str(i_p) + "\t" + " ".join(map(str, map(self.dist_features.get_feat_id, feat_set))) + "\n")
+
 
                 # lexical features
                 for e in e_toks + [0]:
