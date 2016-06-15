@@ -101,7 +101,11 @@ for f in exp_files:
 
 lex_counts, lex_norm, al_counts, al_norm, start_counts, start_norm, ll = total
 
-logger.info("Normalizing counts.")
+logger.info("Optimizing / M-step")
+
+
+
+
 results = mp.Queue()
 processes = [mp.Process(target=x, args=(results,)) for x in
              [normalize_start, normalize_jumps, normalize_trans]]

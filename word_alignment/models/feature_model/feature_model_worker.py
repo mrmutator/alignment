@@ -30,8 +30,8 @@ def train_iteration(buffer, p_0, queue):
     norm_coeff = 1.0 - p_0
 
 
-    corpus, trans_params, d_params, s_params, num_start_features, num_dist_features = buffer
-    for (e_toks, f_toks, f_heads, order, feature_sets) in corpus:
+    corpus, trans_params, d_params, s_params, num_start_features, num_dist_features, start_cons, dist_cons = buffer
+    for (e_toks, f_toks, f_heads, order, feature_ids) in corpus:
         I = len(e_toks)
         I_double = 2 * I
 
@@ -39,7 +39,7 @@ def train_iteration(buffer, p_0, queue):
         start_weights = np.zeros((I, num_start_features))
         for i in xrange(I):
             start_weights[i] = s_params[i]
-        start_feature_vector = make_feature_vector(feature_sets[0], num_start_features)
+        start_feature_vector = make_feature_vector(start_cons[feature_ids[0]], num_start_features)
         numerator = np.exp(np.dot(start_weights, start_feature_vector))
         Z = np.sum(numerator)
         s_probs = (numerator / Z)
@@ -52,7 +52,7 @@ def train_iteration(buffer, p_0, queue):
         for j in xrange(1, len(f_toks)):
             tmp_prob = np.zeros((I, I))
             for i_p in xrange(I):
-                j_dist_vector = make_feature_vector(feature_sets[j][i_p], num_dist_features)
+                j_dist_vector = make_feature_vector(dist_cons[feature_ids[j][i_p]], num_dist_features)
                 dist_weights = np.zeros((I, num_dist_features))
                 for i in xrange(I):
                     jmp = i - i_p
@@ -73,8 +73,8 @@ def train_iteration(buffer, p_0, queue):
         # add start counts and counts for lex f_0
         f_0 = f_toks[0]
         for i, e_tok in enumerate(e_toks):
-            start_counts[(I, i)] += gammas[0][i]
-            start_norm[I] += gammas[0][i]
+            start_counts[(feature_ids[0], i)] += gammas[0][i]
+            start_norm[feature_ids[0]] += gammas[0][i]
             if (e_tok, f_0) in trans_params:
                 lex_counts[(e_tok, f_0)] += gammas[0][i]
                 lex_norm[e_tok] += gammas[0][i]
@@ -98,8 +98,8 @@ def train_iteration(buffer, p_0, queue):
                         actual_i_p = i_p
                     else:
                         actual_i_p = i_p - I
-                    al_counts[(actual_i_p, i-actual_i_p)] += xis[j][i_p][i]
-                    al_norm[actual_i_p] += gammas[j_p][i_p]
+                    al_counts[(feature_ids[j][actual_i_p], i-actual_i_p)] += xis[j][i_p][i]
+                    al_norm[feature_ids[j][actual_i_p]] += gammas[j_p][i_p]
 
         ll += pair_ll
 
@@ -252,6 +252,8 @@ if __name__ == "__main__":
         # get all t-params of buffer
         required_ts = set()
         max_I = 0
+        required_start_cons = dict()
+        required_dist_cons = dict()
         for (e_toks, f_toks, f_heads, order, feature_ids) in buff:
             for e_tok in e_toks + [0]:
                 for f_tok in f_toks:
@@ -260,18 +262,19 @@ if __name__ == "__main__":
             if I > max_I:
                 max_I = I
             start_set = start_con_voc.get_feature_set(feature_ids[0])
-            feature_ids[0] = start_set
+            required_start_cons[feature_ids[0]] = start_set
             for j in xrange(1, len(f_toks)):
-                temp_set = []
                 for i_p in xrange(I):
-                    temp_set.append(dist_con_voc.get_feature_set(feature_ids[j][i_p]))
-                feature_ids[j] = temp_set
+                    dist_con_id = feature_ids[j][i_p]
+                    required_dist_cons[dist_con_id] = dist_con_voc.get_feature_set(dist_con_id)
+
+
 
         # get a copy from shared dicts
         t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
         s_probs = {j_: np.copy(s_params[j_]) for j_ in xrange(max_I)}
         d_probs = {j_: np.copy(d_params[j_]) for j_ in xrange(-max_I+1, max_I)}
-        process_queue.put((buff, t_probs, d_probs, s_probs, num_start_features, num_dist_features))
+        process_queue.put((buff, t_probs, d_probs, s_probs, num_start_features, num_dist_features, required_start_cons, required_dist_cons))
     # Send termination signal
     for _ in xrange(args.num_workers - 1):
         process_queue.put(None)
