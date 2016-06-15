@@ -53,21 +53,18 @@ class SubcorpusReader(object):
             if not f_toks:
                 break
             f_heads = map(int, self.corpus_file.readline().strip().split())
-            pos = map(int, self.corpus_file.readline().strip().split())
-            rel = map(int, self.corpus_file.readline().strip().split())
+            #pos = map(int, self.corpus_file.readline().strip().split())
+            #rel = map(int, self.corpus_file.readline().strip().split())
             order = map(int, self.corpus_file.readline().strip().split())
             feature_sets = []
-            start_feature_ids = map(int, self.corpus_file.readline().strip().split("\t")[1].split())
-            feature_sets.append(start_feature_ids)
+            start_feature_con = int(self.corpus_file.readline().strip().split("\t")[1])
+            feature_sets.append(start_feature_con)
             I =len(e_toks)
             for _ in xrange(1, len(f_toks)):
-                temp_set = []
-                for i_p in xrange(I):
-                    j__ip_feature_ids = map(int, self.corpus_file.readline().strip().split("\t")[1].split())
-                    temp_set.append(j__ip_feature_ids)
-                feature_sets.append(temp_set)
+                j_feature_ids = map(int, self.corpus_file.readline().strip().split("\t")[1].split())
+                feature_sets.append(j_feature_ids)
             self.corpus_file.readline()
-            yield (e_toks, f_toks, f_heads, pos, rel, order, feature_sets)
+            yield (e_toks, f_toks, f_heads, order, feature_sets)
             c += 1
             if c == self.limit:
                 break

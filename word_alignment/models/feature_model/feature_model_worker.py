@@ -6,6 +6,7 @@ import argparse
 from CorpusReader import SubcorpusReader, Corpus_Buffer
 import logging
 import hmt
+import features
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -30,10 +31,9 @@ def train_iteration(buffer, p_0, queue):
 
 
     corpus, trans_params, d_params, s_params, num_start_features, num_dist_features = buffer
-    for (e_toks, f_toks, f_heads, pos, rel, order, feature_sets) in corpus:
+    for (e_toks, f_toks, f_heads, order, feature_sets) in corpus:
         I = len(e_toks)
         I_double = 2 * I
-        uniform_const = 1.0 / I
 
         # start probs
         start_weights = np.zeros((I, num_start_features))
@@ -55,7 +55,7 @@ def train_iteration(buffer, p_0, queue):
                 j_dist_vector = make_feature_vector(feature_sets[j][i_p], num_dist_features)
                 dist_weights = np.zeros((I, num_dist_features))
                 for i in xrange(I):
-                    jmp = i_p - i
+                    jmp = i - i_p
                     dist_weights[i] = d_params[jmp]
                 numerator = np.exp(np.dot(dist_weights, j_dist_vector))
                 Z = np.sum(numerator)
@@ -98,8 +98,8 @@ def train_iteration(buffer, p_0, queue):
                         actual_i_p = i_p
                     else:
                         actual_i_p = i_p - I
-                    al_counts[(j, actual_i_p, i)] += xis[j][i_p][i]
-                    al_norm[j, actual_i_p] += gammas[j_p][i_p]
+                    al_counts[(actual_i_p, i-actual_i_p)] += xis[j][i_p][i]
+                    al_norm[actual_i_p] += gammas[j_p][i_p]
 
         ll += pair_ll
 
@@ -202,6 +202,8 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-params", required=True)
+    arg_parser.add_argument("-start_cons", required=True)
+    arg_parser.add_argument("-dist_cons", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
     arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
@@ -240,17 +242,30 @@ if __name__ == "__main__":
 
     corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
     logger.info("Starting worker processes..")
+
+    dist_con_voc = features.FeatureConditions()
+    dist_con_voc.load_voc(args.dist_cons)
+    start_con_voc = features.FeatureConditions()
+    start_con_voc.load_voc(args.start_cons)
+
     for buff in corpus_buffer:
         # get all t-params of buffer
         required_ts = set()
         max_I = 0
-        for (e_toks, f_toks, _, _, _, _, _) in buff:
+        for (e_toks, f_toks, f_heads, order, feature_ids) in buff:
             for e_tok in e_toks + [0]:
                 for f_tok in f_toks:
                     required_ts.add((e_tok, f_tok))
             I = len(e_toks)
             if I > max_I:
                 max_I = I
+            start_set = start_con_voc.get_feature_set(feature_ids[0])
+            feature_ids[0] = start_set
+            for j in xrange(1, len(f_toks)):
+                temp_set = []
+                for i_p in xrange(I):
+                    temp_set.append(dist_con_voc.get_feature_set(feature_ids[j][i_p]))
+                feature_ids[j] = temp_set
 
         # get a copy from shared dicts
         t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}

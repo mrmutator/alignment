@@ -48,6 +48,8 @@ class Parameters(object):
 
         self.start_features = features.Features(extract_func=features.extract_start_features)
         self.dist_features = features.Features(extract_func=features.extract_dist_features)
+        self.start_cons = features.FeatureConditions()
+        self.dist_cons = features.FeatureConditions()
         self.c = 0
 
         self.add_corpus(corpus)
@@ -141,8 +143,8 @@ class Parameters(object):
             outfile_corpus.write(" ".join([str(w) for w in e_toks]) + "\n")
             outfile_corpus.write(" ".join([str(w) for w in f_toks]) + "\n")
             outfile_corpus.write(" ".join([str(h) for h in f_heads]) + "\n")
-            outfile_corpus.write(" ".join([str(p) for p in pos]) + "\n")
-            outfile_corpus.write(" ".join([str(r) for r in rel]) + "\n")
+            #outfile_corpus.write(" ".join([str(p) for p in pos]) + "\n")
+            #outfile_corpus.write(" ".join([str(r) for r in rel]) + "\n")
             outfile_corpus.write(" ".join([str(o) for o in order]) + "\n")
 
 
@@ -150,12 +152,18 @@ class Parameters(object):
                 if j == 0:
                     # start features
                     feat_set = self.start_features.extract(e_toks, f_toks, f_heads, pos, rel, order)
-                    outfile_corpus.write(str(j) + "\t" + " ".join(map(str, map(self.start_features.get_feat_id, feat_set))) + "\n")
+                    feat_set = frozenset(map(self.start_features.get_feat_id, feat_set))
+                    cond_id = self.start_cons.get_id(feat_set)
+                    outfile_corpus.write(str(j) + "\t" + str(cond_id) + "\n")
                 else:
                     # static dist features
+                    j_dist_cons = []
                     for i_p in xrange(I):
                         feat_set = self.dist_features.extract(e_toks, f_toks, f_heads, pos, rel, order, j, i_p)
-                        outfile_corpus.write(str(j) + "," + str(i_p) + "\t" + " ".join(map(str, map(self.dist_features.get_feat_id, feat_set))) + "\n")
+                        feat_set =  frozenset(map(self.dist_features.get_feat_id, feat_set))
+                        cond_id = self.dist_cons.get_id(feat_set)
+                        j_dist_cons.append(cond_id)
+                    outfile_corpus.write(str(j) + "\t" + " ".join(map(str, j_dist_cons))  + "\n")
 
 
                 # lexical features
@@ -186,6 +194,14 @@ def prepare_data(corpus, t_file, num_sentences, file_prefix="", hmm=False):
     with open(file_prefix + ".dist_feat_voc", "w") as outfile:
         outfile.write(parameters.dist_features.get_voc())
 
+    with open(file_prefix + ".start_feat_voc", "w") as outfile:
+        outfile.write(parameters.start_features.get_voc())
+
+    with open(file_prefix + ".dist_cons", "w") as outfile:
+        outfile.write(parameters.dist_cons.get_voc())
+
+    with open(file_prefix + ".start_cons", "w") as outfile:
+        outfile.write(parameters.start_cons.get_voc())
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
