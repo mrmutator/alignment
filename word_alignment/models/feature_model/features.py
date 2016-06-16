@@ -1,6 +1,7 @@
 # Reminder: don't confuse j with actual order[j]
+import numpy as np
 
-def extract_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_p):
+def extract_static_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_p):
     """
     Extracts static features for a given position j.
     Returns a list that contains the feature names which
@@ -21,13 +22,13 @@ def extract_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_p):
 
     return feature_statements
 
-def extract_start_features(e_toks, f_toks, f_heads, pos, rel, order):
+def extract_dynamic_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_p, i):
     """
-    Extracts static features for start position
+    Extracts dynamic features for a given position j.
+    THIS FUNCTION MUST ONLY RETURN FEATURES THAT DEPEND ON i.
     Returns a list that contains the feature names which
     have a True binary value.
     """
-    j = 0
     feature_statements = []
     #tree_level = [0]
     # par = f_heads[j]
@@ -40,18 +41,23 @@ def extract_start_features(e_toks, f_toks, f_heads, pos, rel, order):
     feature_statements.append(fname)
     fname = "rel=" + str(rel[j])
     feature_statements.append(fname)
+    fname = "i=" + str(i)
+    feature_statements.append(fname)
 
     return feature_statements
+
+
 
 class Features(object):
     # static and dynamic features
     # static ones are stored in subcorpus file so they don't need to be extracted again
     # dynamic ones need to be accounted for (reserve a spot in feature vector) and generate weights
 
-    def __init__(self, extract_func=lambda:[]):
+    def __init__(self, extract_static_func, extract_dynamic_func):
         self.feature_num = 0
         self.feature_dict = dict()
-        self.extract = extract_func
+        self.extract_static = extract_static_func
+        self.extract_dynamic = extract_dynamic_func
 
     def add(self, feat):
         if feat not in self.feature_dict:
@@ -111,4 +117,11 @@ class FeatureConditions(object):
                 self.cond_dict[f] = int(i)
                 self.index_dict[int(i)] = f
 
+def make_feature_vector(feature_set1, feature_set2, length):
+    vector = np.ones(length) * -1
+    for fi in feature_set1:
+        vector[fi] = 1.0
+    for fi in feature_set2:
+        vector[fi] = 1.0
+    return vector
 
