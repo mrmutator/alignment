@@ -4,6 +4,7 @@ import glob
 import multiprocessing as mp
 import re
 import logging
+import numpy as np
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -24,7 +25,17 @@ def update_count_file(file_name, total):
                 k = int(k[0])
             else:
                 k = tuple(map(int, k))
+                if count_i == 2:
+                    # dist_counts
+                    curr_max = total[8][k[0]]
+                    if k[1] > curr_max:
+                        total[8][k[0]] = k[1]
+                elif count_i == 4:
+                    curr_max = total[9][k[0]]
+                    if k[1] > curr_max:
+                        total[9][k[0]] = k[1]
             total[count_i][k] += v
+
 
 
 def write_param_file(count_file_name, normalized_counts):
@@ -73,6 +84,18 @@ def normalize_trans(queue):
 
 
 def normalize_jumps(queue):
+    # build expectation vectors
+    expectation_vectors = dict()
+    for cond_id in max_dist_I:
+        max_I = max_dist_I[cond_id]
+        expectation_vectors[cond_id] = np.zeros(1 + (max_I * 2))
+        for i, jmp in enumerate(xrange(-max_I, max_I+1)):
+            expectation_vectors[cond_id][i] = al_counts[cond_id][jmp]
+
+
+
+
+    # old stuff
     jmp_prob = defaultdict(int)
     for (p, i_p, i), count in al_counts.iteritems():
         jmp_prob[p, i - i_p] += count / al_norm[p, i_p]
@@ -92,14 +115,14 @@ args = arg_parser.parse_args()
 
 exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts.*")
 
-# types = ["lex_counts", "lex_norm", "al_counts", "al_norm", "start_counts", "start_norm", "ll"]
-total = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter(), 0.0]
+# types = ["lex_counts", "lex_norm", "al_counts", "al_norm", "start_counts", "start_norm", "ll", "max_I_dist", "max_I_start"]
+total = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter(), 0.0, defaultdict(int), defaultdict(int)]
 
 logger.info("Aggregating counts.")
 for f in exp_files:
     update_count_file(f, total)
 
-lex_counts, lex_norm, al_counts, al_norm, start_counts, start_norm, ll = total
+lex_counts, lex_norm, al_counts, al_norm, start_counts, start_norm, ll, max_dist_I, max_start_I = total
 
 logger.info("Optimizing / M-step")
 
