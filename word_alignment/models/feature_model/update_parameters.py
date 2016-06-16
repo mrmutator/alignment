@@ -130,6 +130,7 @@ if __name__ == "__main__":
     def normalize_jumps(queue):
         # compute regularized expected complete log-likelihood
         ll = 0
+        grad_ll = np.zeros(len(d_weights))
         # compute ll
         for static_cond_id in static_dynamic_dict:
             dynamic_ids = list(static_dynamic_dict[static_cond_id])
@@ -141,10 +142,16 @@ if __name__ == "__main__":
                 dynamic_feat_set = dist_con_voc.get_feature_set(dynamic_cond_id)
                 f_vector = features.make_feature_vector(static_feat_set, dynamic_feat_set, feature_dim)
                 f_matrix[i] = f_vector
+
             numerator = np.exp(np.dot(f_matrix, d_weights))
             Z = np.sum(numerator)
-            log_cond_params = np.log(numerator / Z)
-            ll += np.sum(np.multiply(expectation_vector, log_cond_params))
+            cond_params = (numerator / Z)
+            ll += np.sum(np.multiply(expectation_vector, np.log(cond_params)))
+
+            c_t_sum = np.sum(f_matrix * cond_params[:, np.newaxis], axis=0)
+            grad_c_t_w = f_matrix - c_t_sum # still a |d| x |f| matrix
+            grad_c_t = np.sum(expectation_vector[:, np.newaxis] * grad_c_t_w, axis=0) # multiply each row by d_expectation_count
+            grad_ll += grad_c_t
 
 
         # l2-norm:
@@ -152,13 +159,8 @@ if __name__ == "__main__":
         l2_norm = np.linalg.norm(d_weights)
         ll -= kappa * l2_norm
 
+        grad_ll -= 2 * kappa * d_weights
 
-
-    def normalize_start(queue):
-        start_prob = dict()
-        for (I, i), count in start_counts.iteritems():
-            start_prob[(I, i)] = count / start_norm[I]
-        queue.put(("start_prob", start_prob))
 
     results = mp.Queue()
     processes = [mp.Process(target=x, args=(results,)) for x in
