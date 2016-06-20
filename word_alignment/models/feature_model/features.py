@@ -37,11 +37,7 @@ def extract_dynamic_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i
     # orig_head_pos = order[par]
     # parent_distance = abs(orig_head_pos - orig_tok_pos)
     # pos[par], rel[par], dir[par], pos[j], rel[j], dir[j], parent_distance, tree_level[j]
-    fname = "pos=" + str(pos[j])
-    feature_statements.append(fname)
-    fname = "rel=" + str(rel[j])
-    feature_statements.append(fname)
-    fname = "i=" + str(i)
+    fname = "jump=" + str(i-i_p)
     feature_statements.append(fname)
 
     return feature_statements
@@ -118,7 +114,7 @@ class FeatureConditions(object):
                 self.index_dict[int(i)] = f
 
 def make_feature_vector(feature_set1, feature_set2, length):
-    vector = np.ones(length) * -1
+    vector = np.zeros(length)
     for fi in feature_set1:
         vector[fi] = 1.0
     for fi in feature_set2:

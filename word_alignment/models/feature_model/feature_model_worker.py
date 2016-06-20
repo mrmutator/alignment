@@ -96,8 +96,6 @@ def train_iteration(buffer, p_0, queue):
 
 def load_params(file_name):
     t_params = dict()
-    cond_ids = dict()
-    d_weights = []
     infile = open(file_name, "r")
     for line in infile:
         els = line.strip().split(" ")
@@ -107,19 +105,35 @@ def load_params(file_name):
             f = int(els[2])
             p = float(els[3])
             t_params[(e, f)] = p
-        elif p_type == "w":
-            w = float(els[2])
-            d_weights.append(w)
-        elif p_type == "cid":
+        else:
+            raise Exception("Should not happen.")
+    infile.close()
+    return t_params
+
+def load_cons(file_name):
+    cond_ids = dict()
+    infile = open(file_name, "r")
+    for line in infile:
+        els = line.strip().split(" ")
+        p_type = els[0]
+        if p_type == "cid":
             cid = int(els[1])
             feature_ids = map(int, els[2:])
             cond_ids[cid] = frozenset(feature_ids)
         else:
             raise Exception("Should not happen.")
     infile.close()
-    return t_params, d_weights, cond_ids
+    return cond_ids
 
 
+def load_weights(file_name):
+    d_weights = []
+    with open(file_name, "r") as infile:
+        for line in infile:
+            _, w_id, w = line.strip().split()
+            d_weights.append(float(w))
+
+    return np.array(d_weights)
 
 
 
@@ -162,6 +176,8 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-params", required=True)
+    arg_parser.add_argument("-cons", required=True)
+    arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=2)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
     arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
@@ -189,7 +205,9 @@ if __name__ == "__main__":
         pool.append(p)
 
     logger.info("Loading parameters.")
-    t_params, d_weights, cond_ids = load_params(args.params)
+    t_params = load_params(args.params)
+    cond_ids = load_cons(args.cons)
+    d_weights = load_weights(args.weights)
 
     updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
     updater.start()

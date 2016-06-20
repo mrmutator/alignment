@@ -103,22 +103,18 @@ class Parameters(object):
                 outfile.write("w " + str(w_id) + " " + str(w) + "\n")
 
 
-    def write_params(self, sub_cons, sub_t, out_file_name):
-        outfile = open(out_file_name, "w")
+    def write_params(self, sub_t, out_file_name):
+        with open(out_file_name, "w") as outfile:
+            for key in sub_t:
+                value = self.t_params[key]
+                key_str = ["t"] + map(str, [key[0], key[1], value])
+                outfile.write(" ".join(key_str) + "\n")
 
-        # lexical parameters
-        for key in sub_t:
-            value = self.t_params[key]
-            key_str = ["t"] + map(str, [key[0], key[1], value])
-            outfile.write(" ".join(key_str) + "\n")
-
-        for w_id, w in sorted(self.dist_params.iteritems(), key= lambda t: t[0]):
-            outfile.write("w " + str(w_id) + " " + str(w) + "\n")
-
-        for cond_id in sub_cons:
-            feature_set = self.dist_cons.get_feature_set(cond_id)
-            outfile.write("cid " + str(cond_id) + " " +  " ".join(map(str, feature_set)) + "\n")
-        outfile.close()
+    def write_cons(self, sub_cons, outfile_name):
+        with open(outfile_name, "w") as outfile:
+            for cond_id in sub_cons:
+                feature_set = self.dist_cons.get_feature_set(cond_id)
+                outfile.write("cid " + str(cond_id) + " " +  " ".join(map(str, feature_set)) + "\n")
 
     def split_data_get_parameters(self, corpus, file_prefix, num_sentences):
         subset_id = 1
@@ -169,7 +165,8 @@ class Parameters(object):
 
             if subset_c == num_sentences:
                 outfile_corpus.close()
-                self.write_params(sub_cons, sub_t, file_prefix + ".params." + str(subset_id))
+                self.write_params(sub_t, file_prefix + ".params." + str(subset_id))
+                self.write_cons(sub_cons, file_prefix + ".cons." + str(subset_id))
                 if total < self.c:
                     subset_id += 1
                     outfile_corpus = open(file_prefix + ".corpus." + str(subset_id), "w")
@@ -178,7 +175,8 @@ class Parameters(object):
                     subset_c = 0
         if subset_c > 0:
             outfile_corpus.close()
-            self.write_params(sub_cons, sub_t, file_prefix + ".params." + str(subset_id))
+            self.write_params(sub_t, file_prefix + ".params." + str(subset_id))
+            self.write_cons(sub_cons, file_prefix + ".cons." + str(subset_id))
 
 
 def prepare_data(corpus, t_file, num_sentences, file_prefix="", hmm=False):
