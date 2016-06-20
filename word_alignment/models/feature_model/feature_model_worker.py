@@ -6,17 +6,17 @@ import argparse
 from CorpusReader import SubcorpusReader, Corpus_Buffer
 import logging
 import hmt
-import features
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
 
+
 def train_iteration(buffer, p_0, queue):
     # set all counts to zero
     lex_counts = Counter()  # (e,f)
     lex_norm = Counter()  # e
-    al_counts = Counter()  # (static_cond, i)
+    al_counts = Counter()  # (static_cond, dynamic_cond)
     ll = 0
     norm_coeff = 1.0 - p_0
     corpus, trans_params, dist_weights, dist_cons = buffer
@@ -28,16 +28,15 @@ def train_iteration(buffer, p_0, queue):
         # start probs
         # i_p is 0 for start_probs
         feature_matrix = np.zeros((I, feature_dim))
-        static_feature_set = dist_cons[feature_ids[0][0][0]]
+        for sid in dist_cons[feature_ids[0][0][0]]:  # static feature set
+            feature_matrix[:, sid] = 1.0
         for i in xrange(I):
-            dynamic_feature_set = dist_cons[feature_ids[0][0][1][i]]
-            f_vector = features.make_feature_vector(static_feature_set, dynamic_feature_set, feature_dim)
-            feature_matrix[i] = f_vector
+            for did in dist_cons[feature_ids[0][0][1][i]]:  # dynamic feature set
+                feature_matrix[i, did] = 1.0
 
         numerator = np.exp(np.dot(feature_matrix, dist_weights))
         Z = np.sum(numerator)
-        s_probs = (numerator / Z)
-        s_probs = s_probs * norm_coeff
+        s_probs = (numerator / Z) * norm_coeff
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
         # dist probs
         d_probs = dict()
@@ -45,11 +44,11 @@ def train_iteration(buffer, p_0, queue):
             tmp_prob = np.zeros((I, I))
             for i_p in xrange(I):
                 feature_matrix = np.zeros((I, feature_dim))
-                static_feature_set = dist_cons[feature_ids[j][i_p][0]]
+                for sid in dist_cons[feature_ids[j][i_p][0]]:
+                    feature_matrix[:, sid] = 1.0
                 for i in xrange(I):
-                    dynamic_feature_set = dist_cons[feature_ids[j][i_p][1][i]]
-                    f_vector = features.make_feature_vector(static_feature_set, dynamic_feature_set, feature_dim)
-                    feature_matrix[i] = f_vector
+                    for did in dist_cons[feature_ids[j][i_p][1][i]]:
+                        feature_matrix[i, did] = 1.0
 
                 numerator = np.exp(np.dot(feature_matrix, dist_weights))
                 Z = np.sum(numerator)
@@ -66,7 +65,6 @@ def train_iteration(buffer, p_0, queue):
 
         # add start counts and counts for lex f_0
         for j, f_tok in enumerate(f_toks):
-            j_p = j - 1
             if (0, f_tok) in trans_params:
                 gammas_0_j = np.sum(gammas[j][I:])
                 lex_counts[(0, f_tok)] += gammas_0_j
@@ -110,6 +108,7 @@ def load_params(file_name):
     infile.close()
     return t_params
 
+
 def load_cons(file_name):
     cond_ids = dict()
     infile = open(file_name, "r")
@@ -134,7 +133,6 @@ def load_weights(file_name):
             d_weights.append(float(w))
 
     return np.array(d_weights)
-
 
 
 def aggregate_counts(queue, counts_file):
@@ -189,6 +187,7 @@ if __name__ == "__main__":
     update_queue = mp.Queue()
     process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers - 1) / 4)))
 
+
     def worker_wrapper(process_queue):
         while True:
             buffer = process_queue.get()
@@ -214,7 +213,6 @@ if __name__ == "__main__":
 
     corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
     logger.info("Starting worker processes..")
-
 
     for buff in corpus_buffer:
         # get all t-params of buffer

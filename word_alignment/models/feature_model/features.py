@@ -1,6 +1,7 @@
 # Reminder: don't confuse j with actual order[j]
 import numpy as np
 
+
 def extract_static_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_p):
     """
     Extracts static features for a given position j.
@@ -8,7 +9,7 @@ def extract_static_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_
     have a True binary value.
     """
     feature_statements = []
-    #tree_level = [0]
+    # tree_level = [0]
     # par = f_heads[j]
     # tree_level.append(tree_level[par] + 1)
     # orig_tok_pos = order[j]
@@ -22,6 +23,7 @@ def extract_static_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_
 
     return feature_statements
 
+
 def extract_dynamic_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_p, i):
     """
     Extracts dynamic features for a given position j.
@@ -30,18 +32,17 @@ def extract_dynamic_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i
     have a True binary value.
     """
     feature_statements = []
-    #tree_level = [0]
+    # tree_level = [0]
     # par = f_heads[j]
     # tree_level.append(tree_level[par] + 1)
     # orig_tok_pos = order[j]
     # orig_head_pos = order[par]
     # parent_distance = abs(orig_head_pos - orig_tok_pos)
     # pos[par], rel[par], dir[par], pos[j], rel[j], dir[j], parent_distance, tree_level[j]
-    fname = "jump=" + str(i-i_p)
+    fname = "jump=" + str(i - i_p)
     feature_statements.append(fname)
 
     return feature_statements
-
 
 
 class Features(object):
@@ -79,8 +80,8 @@ class Features(object):
         self.feature_dict = tmp_dict
         self.feature_num = max(tmp_dict.values())
 
-class FeatureConditions(object):
 
+class FeatureConditions(object):
     def __init__(self):
         self.i = 0
         self.cond_dict = dict()
@@ -112,12 +113,3 @@ class FeatureConditions(object):
                 f = frozenset(map(int, f.split()))
                 self.cond_dict[f] = int(i)
                 self.index_dict[int(i)] = f
-
-def make_feature_vector(feature_set1, feature_set2, length):
-    vector = np.zeros(length)
-    for fi in feature_set1:
-        vector[fi] = 1.0
-    for fi in feature_set2:
-        vector[fi] = 1.0
-    return vector
-

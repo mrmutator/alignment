@@ -8,7 +8,8 @@ import features
 
 def reorder(data, order):
     """
-    Order is a list with same length as data that specifies for each position of data, which rank it has in the new order.
+    Order is a list with same length as data that specifies for each position of data, which rank it has in the new
+    order.
     :param data:
     :param order:
     :return:
@@ -31,10 +32,6 @@ def hmm_reorder(f_toks, pos, rel, dir, order):
     return new_f_toks, new_f_heads, new_pos, new_rel, new_dir, new_order
 
 
-def random_prob():
-    return random.random() * -1 + 1  # random number between 0 and 1, excluding 0, including 1
-
-
 def random_weight():
     return random.uniform(-1, 1)
 
@@ -43,9 +40,9 @@ class Parameters(object):
     def __init__(self, corpus, hmm=False):
         self.corpus = corpus
         self.cooc = set()
-        self.global_max_I = 0
         self.hmm = hmm
-        self.dist_features = features.Features(extract_static_func=features.extract_static_dist_features, extract_dynamic_func=features.extract_dynamic_dist_features)
+        self.dist_features = features.Features(extract_static_func=features.extract_static_dist_features,
+                                               extract_dynamic_func=features.extract_dynamic_dist_features)
         self.dist_cons = features.FeatureConditions()
         self.c = 0
 
@@ -61,21 +58,20 @@ class Parameters(object):
                 f_toks, f_heads, pos, rel, dir, order = hmm_reorder(f_toks, pos, rel, dir, order)
 
             I = len(e_toks)
-            if I > self.global_max_I:
-                self.global_max_I = I
 
             for j, f in enumerate(f_toks):
                 for i_p in xrange(I):
-                    for feat_name in self.dist_features.extract_static(e_toks, f_toks, f_heads, pos, rel, order, j, i_p):
+                    for feat_name in self.dist_features.extract_static(e_toks, f_toks, f_heads, pos, rel, order, j,
+                                                                       i_p):
                         self.dist_features.add(feat_name)
                     for i in xrange(I):
-                        for feat_name in self.dist_features.extract_dynamic(e_toks, f_toks, f_heads, pos, rel, order, j, i_p, i):
+                        for feat_name in self.dist_features.extract_dynamic(e_toks, f_toks, f_heads, pos, rel, order, j,
+                                                                            i_p, i):
                             self.dist_features.add(feat_name)
 
                 # lexical parameters
                 for e in e_toks + [0]:
                     self.cooc.add((e, f))
-
 
     def initialize_trans_t_file(self, t_file):
         trans_dict = defaultdict(dict)
@@ -98,10 +94,8 @@ class Parameters(object):
 
     def write_weight_file(self, out_file_name):
         with open(out_file_name, "w") as outfile:
-            # dist params
             for w_id, w in sorted(self.dist_params.iteritems(), key=lambda t: t[0]):
                 outfile.write("w " + str(w_id) + " " + str(w) + "\n")
-
 
     def write_params(self, sub_t, out_file_name):
         with open(out_file_name, "w") as outfile:
@@ -114,7 +108,7 @@ class Parameters(object):
         with open(outfile_name, "w") as outfile:
             for cond_id in sub_cons:
                 feature_set = self.dist_cons.get_feature_set(cond_id)
-                outfile.write("cid " + str(cond_id) + " " +  " ".join(map(str, feature_set)) + "\n")
+                outfile.write("cid " + str(cond_id) + " " + " ".join(map(str, feature_set)) + "\n")
 
     def split_data_get_parameters(self, corpus, file_prefix, num_sentences):
         subset_id = 1
@@ -144,18 +138,20 @@ class Parameters(object):
                 else:
                     I_ = I
                 for i_p in xrange(I_):
-                    static_features = self.dist_features.extract_static(e_toks, f_toks, f_heads, pos, rel, order, j, i_p)
+                    static_features = self.dist_features.extract_static(e_toks, f_toks, f_heads, pos, rel, order, j,
+                                                                        i_p)
                     static_set = frozenset(map(self.dist_features.get_feat_id, static_features))
                     static_cond_id = self.dist_cons.get_id(static_set)
                     sub_cons.add(static_cond_id)
                     dynamic_i_set = []
                     for i in xrange(I):
-                        dynamic_features = self.dist_features.extract_dynamic(e_toks, f_toks, f_heads, pos, rel, order, j, i_p, i)
-                        dynamic_set =  frozenset(map(self.dist_features.get_feat_id, dynamic_features))
+                        dynamic_features = self.dist_features.extract_dynamic(e_toks, f_toks, f_heads, pos, rel, order,
+                                                                              j, i_p, i)
+                        dynamic_set = frozenset(map(self.dist_features.get_feat_id, dynamic_features))
                         dynamic_cond_id = self.dist_cons.get_id(dynamic_set)
                         sub_cons.add(dynamic_cond_id)
                         dynamic_i_set.append(dynamic_cond_id)
-                    outfile_corpus.write(str(static_cond_id) + " " + " ".join(map(str, dynamic_i_set))+ "\n")
+                    outfile_corpus.write(str(static_cond_id) + " " + " ".join(map(str, dynamic_i_set)) + "\n")
 
                 # lexical features
                 for e in e_toks + [0]:
@@ -193,11 +189,12 @@ def prepare_data(corpus, t_file, num_sentences, file_prefix="", hmm=False):
 
     parameters.write_weight_file(file_prefix + ".weights")
 
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
-    arg_parser.add_argument("-output_prefix", required=True)
     arg_parser.add_argument("-t_file", required=True)
+    arg_parser.add_argument("-output_prefix", required=True)
     arg_parser.add_argument("-limit", required=False, type=int, default=0)
     arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
     arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
