@@ -16,7 +16,7 @@ gzip data/%(job_name)s.params.*
 gzip weights.updated
 gzip ll.log
 cp data/%(job_name)s.params.*.gz %(it_dir)s/
-cp weights.updated.gz %(it_dir)s/weights.gz
+cp weights.updated.gz %(it_dir)s/%(job_name)s.weights.gz
 cp log_likelihood %(it_dir)s/
 cp ll.log.gz %(it_dir)s/
 wait
