@@ -23,7 +23,7 @@ def check_num_nodes_group_size(params):
         raise Exception("Too many nodes specified for current configuration.")
 
 def check_paths(params):
-    check_list = ["psnt", "ibm1_table_path", "job_template_dir", "script_dir"]
+    check_list = ["psnt", "ibm1_table_path", "job_template_dir", "script_dir", "features"]
     for c in check_list:
         if not os.path.exists(params[c]):
             raise Exception("Path does not exist for parameter %s: <%s>" % (c, params[c]))
