@@ -357,7 +357,7 @@ if __name__ == "__main__":
 
 
     logger.info("Writing weight file.")
-    write_weight_file(args.weight_file + ".updated", optimized_weights)
+    write_weight_file(args.weights + ".updated", optimized_weights)
 
     logger.info("Log-likelihood before update: %s" % log_likelihood_before_update)
     with open("log_likelihood", "w") as outfile:
