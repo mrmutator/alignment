@@ -238,13 +238,13 @@ def optimization_worker(buffer, results_queue):
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-dir", required=True)
-    arg_parser.add_argument("-weight_file", required=True)
-    arg_parser.add_argument("-feature_cond", required=True)
+    arg_parser.add_argument("-weights", required=True)
+    arg_parser.add_argument("-cons", required=True)
     arg_parser.add_argument("-kappa", required=True, type=float)
     arg_parser.add_argument("-learning_rate", required=False, type=float, default=0.001)
-    arg_parser.add_argument("-num_workers", required=False, type=int, default=2)
+    arg_parser.add_argument("-num_workers", required=False, type=int, default=3)
     arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
-    arg_parser.add_argument("-convergence_threshold", required=False, type=float, default=-0.001)
+    arg_parser.add_argument("-convergence_threshold", required=False, type=float, default=-0.01)
     args = arg_parser.parse_args()
 
     kappa = args.kappa
@@ -264,7 +264,7 @@ if __name__ == "__main__":
             optimization_worker(buffer, results_queue)
 
     pool = []
-    for w in xrange(args.num_workers - 1):
+    for w in xrange(max(1, args.num_workers - 2)):
         p = mp.Process(target=worker_wrapper, args=(process_queue,))
         p.start()
         pool.append(p)
@@ -291,11 +291,11 @@ if __name__ == "__main__":
 
     logger.info("Optimizing / M-step")
 
-    d_weights = load_weights(args.weight_file)
+    d_weights = load_weights(args.weights)
     feature_dim = len(d_weights)
 
     dist_con_voc = features.FeatureConditions()
-    dist_con_voc.load_voc(args.feature_cond)
+    dist_con_voc.load_voc(args.cons)
 
 
 

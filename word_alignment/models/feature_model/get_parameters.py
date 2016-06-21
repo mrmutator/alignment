@@ -3,7 +3,9 @@ import random
 import numpy as np
 import argparse
 from CorpusReader import CorpusReader
-import features
+import imp
+
+
 
 
 def reorder(data, order):
@@ -181,7 +183,7 @@ def prepare_data(corpus, t_file, num_sentences, file_prefix="", hmm=False):
     parameters.initialize_dist_weights()
 
     parameters.split_data_get_parameters(corpus, file_prefix, num_sentences)
-    with open(file_prefix + ".dist_feat_voc", "w") as outfile:
+    with open(file_prefix + ".weight_voc", "w") as outfile:
         outfile.write(parameters.dist_features.get_voc())
 
     with open(file_prefix + ".dist_cons", "w") as outfile:
@@ -192,6 +194,7 @@ def prepare_data(corpus, t_file, num_sentences, file_prefix="", hmm=False):
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-features", required=True)
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-t_file", required=True)
     arg_parser.add_argument("-output_prefix", required=True)
@@ -200,6 +203,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
     args = arg_parser.parse_args()
 
+    features = imp.load_source("features", args.features)
     corpus = CorpusReader(args.corpus, limit=args.limit)
 
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, file_prefix=args.output_prefix,

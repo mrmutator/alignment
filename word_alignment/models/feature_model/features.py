@@ -1,5 +1,4 @@
 # Reminder: don't confuse j with actual order[j]
-import numpy as np
 
 
 def extract_static_dist_features(e_toks, f_toks, f_heads, pos, rel, order, j, i_p):
