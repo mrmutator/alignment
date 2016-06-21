@@ -1,0 +1,19 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=%(PBS_time_worker_job)s
+part=$PBS_ARRAYID
+cd "$TMPDIR"
+cp %(dir)s/it0/%(job_name)s.corpus.${part}.gz corpus.psnt.gz
+cp %(prev_it_dir)s/%(job_name)s.params.${part}.gz params.txt.gz
+cp %(prev_it_dir)s/%(job_name)s.cons.${part}.gz cons.gz
+cp %(prev_it_dir)s/%(job_name)s.weights.gz weights.gz
+gunzip params.txt.gz
+gunzip corpus.psnt.gz
+gunzip weights.gz
+gunzip cons.gz
+module load python
+source %(script_dir)s/venv/bin/activate
+python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt -params params.txt -cons cons -weights weights -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s
+gzip params.txt.counts
+cp params.txt.counts.gz %(it_dir)s/%(job_name)s.counts.${part}.gz
+wait
