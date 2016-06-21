@@ -3,6 +3,7 @@ import random
 import numpy as np
 import argparse
 from CorpusReader import CorpusReader
+import features
 import imp
 
 
@@ -43,8 +44,8 @@ class Parameters(object):
         self.corpus = corpus
         self.cooc = set()
         self.hmm = hmm
-        self.dist_features = features.Features(extract_static_func=features.extract_static_dist_features,
-                                               extract_dynamic_func=features.extract_dynamic_dist_features)
+        self.dist_features = features.Features(extract_static_func=defined_features.extract_static_dist_features,
+                                               extract_dynamic_func=defined_features.extract_dynamic_dist_features)
         self.dist_cons = features.FeatureConditions()
         self.c = 0
 
@@ -203,7 +204,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
     args = arg_parser.parse_args()
 
-    features = imp.load_source("features", args.features)
+    defined_features = imp.load_source("features", args.features)
     corpus = CorpusReader(args.corpus, limit=args.limit)
 
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, file_prefix=args.output_prefix,
