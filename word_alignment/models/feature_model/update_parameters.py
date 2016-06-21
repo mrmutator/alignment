@@ -341,6 +341,7 @@ if __name__ == "__main__":
         d_weights = d_weights + (learning_rate * grad_ll)
         ll_diff = old_ll - ll
         print ll, ll_diff, learning_rate
+        logger.info("Iteration " + str(it_count) + ": " + " ".join(map(str, [ll, ll_diff])))
         old_ll = ll
         ll = 0
 
