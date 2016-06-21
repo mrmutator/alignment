@@ -5,7 +5,7 @@ part=$PBS_ARRAYID
 cd "$TMPDIR"
 cp %(dir)s/it0/%(job_name)s.corpus.${part}.gz corpus.psnt.gz
 cp %(prev_it_dir)s/%(job_name)s.params.${part}.gz params.txt.gz
-cp %(prev_it_dir)s/%(job_name)s.cons.${part}.gz cons.gz
+cp %(dir)s/it0/%(job_name)s.cons.${part}.gz cons.gz
 cp %(prev_it_dir)s/%(job_name)s.weights.gz weights.gz
 gunzip params.txt.gz
 gunzip corpus.psnt.gz

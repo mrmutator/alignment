@@ -4,7 +4,7 @@
 cd "$TMPDIR"
 mkdir data
 cp %(it_dir)s/%(job_name)s.counts.*.gz data/
-cp %(it_dir)s/%(job_name)s.weights.gz weights.gz
+cp %(prev_it_dir)s/%(job_name)s.weights.gz weights.gz
 cp %(dir)s/it0/%(job_name)s.dist_cons.gz cons.gz
 gunzip data/%(job_name)s.counts.*.gz
 gunzip weights.gz
