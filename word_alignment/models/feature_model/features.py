@@ -3,11 +3,9 @@ class Features(object):
     # static ones are stored in subcorpus file so they don't need to be extracted again
     # dynamic ones need to be accounted for (reserve a spot in feature vector) and generate weights
 
-    def __init__(self, extract_static_func, extract_dynamic_func):
+    def __init__(self):
         self.feature_num = 0
         self.feature_dict = dict()
-        self.extract_static = extract_static_func
-        self.extract_dynamic = extract_dynamic_func
 
     def add(self, feat):
         if feat not in self.feature_dict:
