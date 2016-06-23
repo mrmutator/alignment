@@ -17,9 +17,14 @@ def extract_features(corpus_buffer, out_file_name):
             outfile.write(" ".join(map(str, e_toks)) + "\n")
             outfile.write(" ".join(map(str, f_toks)) + "\n")
             outfile.write(" ".join(map(str, f_heads)) + "\n")
+            # For debugging:
+            # outfile.write(" ".join(["-1" for _ in e_toks]) + "\n")
+            # outfile.write(" ".join(["-2" for _ in f_toks]) + "\n")
+            # outfile.write(" ".join(["-3" for _ in f_heads]) + "\n")
 
+            I_ = 1
             for j in xrange(J):
-                for i_p in xrange(I):
+                for i_p in xrange(I_):
                     # static feature extraction
                     static_features = []
                     static_cond = []
@@ -51,6 +56,7 @@ def extract_features(corpus_buffer, out_file_name):
                         cond_id = cons.get_id(frozenset(static_cond))
                         outfile.write(str(cond_id) + " ")
                     outfile.write("\n")
+                    I_ = I
 
             outfile.write("\n")
 

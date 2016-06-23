@@ -84,50 +84,61 @@ class Parameters(object):
                 key_str = ["t"] + map(str, [key[0], key[1], value])
                 outfile.write(" ".join(key_str) + "\n")
 
-    def split_data_get_parameters(self, corpus, file_prefix, num_sentences):
+    def split_data_get_parameters(self, corpus, file_prefix, num_sentences, num_sentences_feature_extraction):
         subset_id = 1
-        outfile_corpus = open(file_prefix + ".corpus." + str(subset_id), "w")
+        feature_id = 1
+        outfile_corpus = open(file_prefix + ".sub_feat." + str(feature_id), "w")
         sub_t = set()
         subset_c = 0
         total = 0
+        feature_c = 0
         for e_toks, f_toks, f_heads, pos, rel, dir, order in corpus:
             subset_c += 1
+            feature_c += 1
             total += 1
             if self.hmm:
                 f_toks, f_heads, pos, rel, dir, order = hmm_reorder(f_toks, pos, rel, dir, order)
 
-            I = len(e_toks)
 
             # produce subcorpus file
-            outfile_corpus.write(" ".join([str(w) for w in e_toks]) + "\n")
-            outfile_corpus.write(" ".join([str(w) for w in f_toks]) + "\n")
-            outfile_corpus.write(" ".join([str(h) for h in f_heads]) + "\n")
-
+            outfile_corpus.write(" ".join(map(str, e_toks)) + "\n")
+            outfile_corpus.write(" ".join(map(str, f_toks)) + "\n")
+            outfile_corpus.write(" ".join(map(str, f_heads)) + "\n")
+            outfile_corpus.write(" ".join(map(str, pos)) + "\n")
+            outfile_corpus.write(" ".join(map(str, rel)) + "\n")
+            outfile_corpus.write("0\n") # dummy dir
+            outfile_corpus.write(" ".join(map(str, order)) + "\n")
+            outfile_corpus.write("\n")
 
             for j, f in enumerate(f_toks):
                 for e in e_toks + [0]:
                     if (e, f) in self.t_params:
                         sub_t.add((e, f))
-            outfile_corpus.write("\n")
 
             if subset_c == num_sentences:
-                outfile_corpus.close()
                 self.write_params(sub_t, file_prefix + ".params." + str(subset_id))
+                subset_id += 1
+                sub_t = set()
+                subset_c = 0
+
+            if feature_c == num_sentences_feature_extraction:
+                outfile_corpus.close()
+                feature_c = 0
+                feature_id += 1
                 if total < self.c:
-                    subset_id += 1
-                    outfile_corpus = open(file_prefix + ".corpus." + str(subset_id), "w")
-                    sub_t = set()
-                    subset_c = 0
+                    outfile_corpus = open(file_prefix + ".sub_feat." + str(feature_id), "w")
+
         if subset_c > 0:
-            outfile_corpus.close()
             self.write_params(sub_t, file_prefix + ".params." + str(subset_id))
+        if feature_c > 0:
+            outfile_corpus.close()
 
 
-def prepare_data(corpus, t_file, num_sentences, file_prefix="", hmm=False):
+def prepare_data(corpus, t_file, num_sentences, num_feature_sentences, file_prefix="", hmm=False):
     parameters = Parameters(corpus, hmm=hmm)
     parameters.initialize_trans_t_file(t_file)
 
-    parameters.split_data_get_parameters(corpus, file_prefix, num_sentences)
+    parameters.split_data_get_parameters(corpus, file_prefix, num_sentences, num_feature_sentences)
 
 
 if __name__ == "__main__":
@@ -138,9 +149,11 @@ if __name__ == "__main__":
     arg_parser.add_argument("-limit", required=False, type=int, default=0)
     arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
     arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
+    arg_parser.add_argument('-group_size_feature_extraction', required=False, default=-1, type=int)
     args = arg_parser.parse_args()
 
     corpus = CorpusReader(args.corpus, limit=args.limit)
 
-    prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, file_prefix=args.output_prefix,
+    prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size,
+                 num_feature_sentences=args.group_size_feature_extraction, file_prefix=args.output_prefix,
                  hmm=args.hmm)

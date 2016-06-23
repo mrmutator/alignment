@@ -21,7 +21,7 @@ def train_iteration(buffer, p_0, queue):
     norm_coeff = 1.0 - p_0
     corpus, trans_params, dist_weights, dist_cons = buffer
     feature_dim = len(dist_weights)
-    for (e_toks, f_toks, f_heads, order, feature_ids) in corpus:
+    for (e_toks, f_toks, f_heads, feature_ids) in corpus:
         I = len(e_toks)
         I_double = 2 * I
 
@@ -113,14 +113,10 @@ def load_cons(file_name):
     cond_ids = dict()
     infile = open(file_name, "r")
     for line in infile:
-        els = line.strip().split(" ")
-        p_type = els[0]
-        if p_type == "cid":
-            cid = int(els[1])
-            feature_ids = map(int, els[2:])
-            cond_ids[cid] = frozenset(feature_ids)
-        else:
-            raise Exception("Should not happen.")
+        els = line.strip().split()
+        cid = int(els[0])
+        feature_ids = map(int, els[1:])
+        cond_ids[cid] = frozenset(feature_ids)
     infile.close()
     return cond_ids
 
@@ -218,7 +214,7 @@ if __name__ == "__main__":
         # get all t-params of buffer
         required_ts = set()
         required_cons = dict()
-        for (e_toks, f_toks, f_heads, order, feature_ids) in buff:
+        for (e_toks, f_toks, f_heads, feature_ids) in buff:
             I = len(e_toks)
             for e_tok in e_toks + [0]:
                 for f_tok in f_toks:

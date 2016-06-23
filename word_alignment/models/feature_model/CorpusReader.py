@@ -48,6 +48,7 @@ class SubcorpusReader(object):
         self.reset()
         c = 0
         while True:
+            print c+1
             e_toks = map(int, self.corpus_file.readline().strip().split())
             f_toks = map(int, self.corpus_file.readline().strip().split())
             if not f_toks:

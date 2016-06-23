@@ -32,7 +32,7 @@ if __name__ == "__main__":
             for line in infile:
                 els = map(int, line.strip().split())
                 file_con_i = els[0]
-                true_feature_ids = map(trans_features.get, els[1:])
+                true_feature_ids = map(trans_features.__getitem__, els[1:])
                 true_con_id = all_cons.get_id(frozenset(true_feature_ids))
                 trans_cons[file_con_i] = true_con_id
                 outfile.write(" ".join(map(str, [true_con_id] + list(true_feature_ids))) + "\n")
@@ -46,20 +46,21 @@ if __name__ == "__main__":
             c = 0
             for line in infile:
                 c += 1
-                if line.strip().split() == "":
+                if line.strip() == "":
                     c = 0
                 if c > 3:
-                    line = " ".join(map(str, map(trans_cons.get, map(int, line.strip().split())))) + "\n"
+                    line = " ".join(map(str, map(trans_cons.__getitem__, map(int, line.strip().split())))) + "\n"
                 outfile.write(line)
         outfile.close()
 
-    with open("all_features.txt", "w") as outfile:
+    prefix = re.search("^\./(.*?)\.sub_feat\.",f).group(1)
+    with open(prefix + ".features", "w") as outfile:
         outfile.write(all_features.get_voc())
 
-    with open("all_cons.txt", "w") as outfile:
+    with open(prefix + ".cons", "w") as outfile:
         outfile.write(all_cons.get_voc())
 
-    with open("weights.txt", "w") as outfile:
+    with open(prefix + ".weights", "w") as outfile:
         for w_id in sorted(all_features.feature_dict.values()):
             w = random_weight()
             outfile.write("w " + str(w_id) + " " + str(w) + "\n")
