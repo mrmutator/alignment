@@ -53,7 +53,6 @@ class SubcorpusReader(object):
             if not f_toks:
                 break
             f_heads = map(int, self.corpus_file.readline().strip().split())
-            order = map(int, self.corpus_file.readline().strip().split())
             feature_sets = []
             els = map(int, self.corpus_file.readline().strip().split())
             static_cond_id = els[0]
@@ -67,7 +66,7 @@ class SubcorpusReader(object):
                     j_sets.append((j_ip_static_cond_id, els[1:]))
                 feature_sets.append(j_sets)
             self.corpus_file.readline()
-            yield (e_toks, f_toks, f_heads, order, feature_sets)
+            yield (e_toks, f_toks, f_heads, feature_sets)
             c += 1
             if c == self.limit:
                 break
