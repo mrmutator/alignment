@@ -34,6 +34,7 @@ def get_time():
 
 def get_params(args):
     params = dict()
+    params['dir'] = "%"
     params['dir'] = os.path.abspath(args.dir)
     params['job_name'] = args.job_name
     params['num_iterations'] = args.num_iterations
