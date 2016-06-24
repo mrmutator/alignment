@@ -214,7 +214,7 @@ arg_parser.set_defaults(no_sub=False)
 arg_parser.add_argument('-ignore_checks', dest='ignore_checks', action='store_true', required=False)
 arg_parser.set_defaults(ignore_checks=False)
 
-arg_parser.add_argument("-PBS_time_prepare_job", required=False, default="00:20:00", type=str)
+arg_parser.add_argument("-PBS_time_prepare_job", required=False, default="01:30:00", type=str)
 arg_parser.add_argument("-PBS_time_worker_job", required=False, default="00:20:00", type=str)
 arg_parser.add_argument("-PBS_time_update_job", required=False, default="00:20:00", type=str)
 arg_parser.add_argument("-PBS_time_evaluate_job", required=False, default="01:00:00", type=str)
