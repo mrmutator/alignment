@@ -23,7 +23,7 @@ def check_num_nodes_group_size(params):
         raise Exception("Too many nodes specified for current configuration.")
 
 def check_paths(params):
-    check_list = ["psnt", "ibm1_table_path", "job_template_dir", "script_dir", "features"]
+    check_list = ["psnt", "ibm1_table_path", "job_template_dir", "script_dir"]
     for c in check_list:
         if not os.path.exists(params[c]):
             raise Exception("Path does not exist for parameter %s: <%s>" % (c, params[c]))
@@ -38,7 +38,6 @@ def get_params(args):
     params['job_name'] = args.job_name
     params['num_iterations'] = args.num_iterations
     params['psnt'] = os.path.abspath(args.psnt)
-    params['features'] = os.path.abspath(args.features)
     params['ibm1_table_path'] = os.path.abspath(args.ibm1_table)
     params['group_size'] = args.group_size
     params['group_size_feature_extraction'] = args.group_size_feature_extraction
@@ -184,7 +183,6 @@ arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-job_name", required=False, default=get_time())
 
 arg_parser.add_argument("-psnt", required=True)
-arg_parser.add_argument("-features", required=True)
 arg_parser.add_argument("-ibm1_table", required=True, default="")
 
 arg_parser.add_argument("-num_iterations", required=True, type=int)
