@@ -10,12 +10,13 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
 
-def get_all_viterbi_alignments(buffer, p_0, queue):
-    worker_num, corpus, t_probs, dist_weights, dist_cons = buffer
+def get_all_viterbi_alignments(buffer, p_0, dist_cons, dist_weights, queue):
+    worker_num, corpus, t_probs = buffer
     all_alignments = []
     norm_coeff = 1.0 - p_0
     feature_dim = len(dist_weights)
-    for e_toks, f_toks, f_heads, order, feature_ids in corpus:
+    SMALL_PROB_CONST = 0.0000001
+    for e_toks, f_toks, f_heads, feature_ids in corpus:
         I = len(e_toks)
         J = len(f_toks)
         I_double = 2 * I
@@ -70,7 +71,7 @@ def get_all_viterbi_alignments(buffer, p_0, queue):
             for i_p in range(I_double):
                 values = np.zeros(I_double)
                 for i in range(I_double):
-                    values[i] = (np.log(t_probs.get((e_toks[i], f_toks[j]), 0.0000001)) + np.log(d_probs[j][i_p, i])) + \
+                    values[i] = (np.log(t_probs.get((e_toks[i], f_toks[j]), SMALL_PROB_CONST)) + np.log(d_probs[j][i_p, i])) + \
                                 f_j_in[i]
 
                 best_i = np.argmax(values)
@@ -78,7 +79,7 @@ def get_all_viterbi_alignments(buffer, p_0, queue):
                 f[j][i_p] = values[best_i]
 
         f[0] = np.array(
-            [np.log(start_prob[i]) + np.log(t_probs.get((e_toks[i], f_toks[0]), 0.0000001)) for i in range(I_double)])
+            [np.log(start_prob[i]) + np.log(t_probs.get((e_toks[i], f_toks[0]), SMALL_PROB_CONST)) for i in range(I_double)])
 
         for dep in dependencies[0]:
             f[0] += f[dep]
@@ -91,7 +92,8 @@ def get_all_viterbi_alignments(buffer, p_0, queue):
             else:
                 alignment.append(best[j][alignment[head]])
 
-        alignment = [(al, order[j]) for j, al in enumerate(alignment) if al < I]
+        # alignment = [(al, order[j]) for j, al in enumerate(alignment) if al < I]
+        alignment = [(al, j) for j, al in enumerate(alignment) if al < I]
         all_alignments.append(alignment)
 
     queue.put((worker_num, all_alignments))
@@ -116,13 +118,18 @@ if __name__ == "__main__":
     results_queue = mp.Queue()
     process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers) / 4)))
 
+    cond_ids = load_cons(args.cons)
+    d_weights = load_weights(args.weights)
+
 
     def worker_wrapper(process_queue):
+        cons = dict(cond_ids)
+        weights = np.array(d_weights)
         while True:
             buffer = process_queue.get()
             if buffer is None:
                 return
-            get_all_viterbi_alignments(buffer, args.p_0, results_queue)
+            get_all_viterbi_alignments(buffer, args.p_0, cons, weights, results_queue)
 
 
     corpus = SubcorpusReader(args.corpus, limit=args.limit)
@@ -134,8 +141,6 @@ if __name__ == "__main__":
 
     logger.info("Loading parameters.")
     t_params = load_params(args.params)
-    cond_ids = load_cons(args.cons)
-    d_weights = load_weights(args.weights)
 
 
     corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
@@ -144,27 +149,14 @@ if __name__ == "__main__":
     for num_buffer, buff in enumerate(corpus_buffer):
         # get all t-params of buffer
         required_ts = set()
-        required_cons = dict()
-        for (e_toks, f_toks, f_heads, order, feature_ids) in buff:
+        for (e_toks, f_toks, f_heads, feature_ids) in buff:
             I = len(e_toks)
             for e_tok in e_toks + [0]:
                 for f_tok in f_toks:
                     required_ts.add((e_tok, f_tok))
 
-            # start cons
-            static_cond = feature_ids[0][0][0]
-            required_cons[static_cond] = cond_ids[static_cond]
-            for cid in feature_ids[0][0][1]:
-                required_cons[cid] = cond_ids[cid]
-            for j in xrange(1, len(f_toks)):
-                for i_p in xrange(I):
-                    static_cond = feature_ids[j][i_p][0]
-                    required_cons[static_cond] = cond_ids[static_cond]
-                    for cid in feature_ids[j][i_p][1]:
-                        required_cons[cid] = cond_ids[cid]
-
         t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-        process_queue.put((num_buffer, buff, t_probs, np.array(d_weights), required_cons))
+        process_queue.put((num_buffer, buff, t_probs))
 
 
     for _ in xrange(args.num_workers):

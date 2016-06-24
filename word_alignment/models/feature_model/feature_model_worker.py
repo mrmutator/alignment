@@ -19,6 +19,7 @@ def train_iteration(buffer, p_0, dist_cons, dist_weights, queue):
     al_counts = Counter()  # (static_cond, dynamic_cond)
     ll = 0
     norm_coeff = 1.0 - p_0
+    SMALL_PROB_CONST = 0.00000001
 
     corpus, trans_params = buffer
     feature_dim = len(dist_weights)
@@ -26,13 +27,18 @@ def train_iteration(buffer, p_0, dist_cons, dist_weights, queue):
     for (e_toks, f_toks, f_heads, feature_ids) in corpus:
         I = len(e_toks)
         I_double = 2 * I
+        J = len(f_toks)
 
+
+        translation_matrix = np.zeros((J, I_double))
         # start probs
         # i_p is 0 for start_probs
         feature_matrix = np.zeros((I, feature_dim))
         for sid in dist_cons[feature_ids[0][0][0]]:  # static feature set
             feature_matrix[:, sid] = 1.0
+        f_0 = f_toks[0]
         for i in xrange(I):
+            translation_matrix[0][i] = trans_params.get((e_toks[i], f_0), SMALL_PROB_CONST) # abuse for loop
             for did in dist_cons[feature_ids[0][0][1][i]]:  # dynamic feature set
                 feature_matrix[i, did] = 1.0
 
@@ -42,9 +48,14 @@ def train_iteration(buffer, p_0, dist_cons, dist_weights, queue):
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
         # dist probs
         d_probs = dict()
-        for j in xrange(1, len(f_toks)):
+
+        translation_matrix[0][I:] = trans_params.get((0, f_0), SMALL_PROB_CONST) # null word for first word
+        for j in xrange(1, J):
             tmp_prob = np.zeros((I, I))
+            f_j = f_toks[j]
+            translation_matrix[j][I:] = trans_params.get((0, f_j), SMALL_PROB_CONST)
             for i_p in xrange(I):
+                translation_matrix[j][i_p] = trans_params.get((e_toks[i_p], f_j), SMALL_PROB_CONST)
                 feature_matrix = np.zeros((I, feature_dim))
                 for sid in dist_cons[feature_ids[j][i_p][0]]:
                     feature_matrix[:, sid] = 1.0
@@ -60,7 +71,7 @@ def train_iteration(buffer, p_0, dist_cons, dist_weights, queue):
             dist_mat = np.vstack((tmp, tmp))
             d_probs[j] = dist_mat
 
-        gammas, xis, pair_ll = hmt.upward_downward(f_toks, e_toks + [0] * I, f_heads, trans_params, d_probs,
+        gammas, xis, pair_ll = hmt.upward_downward(J, I_double, f_heads, translation_matrix, d_probs,
                                                    start_prob)
 
         # update counts
