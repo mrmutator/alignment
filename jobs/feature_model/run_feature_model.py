@@ -49,7 +49,7 @@ def get_params(args):
     params['buffer_size_mstep'] = args.buffer_size_mstep
     params['p_0'] = args.p_0
     params['kappa'] = args.kappa
-    params['learnign_rate'] = args.learning_rate
+    params['learning_rate'] = args.learning_rate
     params['convergence_threshold'] = args.convergence_threshold
     params['num_nodes'] = args.num_nodes
     params["hmm"] = ""
