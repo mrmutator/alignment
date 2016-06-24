@@ -5,6 +5,8 @@ cd "$TMPDIR"
 cp  %(psnt)s corpus.psnt
 cp %(ibm1_table_path)s ibm1.table
 cp %(feature_extraction)s extract_features.py
+cp %(script_dir)s/word_alignment/models/feature_model/CorpusReader.py CorpusReader.py
+cp %(script_dir)s/word_alignment/models/feature_model/features.py features.py
 module load python
 source %(script_dir)s/venv/bin/activate
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Splitting corpus."
