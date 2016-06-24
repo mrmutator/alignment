@@ -53,7 +53,7 @@ if __name__ == "__main__":
                 outfile.write(line)
         outfile.close()
 
-    prefix = re.search("^\./(.*?)\.sub_feat\.",f).group(1)
+    prefix = re.search("^\./(.*?)\.\d+\.sub_feat",f).group(1)
     with open(prefix + ".features", "w") as outfile:
         outfile.write(all_features.get_voc())
 
