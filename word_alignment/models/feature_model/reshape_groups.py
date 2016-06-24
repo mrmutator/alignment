@@ -26,11 +26,9 @@ def reshape_files(directory, num_sentences):
     files = glob.glob(directory + "/*extracted.gz.corrected.gz")
     ordered = [None] * len(files)
     for f in files:
-        i = int(re.search(".*\.sub_feat\.(\d+)\.extracted\.gz\.corrected\.gz", f).group(1))
+        i = int(re.search(".*\.(\d+)\.sub_feat\.extracted\.gz\.corrected\.gz", f).group(1))
         ordered[i-1] = f
-
-    prefix = re.search("^\./(.*?)\.sub_feat\.", f).group(1)
-
+    prefix = re.search("^\./(.*?)\.\d+\.sub_feat\.", f).group(1)
     outfile_id = 1
     outfile = LazyFile(prefix + ".corpus."+str(outfile_id) + ".gz")
     sub_c = 0
