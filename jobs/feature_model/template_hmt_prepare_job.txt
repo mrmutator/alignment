@@ -2,11 +2,27 @@
 #PBS -lnodes=1:cores16
 #PBS -lwalltime=%(PBS_time_prepare_job)s
 cd "$TMPDIR"
-cp  %(psnt)s corpus.psnt
-cp %(ibm1_table_path)s ibm1.table
+cp  %(psnt)s corpus.psnt &
+cp %(ibm1_table_path)s ibm1.table &
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -features %(features)s -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s %(hmm)s
-gzip %(job_name)s.*
-cp %(job_name)s.* %(it_dir)s/
+wait
+date +"%H:%M:%S> Splitting corpus."
+python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -group_size_feature_extraction %(group_size_feature_extraction)s %(hmm)s
+date +"%H:%M:%S> Starting feature extraction"
+for f in %(job_name)s.*.sub_feat
+ do
+ python %(script_dir)s/word_alignment/models/feature_model/extract_features.py -corpus $f &
+done
+wait
+date +"%H:%M:%S> Aggregating features."
+python %(script_dir)s/word_alignment/models/feature_model/aggregate_features.py -dir .
+date +"%H:%M:%S> Reshaping corpus."
+python %(script_dir)s/word_alignment/models/feature_models/reshape_groups.py -dir . -group_size %(group_size_feature_extraction)s
+gzip %(job_name)s.params.*
+cp %(job_name)s.params.*.gz %(it_dir)s/ &
+cp %(job_name)s.corpus.*.gz %(it_dir)s/ &
+cp %(job_name)s.weights %(it_dir)s/ &
+cp %(job_name)s.cons %(it_dir)s/ &
+cp %(job_name)s.features %(it_dir)s/ &
 wait

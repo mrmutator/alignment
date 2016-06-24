@@ -41,6 +41,7 @@ def get_params(args):
     params['features'] = os.path.abspath(args.features)
     params['ibm1_table_path'] = os.path.abspath(args.ibm1_table)
     params['group_size'] = args.group_size
+    params['group_size_feature_extraction'] = args.group_size_feature_extraction
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../..'))
     params['num_workers'] = args.num_workers
@@ -197,6 +198,7 @@ arg_parser.add_argument('-hmm', dest="hmm", action="store_true", required=False)
 
 
 arg_parser.add_argument("-group_size", required=True, type=int)
+arg_parser.add_argument("-group_size_feature_extraction", required=False, type=int)
 arg_parser.add_argument("-num_nodes", required=True, type=int)
 
 arg_parser.add_argument("-num_workers", required=False, default=16, type=int)

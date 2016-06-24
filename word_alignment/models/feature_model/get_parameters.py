@@ -87,7 +87,7 @@ class Parameters(object):
     def split_data_get_parameters(self, corpus, file_prefix, num_sentences, num_sentences_feature_extraction):
         subset_id = 1
         feature_id = 1
-        outfile_corpus = open(file_prefix + ".sub_feat." + str(feature_id), "w")
+        outfile_corpus = open(file_prefix + "." + str(feature_id) + ".sub_feat", "w")
         sub_t = set()
         subset_c = 0
         total = 0
@@ -126,7 +126,7 @@ class Parameters(object):
                 feature_c = 0
                 feature_id += 1
                 if total < self.c:
-                    outfile_corpus = open(file_prefix + ".sub_feat." + str(feature_id), "w")
+                    outfile_corpus = open(file_prefix + "." + str(feature_id) + ".sub_feat", "w")
 
         if subset_c > 0:
             self.write_params(sub_t, file_prefix + ".params." + str(subset_id))

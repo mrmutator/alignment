@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
         con_file = re.sub("\.fvoc", ".convoc", f)
         trans_cons = dict()
-        outfile = open(con_file + ".corrected", "w")
+        #outfile = open(con_file + ".corrected", "w")
         with open(con_file, "r") as infile:
             for line in infile:
                 els = map(int, line.strip().split())
@@ -35,9 +35,9 @@ if __name__ == "__main__":
                 true_feature_ids = map(trans_features.__getitem__, els[1:])
                 true_con_id = all_cons.get_id(frozenset(true_feature_ids))
                 trans_cons[file_con_i] = true_con_id
-                outfile.write(" ".join(map(str, [true_con_id] + list(true_feature_ids))) + "\n")
+                #outfile.write(" ".join(map(str, [true_con_id] + list(true_feature_ids))) + "\n")
 
-        outfile.close()
+        #outfile.close()
 
         annotated_file = re.sub("\.fvoc", ".extracted.gz", f)
 
