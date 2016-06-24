@@ -12,15 +12,17 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 
-def train_iteration(buffer, p_0, queue):
+def train_iteration(buffer, p_0, dist_cons, dist_weights, queue):
     # set all counts to zero
     lex_counts = Counter()  # (e,f)
     lex_norm = Counter()  # e
     al_counts = Counter()  # (static_cond, dynamic_cond)
     ll = 0
     norm_coeff = 1.0 - p_0
-    corpus, trans_params, dist_weights, dist_cons = buffer
+
+    corpus, trans_params = buffer
     feature_dim = len(dist_weights)
+
     for (e_toks, f_toks, f_heads, feature_ids) in corpus:
         I = len(e_toks)
         I_double = 2 * I
@@ -183,13 +185,18 @@ if __name__ == "__main__":
     update_queue = mp.Queue()
     process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers - 1) / 4)))
 
+    cond_ids = load_cons(args.cons)
+    d_weights = load_weights(args.weights)
+
 
     def worker_wrapper(process_queue):
+        cons = dict(cond_ids)
+        weights = np.array(d_weights)
         while True:
             buffer = process_queue.get()
             if buffer is None:
                 return
-            train_iteration(buffer, args.p_0, update_queue)
+            train_iteration(buffer, args.p_0, cons, weights, update_queue)
 
 
     corpus = SubcorpusReader(args.corpus)
@@ -201,8 +208,6 @@ if __name__ == "__main__":
 
     logger.info("Loading parameters.")
     t_params = load_params(args.params)
-    cond_ids = load_cons(args.cons)
-    d_weights = load_weights(args.weights)
 
     updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
     updater.start()
@@ -213,27 +218,14 @@ if __name__ == "__main__":
     for buff in corpus_buffer:
         # get all t-params of buffer
         required_ts = set()
-        required_cons = dict()
         for (e_toks, f_toks, f_heads, feature_ids) in buff:
             I = len(e_toks)
             for e_tok in e_toks + [0]:
                 for f_tok in f_toks:
                     required_ts.add((e_tok, f_tok))
 
-            # start cons
-            static_cond = feature_ids[0][0][0]
-            required_cons[static_cond] = cond_ids[static_cond]
-            for cid in feature_ids[0][0][1]:
-                required_cons[cid] = cond_ids[cid]
-            for j in xrange(1, len(f_toks)):
-                for i_p in xrange(I):
-                    static_cond = feature_ids[j][i_p][0]
-                    required_cons[static_cond] = cond_ids[static_cond]
-                    for cid in feature_ids[j][i_p][1]:
-                        required_cons[cid] = cond_ids[cid]
-
         t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-        process_queue.put((buff, t_probs, np.array(d_weights), required_cons))
+        process_queue.put((buff, t_probs))
     # Send termination signal
     for _ in xrange(args.num_workers - 1):
         process_queue.put(None)

@@ -23,14 +23,13 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
     marginals[0] = start_probs
 
     for j in xrange(1, J):
-        h = heads[j]
-        marginals[j] = np.dot(marginals[h], dist_probs[j])
+        marginals[j] = np.dot(marginals[heads[j]], dist_probs[j])
 
     # upward recursion betas
     betas = np.zeros((J, I))
     betas_p = np.zeros((J, I))
     log_likelihood = 0
-    for j in range(J - 1, -1, -1):
+    for j in xrange(J - 1, -1, -1):
         prod = np.ones(I, dtype=np.longfloat)
         for c in children[j]:
             # compute betas_p for j,c
@@ -47,7 +46,7 @@ def upward_downward(f_toks, e_toks, heads, trans_params, dist_probs, start_probs
     gammas = np.zeros((J, I))
     gammas[0] = betas[0]
     xis = [None]
-    for j in range(1, J):
+    for j in xrange(1, J):
         parent = heads[j]
         gammas[j] = (betas[j] / marginals[j]) * np.dot((gammas[parent] / betas_p[j]), dist_probs[j])
         xi = np.outer((gammas[parent] / betas_p[j]), (betas[j] / marginals[j])) * dist_probs[j]

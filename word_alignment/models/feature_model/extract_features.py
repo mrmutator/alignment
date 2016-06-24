@@ -53,7 +53,7 @@ def extract_features(corpus_buffer, out_file_name):
                         for fname in dynamic_features:
                             f_id = feature_voc.add(fname)
                             dynamic_cond.append(f_id)
-                        cond_id = cons.get_id(frozenset(static_cond))
+                        cond_id = cons.get_id(frozenset(dynamic_cond))
                         outfile.write(str(cond_id) + " ")
                     outfile.write("\n")
                     I_ = I
