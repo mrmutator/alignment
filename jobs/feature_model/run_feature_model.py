@@ -199,7 +199,7 @@ arg_parser.add_argument('-hmm', dest="hmm", action="store_true", required=False)
 
 
 arg_parser.add_argument("-group_size", required=True, type=int)
-arg_parser.add_argument("-group_size_feature_extraction", required=False, type=int)
+arg_parser.add_argument("-group_size_feature_extraction", required=False, type=int, default=-1)
 arg_parser.add_argument("-num_nodes", required=True, type=int)
 
 arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
