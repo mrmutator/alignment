@@ -52,6 +52,11 @@ def get_params(args):
     params['kappa'] = args.kappa
     params['learning_rate'] = args.learning_rate
     params['convergence_threshold'] = args.convergence_threshold
+    params['it_limit'] = args.it_limit
+    params['grid_it_limit'] = args.grid_it_limit
+    params['grid_convergence_threshold'] = args.grid_convergence_threshold
+    params['grid_trials'] = args.grid_trials
+
     params['num_nodes'] = args.num_nodes
     params["hmm"] = ""
     if args.hmm:
@@ -193,7 +198,11 @@ arg_parser.add_argument("-num_iterations", required=True, type=int)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 arg_parser.add_argument("-kappa", required=False, default=0.001, type=float)
 arg_parser.add_argument("-learning_rate", required=False, default=0.001, type=float)
-arg_parser.add_argument("-convergence_threshold", required=False, default=-0.01, type=float)
+arg_parser.add_argument("-convergence_threshold", required=False, default=-0.1, type=float)
+arg_parser.add_argument("-it_limit", required=False, default=500, type=int)
+arg_parser.add_argument("-grid_it_limit", required=False, default=200, type=int)
+arg_parser.add_argument("-grid_convergence_threshold", required=False, default=-10.0, type=float)
+arg_parser.add_argument("-grid_trials", required=False, default=10, type=int)
 
 arg_parser.add_argument('-hmm', dest="hmm", action="store_true", required=False)
 
@@ -227,6 +236,7 @@ if not args.ignore_checks:
     check_num_nodes_group_size(params)
 
 assert args.convergence_threshold < 0
+assert args.grid_convergence_threshold < 0
 
 # make directories
 make_directories(params['dir'], params['num_iterations'])
