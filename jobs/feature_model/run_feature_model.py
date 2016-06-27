@@ -143,13 +143,13 @@ def send_jobs(**params):
         last_job_id = prep_job_id
     # iteration jobs
     for i in xrange(1, params["num_iterations"]+1):
-        depend_string = ""
+        depend_string = []
         if last_job_id:
-            depend_string =  "-Wdepend=afterok:"+last_job_id
+            depend_string =  ["-Wdepend=afterok:"+last_job_id]
         job_dir = params['dir'] + "/jobs" + str(i)
         # workers
         job_path = job_dir + "/worker_job_it" +str(i) + ".sh"
-        proc_prepare = subprocess.Popen(['qsub', depend_string, "-t", "1-"+str(params["num_nodes"]),
+        proc_prepare = subprocess.Popen(['qsub'] + depend_string +  ["-t", "1-"+str(params["num_nodes"]),
                                          job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
         stdout, stderr = proc_prepare.communicate()
         if stderr:
