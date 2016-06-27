@@ -3,11 +3,6 @@ import random
 import numpy as np
 import argparse
 from CorpusReader import CorpusReader
-import features
-import imp
-
-
-
 
 def reorder(data, order):
     """
