@@ -1,8 +1,28 @@
 import argparse
 import time
 import os
-import subprocess
 import numpy as np
+
+class TestReturn(object):
+
+    def __init__(self, job_id):
+        self.job_id = job_id
+
+    def communicate(self):
+        return str(self.job_id) + ".testjob", None
+
+class Test(object):
+
+    def __init__(self):
+        self.i = 0
+        self.PIPE = None
+
+    def Popen(self, args, stderr=None, stdout=None, cwd=None):
+        self.i += 1
+        print self.i, " ".join(args)
+        return TestReturn(self.i)
+
+
 
 def get_file_length(f):
     c = 0
@@ -241,7 +261,9 @@ for i in xrange(1, params["num_iterations"]+1):
     generate_iteration_jobs(**params)
 
 if not args.no_sub:
+    import subprocess
     send_jobs(**params)
     print "Jobs sent."
 else:
+    subprocess = Test()
     print "Jobs prepared, but not sent."
