@@ -197,12 +197,6 @@ arg_parser.add_argument("-num_iterations", required=True, type=int)
 
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 arg_parser.add_argument("-kappa", required=False, default=0.001, type=float)
-arg_parser.add_argument("-learning_rate", required=False, default=0.001, type=float)
-arg_parser.add_argument("-convergence_threshold", required=False, default=-0.1, type=float)
-arg_parser.add_argument("-it_limit", required=False, default=500, type=int)
-arg_parser.add_argument("-grid_it_limit", required=False, default=200, type=int)
-arg_parser.add_argument("-grid_convergence_threshold", required=False, default=-10.0, type=float)
-arg_parser.add_argument("-grid_trials", required=False, default=10, type=int)
 
 arg_parser.add_argument('-hmm', dest="hmm", action="store_true", required=False)
 
