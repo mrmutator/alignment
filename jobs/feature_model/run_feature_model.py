@@ -50,12 +50,7 @@ def get_params(args):
     params['buffer_size_mstep'] = args.buffer_size_mstep
     params['p_0'] = args.p_0
     params['kappa'] = args.kappa
-    params['learning_rate'] = args.learning_rate
-    params['convergence_threshold'] = args.convergence_threshold
-    params['it_limit'] = args.it_limit
-    params['grid_it_limit'] = args.grid_it_limit
-    params['grid_convergence_threshold'] = args.grid_convergence_threshold
-    params['grid_trials'] = args.grid_trials
+    params['no_prepare'] = args.no_prepare
 
     params['num_nodes'] = args.num_nodes
     params["hmm"] = ""
@@ -133,24 +128,28 @@ def generate_iteration_jobs(**params):
 
 def send_jobs(**params):
     log_file = open(params["job_name"] + ".log", "w")
-
+    last_job_id = None
     #prepare data
-    job_dir = params['dir'] + "/jobs0"
-    job_path = job_dir + "/prepare_job.sh"
-    proc_prepare = subprocess.Popen(['qsub', job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
-    stdout, stderr = proc_prepare.communicate()
-    if stderr:
-        raise Exception("Failed sending prepare_job: " + stderr)
-    prep_job_id = stdout.strip().split(".")[0]
-    log_file.write(job_path + ": " + prep_job_id + "\n")
+    if not params["no_prepare"]:
+        job_dir = params['dir'] + "/jobs0"
+        job_path = job_dir + "/prepare_job.sh"
+        proc_prepare = subprocess.Popen(['qsub', job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
+        stdout, stderr = proc_prepare.communicate()
+        if stderr:
+            raise Exception("Failed sending prepare_job: " + stderr)
+        prep_job_id = stdout.strip().split(".")[0]
+        log_file.write(job_path + ": " + prep_job_id + "\n")
 
-    last_job_id = prep_job_id
+        last_job_id = prep_job_id
     # iteration jobs
     for i in xrange(1, params["num_iterations"]+1):
+        depend_string = ""
+        if last_job_id:
+            depend_string =  "-Wdepend=afterok:"+last_job_id
         job_dir = params['dir'] + "/jobs" + str(i)
         # workers
         job_path = job_dir + "/worker_job_it" +str(i) + ".sh"
-        proc_prepare = subprocess.Popen(['qsub', "-Wdepend=afterok:"+last_job_id, "-t", "1-"+str(params["num_nodes"]),
+        proc_prepare = subprocess.Popen(['qsub', depend_string, "-t", "1-"+str(params["num_nodes"]),
                                          job_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=job_dir)
         stdout, stderr = proc_prepare.communicate()
         if stderr:
@@ -213,7 +212,9 @@ arg_parser.add_argument("-align_limit", required=False, default=-1, type=int)
 
 
 arg_parser.add_argument('-no_sub', dest='no_sub', action='store_true', required=False)
+arg_parser.add_argument('-no_prepare', dest='no_prepare', action='store_true', required=False)
 arg_parser.set_defaults(no_sub=False)
+arg_parser.set_defaults(no_prepare=False)
 
 arg_parser.add_argument('-ignore_checks', dest='ignore_checks', action='store_true', required=False)
 arg_parser.set_defaults(ignore_checks=False)
