@@ -230,8 +230,6 @@ check_paths(params)
 if not args.ignore_checks:
     check_num_nodes_group_size(params)
 
-assert args.convergence_threshold < 0
-assert args.grid_convergence_threshold < 0
 
 # make directories
 make_directories(params['dir'], params['num_iterations'])
