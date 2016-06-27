@@ -194,7 +194,7 @@ if __name__ == "__main__":
     counts_file_name = args.params + ".counts"
 
     update_queue = mp.Queue()
-    process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers - 1) / 4)))
+    process_queue = mp.Queue(maxsize=args.num_workers - 1)
 
     cond_ids = load_cons(args.cons)
     d_weights = load_weights(args.weights)
