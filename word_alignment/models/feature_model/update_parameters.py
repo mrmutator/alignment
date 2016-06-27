@@ -7,6 +7,7 @@ import numpy as np
 import multiprocessing as mp
 import features
 from feature_model_worker import load_weights
+from scipy.optimize import fmin_l_bfgs_b
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
@@ -122,20 +123,13 @@ if __name__ == "__main__":
     arg_parser.add_argument("-dir", required=True)
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-cons", required=True)
-    arg_parser.add_argument("-kappa", required=True, type=float)
-    arg_parser.add_argument("-learning_rate", required=False, type=float, default=0.001)
+    arg_parser.add_argument("-kappa", required=False, type=float, default=0.001)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=3)
     arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
-    arg_parser.add_argument("-convergence_threshold", required=False, type=float, default=-0.1)
-    arg_parser.add_argument("-it_limit", required=False, type=int, default=500)
-    arg_parser.add_argument("-grid_it_limit", required=False, type=int, default=200)
-    arg_parser.add_argument("-grid_convergence_threshold", required=False, type=float, default=-10.0)
-    arg_parser.add_argument("-grid_trials", required=False, type=int, default=10)
 
     args = arg_parser.parse_args()
 
     kappa = args.kappa
-    learning_rate = args.learning_rate
 
     exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts.*")
 
@@ -189,103 +183,47 @@ if __name__ == "__main__":
     compute_expectation_vectors(static_dynamic_dict, al_counts)
 
 
-    def optimize(d_weights, learning_rate, LIMIT, convergence_threshold, initial_ll=-np.inf):
-        it_limit_achieved = False
+    def objective_func(d_weights):
         # compute regularized expected complete log-likelihood
-        ll = initial_ll
-        ll_diff = -np.inf
-        last_diff = None
-        # compute ll
-        it_count = -1
-        while ll_diff < convergence_threshold:
-            old_ll = ll
-            ll = 0
-            last_diff = ll_diff
-            weights_before_update = np.array(d_weights)
-            buffers = 0
-            it_count += 1
-            if it_count % 50 == 0:
-                logger.info("Performing iteration " + str(it_count))
-            grad_ll = np.zeros(len(d_weights))
-            buffer = [np.array(d_weights), []]
-            buffer_c = 0
-            for static_cond_id, (expectation_vector, dynamic_ids) in static_dynamic_dict.iteritems():
-                buffer[1].append((dist_con_voc.get_feature_set(static_cond_id), expectation_vector, map(dist_con_voc.get_feature_set, dynamic_ids)))
-                buffer_c += 1
-                if buffer_c == 10:
-                    buffers += 1
-                    process_queue.put(buffer)
-                    buffer_c = 0
-                    buffer = [np.array(d_weights), []]
-            if buffer_c > 0:
+        buffers = 0
+        ll = 0
+        grad_ll = np.zeros(len(d_weights))
+        buffer = [np.array(d_weights), []]
+        buffer_c = 0
+        for static_cond_id, (expectation_vector, dynamic_ids) in static_dynamic_dict.iteritems():
+            buffer[1].append((dist_con_voc.get_feature_set(static_cond_id), expectation_vector, map(dist_con_voc.get_feature_set, dynamic_ids)))
+            buffer_c += 1
+            if buffer_c == 10:
                 buffers += 1
                 process_queue.put(buffer)
+                buffer_c = 0
+                buffer = [np.array(d_weights), []]
+        if buffer_c > 0:
+            buffers += 1
+            process_queue.put(buffer)
 
-            for _ in xrange(buffers):
-                buffer_ll, buffer_grad_ll = results_queue.get()
-                ll += buffer_ll
-                grad_ll += buffer_grad_ll
+        for _ in xrange(buffers):
+            buffer_ll, buffer_grad_ll = results_queue.get()
+            ll += buffer_ll
+            grad_ll += buffer_grad_ll
 
             # l2-norm:
             l2_norm = np.linalg.norm(d_weights)
             ll -= kappa * l2_norm
 
             grad_ll -= 2 * kappa * d_weights
-
-            d_weights = d_weights + (learning_rate * grad_ll)
-            ll_diff = old_ll - ll
-            #print ll, ll_diff, learning_rate
-            logger.info("Iteration " + str(it_count) + ": " + " ".join(map(str, [ll, ll_diff])))
-            if it_count == LIMIT:
-                it_limit_achieved = True
-                logger.info("Optimization trial done: %s %s %s" % (it_count, old_ll, learning_rate))
-                break
-
-        return old_ll, it_limit_achieved, weights_before_update, last_diff
+        return -ll, -grad_ll
 
     original_weights = np.array(d_weights)
-    best_weights = None
-    best_ll = -np.inf
-    best_lrt = None
-    lr_t = args.learning_rate
-    grid_search_c = 0
-    grid_threshold = args.grid_trials
-    while True:
-        grid_search_c += 1
-        logger.info("Trial %s - New optimization with learning rate: %s" %(grid_search_c, lr_t))
-        tmp_ll, limit_achieved, w, tmp_diff = optimize(np.array(original_weights), lr_t, args.grid_it_limit, args.grid_convergence_threshold)
-        if tmp_diff != -np.inf and tmp_diff <= 0 and tmp_ll > best_ll:
-            ll_diff = best_ll - tmp_ll
-            logger.info("Improved best likelihood by: " + str(ll_diff))
-            logger.info("Best learning rate: " + str(lr_t))
-            best_ll = tmp_ll
-            best_weights = w
-            best_lrt = lr_t
-        if limit_achieved:
-            lr_t *= 1.05
-        else:
-            lr_t *= 0.5
-        if grid_search_c == grid_threshold:
-            logger.info("Grid search max limit reached.")
-            if best_ll == -np.inf:
-                grid_threshold += 1
-            else:
-                break
 
-    logger.info("Grid search done.")
-    logger.info("Perform final optimization.")
-    logger.info("Initial LL: " +str(best_ll))
-    final_ll, limit_achieved, optimized_weights, last_diff = optimize(best_weights, best_lrt, args.it_limit, args.convergence_threshold, initial_ll=best_ll)
-    logger.info("M-Step optimization done.")
-    logger.info("Best optimized likelihood: " + str(final_ll))
-    logger.info("Converged: " + str(not limit_achieved))
+    optimized_weights, best_ll, info_dict = fmin_l_bfgs_b(objective_func, np.array(d_weights), m=10)
+    print -best_ll
+
 
     for p in pool[:-1]: # last one in pool is trans normalization
         process_queue.put(None)
     for p in pool:
         p.join()
-
-    # optimized_weights = optimize_weights_batch_gd(d_weights, static_dynamic_dict, dist_con_voc, learning_rate)
 
 
     logger.info("Writing weight file.")
