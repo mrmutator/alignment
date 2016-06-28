@@ -2,7 +2,7 @@
 #PBS -lnodes=1:cores16
 #PBS -lwalltime=%(PBS_time_evaluate_job)s
 cd "$TMPDIR"
-cp  %(psnt)s corpus.psnt
+cp %(dir)s/it0/%(job_name)s.corpus.%(part)s.gz corpus.test.gz
 cp %(dir)s/it0/%(job_name)s.order.gz order.gz
 cp %(it_dir)s/%(job_name)s.params.%(part)s.gz params.txt.gz
 cp %(it_dir)s/%(job_name)s.weights weights
