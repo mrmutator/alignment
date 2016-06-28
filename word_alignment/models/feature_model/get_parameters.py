@@ -83,6 +83,7 @@ class Parameters(object):
         subset_id = 1
         feature_id = 1
         outfile_corpus = open(file_prefix + "." + str(feature_id) + ".sub_feat", "w")
+        order_file = open(file_prefix + ".order", "w")
         sub_t = set()
         subset_c = 0
         total = 0
@@ -104,6 +105,7 @@ class Parameters(object):
             outfile_corpus.write("0\n") # dummy dir
             outfile_corpus.write(" ".join(map(str, order)) + "\n")
             outfile_corpus.write("\n")
+            order_file.write(" ".join(map(str, order)) + "\n")
 
             for j, f in enumerate(f_toks):
                 for e in e_toks + [0]:
@@ -127,6 +129,7 @@ class Parameters(object):
             self.write_params(sub_t, file_prefix + ".params." + str(subset_id))
         if feature_c > 0:
             outfile_corpus.close()
+        order_file.close()
 
 
 def prepare_data(corpus, t_file, num_sentences, num_feature_sentences, file_prefix="", hmm=False):

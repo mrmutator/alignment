@@ -3,15 +3,16 @@
 #PBS -lwalltime=%(PBS_time_evaluate_job)s
 cd "$TMPDIR"
 cp  %(psnt)s corpus.psnt
-cp %(dir)s/it0/%(job_name)s.corpus.%(part)s.gz corpus.test.gz
+cp %(dir)s/it0/%(job_name)s.order.gz order.gz
 cp %(it_dir)s/%(job_name)s.params.%(part)s.gz params.txt.gz
 cp %(it_dir)s/%(job_name)s.weights weights
 cp %(dir)s/it0/%(job_name)s.cons cons
 gunzip params.txt.gz
 gunzip corpus.test.gz
+gunzip order.gz
 module load python
 source %(script_dir)s/venv/bin/activate
 python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.test  -params params.txt -cons cons -weights weights -out_file corpus.aligned -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s %(vit_limit)s
-python %(script_dir)s/word_alignment/models/feature_model/reorder_aligned.py -corpus corpus.psnt -aligned_file corpus.aligned
+python %(script_dir)s/word_alignment/models/feature_model/reorder_aligned.py -order_file order -aligned_file corpus.aligned
 cp corpus.aligned.reordered %(it_dir)s/%(job_name)s.aligned.%(part)s
 wait

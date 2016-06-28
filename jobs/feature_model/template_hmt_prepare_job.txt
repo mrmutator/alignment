@@ -27,4 +27,6 @@ cp %(job_name)s.corpus.*.gz %(it_dir)s/
 cp %(job_name)s.weights %(it_dir)s/
 cp %(job_name)s.cons %(it_dir)s/
 cp %(job_name)s.features %(it_dir)s/
+gzip %(job_name)s.order
+cp %(job_name)s.order.gz %(it_dir)s/
 wait
