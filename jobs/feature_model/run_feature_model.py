@@ -266,4 +266,5 @@ if not args.no_sub:
     print "Jobs sent."
 else:
     subprocess = Test()
+    send_jobs(**params)
     print "Jobs prepared, but not sent."
