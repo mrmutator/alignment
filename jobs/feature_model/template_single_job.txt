@@ -1,7 +1,6 @@
 #PBS -S /bin/bash
 #PBS -lnodes=1:cores16
 #PBS -lwalltime=%(PBS_time_single_job)s
-alias errcho='>&2 echo'
 cd "$TMPDIR"
 cp %(it0_dir)s/%(job_name)s.cons cons
 cp %(it0_dir)s/%(job_name)s.weights weights
@@ -17,16 +16,16 @@ module load python
 source %(script_dir)s/venv/bin/activate
 for it in $(seq 1 %(num_iterations)s);
 do
- errcho "Starting iteration " ${it};
+ >&2 echo "Starting iteration " ${it};
  # E-Steps
   for part in $(seq 1 %(num_nodes)s);
   do
-   errcho "Starting E-Step " ${part};
+   >&2 echo "Starting E-Step " ${part};
    python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -cons cons -weights weights -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s
    mv params.${part}.counts params.counts.${part}
   done
  # update
- errcho "Starting M-step";
+ >&2 echo "Starting M-step";
  python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -cons cons -kappa %(kappa)s -num_workers %(num_workers)s -buffer_size %(buffer_size_mstep)s > ll.${it}.log
  rename "s/^params.params/new_params/" params.params.*
  rm params.*
@@ -36,10 +35,10 @@ do
  mv log_likelihood log_likelihood.${it}
 
  # evaluate
- errcho "Aligning corpus";
+ >&2 echo "Aligning corpus";
  for part in $(seq 1 %(align_parts)s);
  do
- errcho "Aligning part " ${part};
+ >&2 echo "Aligning part " ${part};
    python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -cons cons -weights weights -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s -limit %(align_limit)s
    done
  cat corpus.aligned.* > all.aligned.${it}
@@ -50,7 +49,7 @@ do
  cp all.aligned.${it}.reordered %(result_dir)s/%(job_name)s.aligned.${it}
 done
 
-errcho "Done. Copying files now."
+>&2 echo "Done. Copying files now."
 rename "s/params/%(job_name)s.params/" params.*
 gzip %(job_name)s.params.*
 cp %(job_name)s.params.*.gz %(result_dir)s/
