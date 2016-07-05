@@ -1,0 +1,50 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=%(PBS_time_single_job)s
+cd "$TMPDIR"
+cp %(it0_dir)s/%(job_name)s.cons cons
+cp %(it0_dir)s/%(job_name)s.weights weights
+cp %(it0_dir)s/%(job_name)s.order.gz order.gz
+for part in $(seq 1 %(num_nodes)s);
+do
+ cp %(it0_dir)s/%(job_name)s.corpus.${part}.gz corpus.psnt.${part}.gz
+ cp %(it0_dir)s/%(job_name)s.params.${part}.gz params.${part}.gz
+done
+gunzip *.gz
+
+module load python
+source %(script_dir)s/venv/bin/activate
+for it in $(seq 1 %(num_iterations)s);
+do
+ # E-Steps
+  for part in $(seq 1 %(num_nodes)s);
+  do
+   python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -cons cons -weights weights -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s
+   mv params.${part}.counts params.counts.${part}
+  done
+ # update
+ python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -cons cons -kappa %(kappa)s -num_workers %(num_workers)s -buffer_size %(buffer_size_mstep)s > ll.${it}.log
+ rename "s/^params.params/new_params/" params.params.*
+ rm params.*
+ rm weights
+ mv weights.updated weights
+ rename "s/new_params/params/" new_params.*
+ mv log_likelihood log_likelihood.${it}
+
+ # evaluate
+ for part in $(seq 1 %(align_parts)s);
+ do
+   python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -cons cons -weights weights -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s -limit %(align_limit)s
+   done
+ cat corpus.aligned.* > all.aligned.${it}
+ rm corpus.aligned.*
+ python %(script_dir)s/word_alignment/models/feature_model/reorder_aligned.py -order_file order -aligned_file all.aligned.${it}
+
+ cp log_likelihood.${it} %(result_dir)s/%(job_name)s.log_likelihood.${it}
+ cp all.aligned.${it} %(result_dir)s/%(job_name)s.aligned.${it}
+done
+
+rename "s/params/%(job_name)s.params/" params.*
+gzip %(job_name)s.params.*
+cp %(job_name)s.params.*.gz %(result_dir)s/
+wait
