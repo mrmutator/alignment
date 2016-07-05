@@ -16,8 +16,8 @@ gunzip *.gz
 module load python
 source %(script_dir)s/venv/bin/activate
 for it in $(seq 1 %(num_iterations)s);
-errcho "Starting iteration " ${it};
 do
+ errcho "Starting iteration " ${it};
  # E-Steps
   for part in $(seq 1 %(num_nodes)s);
   do
