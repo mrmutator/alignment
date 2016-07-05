@@ -12,7 +12,7 @@ def get_params(args):
     params['dir'] = os.path.abspath(args.dir)
     params['result_dir'] = os.path.abspath(os.path.join(params['dir'], 'results'))
     params['it0_dir'] = os.path.abspath(args.it0_dir)
-    params['job_name'] = args.job_name
+    params['job_name'] = glob.glob(params['it0_dir'] + "/*.params.*.gz")[0].split(".params.")[0]
     params['num_iterations'] = args.num_iterations
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../..'))
@@ -55,7 +55,6 @@ arg_parser = argparse.ArgumentParser()
 
 arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-it0_dir", required=True)
-arg_parser.add_argument("-job_name", required=False, default=get_time())
 arg_parser.add_argument("-num_iterations", required=True, type=int)
 
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
