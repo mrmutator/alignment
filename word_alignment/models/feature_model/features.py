@@ -49,11 +49,26 @@ class FeatureConditions(object):
     def get_feature_set(self, id):
         return self.index_dict[id]
 
+    def get_featureset_voc(self):
+        output = ""
+        for k in sorted(self.cond_dict, key=self.cond_dict.get):
+            if isinstance(k, frozenset):
+                output += str(self.cond_dict[k]) + "\t" + " ".join(map(str, k)) + "\n"
+        return output
+
+    def get_condition_voc(self):
+        output = ""
+        for k in sorted(self.cond_dict, key=self.cond_dict.get):
+            if isinstance(k, tuple):
+                output += str(self.cond_dict[k]) + "\t" + " ".join(map(str, k)) + "\n"
+        return output
+
     def get_voc(self):
         output = ""
         for k in sorted(self.cond_dict, key=self.cond_dict.get):
             output += str(self.cond_dict[k]) + "\t" + " ".join(map(str, k)) + "\n"
         return output
+
 
     def load_voc(self, fname):
         self.cond_dict = dict()
@@ -61,6 +76,9 @@ class FeatureConditions(object):
         with open(fname, "r") as infile:
             for line in infile:
                 i, f = line.strip().split("\t")
-                f = frozenset(map(int, f.split()))
+                try:
+                    f = frozenset(map(int, f.split()))
+                except ValueError:
+                    f = tuple(f.split())
                 self.cond_dict[f] = int(i)
                 self.index_dict[int(i)] = f

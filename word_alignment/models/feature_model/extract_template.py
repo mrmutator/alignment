@@ -7,7 +7,7 @@ import gzip
 
 def extract_features(corpus_buffer, out_file_name):
     feature_voc = features.Features()
-    cons = features.FeatureConditions()
+    vector_ids = features.FeatureConditions()
     outfile = gzip.open(out_file_name + ".extracted.gz", "w")
     for buff in corpus_buffer:
         for e_toks, f_toks, f_heads, pos, rel, dir, order in buff:
@@ -25,23 +25,21 @@ def extract_features(corpus_buffer, out_file_name):
             I_ = 1
             for j in xrange(J):
                 for i_p in xrange(I_):
-                    # static feature extraction
-                    static_features = []
-                    static_cond = []
+                    # conditions
+                    conditions = ["empty"]
 
                     # STATIC FEATURE EXTRACTION HERE
+                    # don't use spaces in feature name
+                    # fname must not be a bare number
                     fname = "pos=" + str(pos[j])
-                    static_features.append(fname)
+                    conditions.append(fname)
                     fname = "rel=" + str(rel[j])
-                    static_features.append(fname)
+                    conditions.append(fname)
 
 
-
-                    for fname in static_features:
-                        f_id = feature_voc.add(fname)
-                        static_cond.append(f_id)
-                    con_id = cons.get_id(frozenset(static_cond))
+                    con_id = vector_ids.get_id(tuple(conditions))
                     outfile.write(str(con_id) + " ")
+
                     for i in xrange(I):
                         dynamic_features = []
                         dynamic_cond = []
@@ -53,7 +51,7 @@ def extract_features(corpus_buffer, out_file_name):
                         for fname in dynamic_features:
                             f_id = feature_voc.add(fname)
                             dynamic_cond.append(f_id)
-                        cond_id = cons.get_id(frozenset(dynamic_cond))
+                        cond_id = vector_ids.get_id(frozenset(dynamic_cond))
                         outfile.write(str(cond_id) + " ")
                     outfile.write("\n")
                     I_ = I
@@ -66,9 +64,7 @@ def extract_features(corpus_buffer, out_file_name):
         outfile.write(feature_voc.get_voc())
 
     with open(out_file_name + ".convoc", "w") as outfile:
-        outfile.write(cons.get_voc())
-
-
+        outfile.write(vector_ids.get_voc())
 
 
 if __name__ == "__main__":

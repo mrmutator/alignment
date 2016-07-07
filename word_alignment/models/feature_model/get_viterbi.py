@@ -5,6 +5,7 @@ import argparse
 from CorpusReader import SubcorpusReader, Corpus_Buffer
 import logging
 from feature_model_worker import load_cons, load_params, load_weights
+from scipy.sparse import lil_matrix
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -23,37 +24,31 @@ def get_all_viterbi_alignments(buffer, p_0, dist_cons, dist_weights, queue):
 
         # start probs
         # i_p is 0 for start_probs
-        feature_matrix = np.zeros((I, feature_dim))
-        for sid in dist_cons[feature_ids[0][0][0]]:  # static feature set
-            feature_matrix[:, sid] = 1.0
+        feature_matrix = lil_matrix((I, feature_dim))
         for i in xrange(I):
             for did in dist_cons[feature_ids[0][0][1][i]]:  # dynamic feature set
                 feature_matrix[i, did] = 1.0
-
-        numerator = np.exp(np.dot(feature_matrix, dist_weights))
-        Z = np.sum(numerator)
-        s_probs = (numerator / Z) * norm_coeff
+        feature_matrix = feature_matrix.tocsr()
+        numerator = np.exp(feature_matrix.dot(dist_weights))
+        s_probs = (numerator / np.sum(numerator)) * norm_coeff
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
         # dist probs
-        d_probs = dict()
-        for j in xrange(1, len(f_toks)):
-            tmp_prob = np.zeros((I, I))
+        d_probs = np.zeros((J-1, I_double, I_double))
+        tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
+        template = np.vstack((tmp, tmp))
+        for j in xrange(1, J):
             for i_p in xrange(I):
-                feature_matrix = np.zeros((I, feature_dim))
-                for sid in dist_cons[feature_ids[j][i_p][0]]:
-                    feature_matrix[:, sid] = 1.0
+                feature_matrix = lil_matrix((I, feature_dim))
                 for i in xrange(I):
                     for did in dist_cons[feature_ids[j][i_p][1][i]]:
                         feature_matrix[i, did] = 1.0
+                feature_matrix = feature_matrix.tocsr()
+                num = np.exp(feature_matrix.dot(dist_weights))
+                d_probs[j-1, i_p, :I] = num
+                d_probs[j-1, i_p +I, :I] = num
 
-                numerator = np.exp(np.dot(feature_matrix, dist_weights))
-                Z = np.sum(numerator)
-                tmp_prob[i_p] = numerator / Z
-            tmp_prob = tmp_prob * norm_coeff
-            tmp = np.hstack((tmp_prob, np.identity(I) * p_0))
-            dist_mat = np.vstack((tmp, tmp))
-            d_probs[j] = dist_mat
+        d_probs = ((d_probs / np.sum(d_probs, axis=2)[:, :, np.newaxis]) * norm_coeff) + template
 
         e_toks = e_toks + [0] * I
         dependencies = [set() for _ in xrange(J)]
@@ -71,7 +66,7 @@ def get_all_viterbi_alignments(buffer, p_0, dist_cons, dist_weights, queue):
             for i_p in range(I_double):
                 values = np.zeros(I_double)
                 for i in range(I_double):
-                    values[i] = (np.log(t_probs.get((e_toks[i], f_toks[j]), SMALL_PROB_CONST)) + np.log(d_probs[j][i_p, i])) + \
+                    values[i] = (np.log(t_probs.get((e_toks[i], f_toks[j]), SMALL_PROB_CONST)) + np.log(d_probs[j-1][i_p, i])) + \
                                 f_j_in[i]
 
                 best_i = np.argmax(values)

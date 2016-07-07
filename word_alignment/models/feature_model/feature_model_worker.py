@@ -6,6 +6,8 @@ import argparse
 from CorpusReader import SubcorpusReader, Corpus_Buffer
 import logging
 import hmt
+from scipy.sparse import lil_matrix
+import time
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -33,43 +35,38 @@ def train_iteration(buffer, p_0, dist_cons, dist_weights, queue):
         translation_matrix = np.zeros((J, I_double))
         # start probs
         # i_p is 0 for start_probs
-        feature_matrix = np.zeros((I, feature_dim))
-        for sid in dist_cons[feature_ids[0][0][0]]:  # static feature set
-            feature_matrix[:, sid] = 1.0
+        feature_matrix = lil_matrix((I, feature_dim))
         f_0 = f_toks[0]
         for i in xrange(I):
             translation_matrix[0][i] = trans_params.get((e_toks[i], f_0), SMALL_PROB_CONST) # abuse for loop
             for did in dist_cons[feature_ids[0][0][1][i]]:  # dynamic feature set
                 feature_matrix[i, did] = 1.0
-
-        numerator = np.exp(np.dot(feature_matrix, dist_weights))
-        Z = np.sum(numerator)
-        s_probs = (numerator / Z) * norm_coeff
+        feature_matrix = feature_matrix.tocsr()
+        numerator = np.exp(feature_matrix.dot(dist_weights))
+        s_probs = (numerator / np.sum(numerator)) * norm_coeff
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
-        # dist probs
-        d_probs = dict()
 
+        # dist probs
+        d_probs = np.zeros((J-1, I_double, I_double))
+        tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
+        template = np.vstack((tmp, tmp))
         translation_matrix[0][I:] = trans_params.get((0, f_0), SMALL_PROB_CONST) # null word for first word
         for j in xrange(1, J):
-            tmp_prob = np.zeros((I, I))
             f_j = f_toks[j]
             translation_matrix[j][I:] = trans_params.get((0, f_j), SMALL_PROB_CONST)
+            #temp_probs = np.zeros((I_double, I_double))
             for i_p in xrange(I):
+                feature_matrix = lil_matrix((I, feature_dim))
                 translation_matrix[j][i_p] = trans_params.get((e_toks[i_p], f_j), SMALL_PROB_CONST)
-                feature_matrix = np.zeros((I, feature_dim))
-                for sid in dist_cons[feature_ids[j][i_p][0]]:
-                    feature_matrix[:, sid] = 1.0
                 for i in xrange(I):
                     for did in dist_cons[feature_ids[j][i_p][1][i]]:
                         feature_matrix[i, did] = 1.0
+                feature_matrix = feature_matrix.tocsr()
+                num = np.exp(feature_matrix.dot(dist_weights))
+                d_probs[j-1, i_p, :I] = num
+                d_probs[j-1, i_p +I, :I] = num
 
-                numerator = np.exp(np.dot(feature_matrix, dist_weights))
-                Z = np.sum(numerator)
-                tmp_prob[i_p] = numerator / Z
-            tmp_prob = tmp_prob * norm_coeff
-            tmp = np.hstack((tmp_prob, np.identity(I) * p_0))
-            dist_mat = np.vstack((tmp, tmp))
-            d_probs[j] = dist_mat
+        d_probs = ((d_probs / np.sum(d_probs, axis=2)[:, :, np.newaxis]) * norm_coeff) + template
 
         gammas, xis, pair_ll = hmt.upward_downward(J, I_double, f_heads, translation_matrix, d_probs,
                                                    start_prob)

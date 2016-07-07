@@ -8,6 +8,8 @@ import multiprocessing as mp
 import features
 from feature_model_worker import load_weights
 from scipy.optimize import fmin_l_bfgs_b
+from scipy.sparse import lil_matrix
+import time
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
@@ -95,22 +97,20 @@ def optimization_worker(buffer, results_queue):
     feature_dim = len(d_weights)
     ll = 0
     grad_ll = np.zeros(len(d_weights))
-    for static_feat_set, expectation_vector, dynamic_feat_sets in buffer[1]:
-        f_matrix = np.zeros((len(dynamic_feat_sets), feature_dim))
-        for si in static_feat_set:
-            f_matrix[:, si] = 1.0
+    for expectation_vector, dynamic_feat_sets in buffer[1]:
+        f_matrix = lil_matrix((len(dynamic_feat_sets), feature_dim))
         for i, dynamic_feat_set in enumerate(dynamic_feat_sets):
             for di in dynamic_feat_set:
                 f_matrix[i, di] = 1.0
-        numerator = np.exp(np.dot(f_matrix, d_weights))
-        Z = np.sum(numerator)
-        cond_params = (numerator / Z)
+        f_matrix = f_matrix.tocsr()
+        numerator = np.exp(f_matrix.dot(d_weights))
+        cond_params = (numerator / np.sum(numerator))
         ll += np.sum(np.multiply(expectation_vector, np.log(cond_params)))
+        #ll += expectation_vector.dot(np.log(cond_params)) # slower
 
-        c_t_sum = np.sum(f_matrix * cond_params[:, np.newaxis], axis=0)
-        grad_c_t_w = f_matrix - c_t_sum  # still a |d| x |f| matrix
-        grad_c_t = np.sum(expectation_vector[:, np.newaxis] * grad_c_t_w,
-                          axis=0)  # multiply each row by d_expectation_count
+        c_t_sum = f_matrix.T.dot(cond_params)
+        grad_c_t_w = np.asarray(f_matrix - c_t_sum)   # still a |d| x |f| matrix
+        grad_c_t = expectation_vector.dot(grad_c_t_w) # multiply each row by d_expectation_count
         grad_ll += grad_c_t
 
     results_queue.put((ll, grad_ll))
@@ -190,8 +190,8 @@ if __name__ == "__main__":
         grad_ll = np.zeros(len(d_weights))
         buffer = [np.array(d_weights), []]
         buffer_c = 0
-        for static_cond_id, (expectation_vector, dynamic_ids) in static_dynamic_dict.iteritems():
-            buffer[1].append((dist_con_voc.get_feature_set(static_cond_id), expectation_vector, map(dist_con_voc.get_feature_set, dynamic_ids)))
+        for (expectation_vector, dynamic_ids) in static_dynamic_dict.itervalues():
+            buffer[1].append((expectation_vector, map(dist_con_voc.get_feature_set, dynamic_ids)))
             buffer_c += 1
             if buffer_c == 10:
                 buffers += 1
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     original_weights = np.array(d_weights)
     initial_ll, _ = objective_func(original_weights)
 
-    optimized_weights, best_ll, _ = fmin_l_bfgs_b(objective_func, np.array(d_weights), m=10, iprint=1)
+    optimized_weights, best_ll, _ = fmin_l_bfgs_b(objective_func, np.array(d_weights), m=10, iprint=0, maxfun=30)
     logger.info("Optimization done.")
     logger.info("Initial likelihood: " + str(-initial_ll))
     logger.info("Best likelihood: " + str(-best_ll))

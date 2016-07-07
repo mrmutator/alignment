@@ -20,7 +20,7 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, start_probs):
     marginals[0] = start_probs
 
     for j in xrange(1, J):
-        marginals[j] = np.dot(marginals[heads[j]], dist_probs[j])
+        marginals[j] = np.dot(marginals[heads[j]], dist_probs[j-1])
 
     # upward recursion betas
     betas = np.zeros((J, I))
@@ -30,7 +30,7 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, start_probs):
         prod = np.ones(I, dtype=np.longfloat)
         for c in children[j]:
             # compute betas_p for j,c
-            betas_p_c = np.dot(dist_probs[c], (betas[c] / marginals[c]))
+            betas_p_c = np.dot(dist_probs[c-1], (betas[c] / marginals[c]))
             prod *= betas_p_c
             betas_p[c] = betas_p_c
         numerator = prod * translation_matrix[j] * marginals[j]
@@ -44,8 +44,8 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, start_probs):
     xis = [None]
     for j in xrange(1, J):
         parent = heads[j]
-        gammas[j] = (betas[j] / marginals[j]) * np.dot((gammas[parent] / betas_p[j]), dist_probs[j])
-        xi = np.outer((gammas[parent] / betas_p[j]), (betas[j] / marginals[j])) * dist_probs[j]
+        gammas[j] = (betas[j] / marginals[j]) * np.dot((gammas[parent] / betas_p[j]), dist_probs[j-1])
+        xi = np.outer((gammas[parent] / betas_p[j]), (betas[j] / marginals[j])) * dist_probs[j-1]
         xis.append(xi)
         # xi is xi[i_p, i] like dist_matrix
 

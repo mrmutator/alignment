@@ -16,7 +16,6 @@ if __name__ == "__main__":
     all_features = features.Features()
     all_cons = features.FeatureConditions()
 
-
     for f in glob.glob(args.dir + "/*.fvoc"):
         trans_features = dict()
         with open(f, "r") as infile:
@@ -30,11 +29,18 @@ if __name__ == "__main__":
         #outfile = open(con_file + ".corrected", "w")
         with open(con_file, "r") as infile:
             for line in infile:
-                els = map(int, line.strip().split())
-                file_con_i = els[0]
-                true_feature_ids = map(trans_features.__getitem__, els[1:])
-                true_con_id = all_cons.get_id(frozenset(true_feature_ids))
-                trans_cons[file_con_i] = true_con_id
+                try:
+                    els = map(int, line.strip().split())
+                    file_con_i = els[0]
+                    true_feature_ids = map(trans_features.__getitem__, els[1:])
+                    true_con_id = all_cons.get_id(frozenset(true_feature_ids))
+                    trans_cons[file_con_i] = true_con_id
+                except ValueError:
+                    file_con_i, ftuple = line.strip().split("\t")
+                    ftuple = tuple(ftuple.split())
+                    true_condition_id = all_cons.get_id(ftuple)
+                    trans_cons[int(file_con_i)] = true_condition_id
+
                 #outfile.write(" ".join(map(str, [true_con_id] + list(true_feature_ids))) + "\n")
 
         #outfile.close()
@@ -58,7 +64,10 @@ if __name__ == "__main__":
         outfile.write(all_features.get_voc())
 
     with open(prefix + ".cons", "w") as outfile:
-        outfile.write(all_cons.get_voc())
+        outfile.write(all_cons.get_featureset_voc())
+
+    with open(prefix + ".static", "w") as outfile:
+        outfile.write(all_cons.get_condition_voc())
 
     with open(prefix + ".weights", "w") as outfile:
         for w_id in sorted(all_features.feature_dict.values()):
