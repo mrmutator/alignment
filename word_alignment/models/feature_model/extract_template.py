@@ -4,7 +4,6 @@ import features
 import gzip
 
 
-
 def extract_features(corpus_buffer, out_file_name):
     feature_voc = features.Features()
     vector_ids = features.FeatureConditions()
@@ -31,11 +30,6 @@ def extract_features(corpus_buffer, out_file_name):
                     # STATIC FEATURE EXTRACTION HERE
                     # don't use spaces in feature name
                     # fname must not be a bare number
-                    fname = "pos=" + str(pos[j])
-                    conditions.append(fname)
-                    fname = "rel=" + str(rel[j])
-                    conditions.append(fname)
-
 
                     con_id = vector_ids.get_id(tuple(conditions))
                     outfile.write(str(con_id) + " ")

@@ -3,8 +3,8 @@ import argparse
 import glob
 import re
 
-class LazyFile(object):
 
+class LazyFile(object):
     def __init__(self, file_name):
         self.file_name = file_name
         self.f = None
@@ -27,10 +27,10 @@ def reshape_files(directory, num_sentences):
     ordered = [None] * len(files)
     for f in files:
         i = int(re.search(".*\.(\d+)\.sub_feat\.extracted\.gz\.corrected\.gz", f).group(1))
-        ordered[i-1] = f
+        ordered[i - 1] = f
     prefix = re.search("^\./(.*?)\.\d+\.sub_feat\.", f).group(1)
     outfile_id = 1
-    outfile = LazyFile(prefix + ".corpus."+str(outfile_id) + ".gz")
+    outfile = LazyFile(prefix + ".corpus." + str(outfile_id) + ".gz")
     sub_c = 0
 
     for f in ordered:
@@ -48,9 +48,6 @@ def reshape_files(directory, num_sentences):
     outfile.close()
 
 
-
-
-
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-dir", required=True)
@@ -59,6 +56,3 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     reshape_files(args.dir, args.group_size)
-
-
-

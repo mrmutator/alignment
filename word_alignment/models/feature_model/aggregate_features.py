@@ -5,8 +5,10 @@ import features
 import re
 import random
 
+
 def random_weight():
     return random.uniform(-1, 1)
+
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
@@ -26,7 +28,7 @@ if __name__ == "__main__":
 
         con_file = re.sub("\.fvoc", ".convoc", f)
         trans_cons = dict()
-        #outfile = open(con_file + ".corrected", "w")
+        # outfile = open(con_file + ".corrected", "w")
         with open(con_file, "r") as infile:
             for line in infile:
                 try:
@@ -41,9 +43,9 @@ if __name__ == "__main__":
                     true_condition_id = all_cons.get_id(ftuple)
                     trans_cons[int(file_con_i)] = true_condition_id
 
-                #outfile.write(" ".join(map(str, [true_con_id] + list(true_feature_ids))) + "\n")
+                    # outfile.write(" ".join(map(str, [true_con_id] + list(true_feature_ids))) + "\n")
 
-        #outfile.close()
+        # outfile.close()
 
         annotated_file = re.sub("\.fvoc", ".extracted.gz", f)
 
@@ -59,7 +61,7 @@ if __name__ == "__main__":
                 outfile.write(line)
         outfile.close()
 
-    prefix = re.search("^\./(.*?)\.\d+\.sub_feat",f).group(1)
+    prefix = re.search("^\./(.*?)\.\d+\.sub_feat", f).group(1)
     with open(prefix + ".features", "w") as outfile:
         outfile.write(all_features.get_voc())
 
@@ -73,4 +75,3 @@ if __name__ == "__main__":
         for w_id in sorted(all_features.feature_dict.values()):
             w = random_weight()
             outfile.write("w " + str(w_id) + " " + str(w) + "\n")
-

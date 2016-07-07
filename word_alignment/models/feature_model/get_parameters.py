@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 from CorpusReader import CorpusReader
 
+
 def reorder(data, order):
     """
     Order is a list with same length as data that specifies for each position of data, which rank it has in the new
@@ -51,7 +52,6 @@ class Parameters(object):
             if self.hmm:
                 f_toks, f_heads, pos, rel, dir, order = hmm_reorder(f_toks, pos, rel, dir, order)
 
-
             for j, f in enumerate(f_toks):
                 for e in e_toks + [0]:
                     self.cooc.add((e, f))
@@ -70,7 +70,6 @@ class Parameters(object):
             for f in trans_dict[e]:
                 self.t_params[(e, f)] = trans_dict[e][f] / float(Z)
         del self.cooc
-
 
     def write_params(self, sub_t, out_file_name):
         with open(out_file_name, "w") as outfile:
@@ -95,14 +94,13 @@ class Parameters(object):
             if self.hmm:
                 f_toks, f_heads, pos, rel, dir, order = hmm_reorder(f_toks, pos, rel, dir, order)
 
-
             # produce subcorpus file
             outfile_corpus.write(" ".join(map(str, e_toks)) + "\n")
             outfile_corpus.write(" ".join(map(str, f_toks)) + "\n")
             outfile_corpus.write(" ".join(map(str, f_heads)) + "\n")
             outfile_corpus.write(" ".join(map(str, pos)) + "\n")
             outfile_corpus.write(" ".join(map(str, rel)) + "\n")
-            outfile_corpus.write("0\n") # dummy dir
+            outfile_corpus.write("0\n")  # dummy dir
             outfile_corpus.write(" ".join(map(str, order)) + "\n")
             outfile_corpus.write("\n")
             order_file.write(" ".join(map(str, order)) + "\n")

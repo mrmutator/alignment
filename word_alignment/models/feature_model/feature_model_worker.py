@@ -7,7 +7,6 @@ from CorpusReader import SubcorpusReader, Corpus_Buffer
 import logging
 import hmt
 from scipy.sparse import lil_matrix
-import time
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')

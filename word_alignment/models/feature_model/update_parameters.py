@@ -9,7 +9,7 @@ import features
 from feature_model_worker import load_weights
 from scipy.optimize import fmin_l_bfgs_b
 from scipy.sparse import lil_matrix
-import time
+
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
@@ -37,7 +37,6 @@ def update_count_file(file_name, total, static_dynamic_dict):
             total[count_i][k] += v
 
 
-
 def write_param_file(count_file_name, normalized_trans_prob):
     param_file_name = re.sub(r"counts\.(\d+)$", r"params.\1", count_file_name)
     with open(param_file_name, "w") as outfile:
@@ -51,6 +50,7 @@ def write_param_file(count_file_name, normalized_trans_prob):
                     k_int = (int(k_str[0]), int(k_str[1]))
                     value = str(normalized_trans_prob[k_int])
                     outfile.write(" ".join(["t", k_str[0], k_str[1], value]) + "\n")
+
 
 def normalize_trans(in_queue):
     lex_counts, lex_norm = in_queue.get()
@@ -87,10 +87,12 @@ def compute_expectation_vectors(static_dynamic_dict, al_counts):
         expectation_vector = np.array([al_counts[static_cond_id, dynamic_cid] for dynamic_cid in dynamic_ids])
         static_dynamic_dict[static_cond_id] = (expectation_vector, dynamic_ids)
 
+
 def write_weight_file(out_file_name, weights):
     with open(out_file_name, "w") as outfile:
         for w_id, w in enumerate(weights):
             outfile.write("w " + str(w_id) + " " + str(w) + "\n")
+
 
 def optimization_worker(buffer, results_queue):
     d_weights = buffer[0]
@@ -106,16 +108,14 @@ def optimization_worker(buffer, results_queue):
         numerator = np.exp(f_matrix.dot(d_weights))
         cond_params = (numerator / np.sum(numerator))
         ll += np.sum(np.multiply(expectation_vector, np.log(cond_params)))
-        #ll += expectation_vector.dot(np.log(cond_params)) # slower
+        # ll += expectation_vector.dot(np.log(cond_params)) # slower
 
         c_t_sum = f_matrix.T.dot(cond_params)
-        grad_c_t_w = np.asarray(f_matrix - c_t_sum)   # still a |d| x |f| matrix
-        grad_c_t = expectation_vector.dot(grad_c_t_w) # multiply each row by d_expectation_count
+        grad_c_t_w = np.asarray(f_matrix - c_t_sum)  # still a |d| x |f| matrix
+        grad_c_t = expectation_vector.dot(grad_c_t_w)  # multiply each row by d_expectation_count
         grad_ll += grad_c_t
 
     results_queue.put((ll, grad_ll))
-
-
 
 
 if __name__ == "__main__":
@@ -137,12 +137,14 @@ if __name__ == "__main__":
     process_queue = mp.Queue()
     trans_queue = mp.Queue()
 
+
     def worker_wrapper(process_queue):
         while True:
             buffer = process_queue.get()
             if buffer is None:
                 return
             optimization_worker(buffer, results_queue)
+
 
     pool = []
     for w in xrange(max(1, args.num_workers - 2)):
@@ -153,7 +155,6 @@ if __name__ == "__main__":
     p = mp.Process(target=normalize_trans, args=(trans_queue,))
     p.start()
     pool.append(p)
-
 
     # types = ["lex_counts", "lex_norm", "al_counts", "ll"]
     total = [Counter(), Counter(), Counter(), 0.0]
@@ -177,8 +178,6 @@ if __name__ == "__main__":
 
     dist_con_voc = features.FeatureConditions()
     dist_con_voc.load_voc(args.cons)
-
-
 
     compute_expectation_vectors(static_dynamic_dict, al_counts)
 
@@ -214,21 +213,20 @@ if __name__ == "__main__":
             grad_ll -= 2 * kappa * d_weights
         return -ll, -grad_ll
 
+
     original_weights = np.array(d_weights)
     initial_ll, _ = objective_func(original_weights)
 
-    optimized_weights, best_ll, _ = fmin_l_bfgs_b(objective_func, np.array(d_weights), m=10, iprint=0, maxfun=30)
+    optimized_weights, best_ll, _ = fmin_l_bfgs_b(objective_func, np.array(d_weights), m=10, iprint=1)
     logger.info("Optimization done.")
     logger.info("Initial likelihood: " + str(-initial_ll))
     logger.info("Best likelihood: " + str(-best_ll))
     logger.info("LL diff: " + str(-initial_ll + best_ll))
 
-
-    for p in pool[:-1]: # last one in pool is trans normalization
+    for p in pool[:-1]:  # last one in pool is trans normalization
         process_queue.put(None)
     for p in pool:
         p.join()
-
 
     logger.info("Writing weight file.")
     write_weight_file(args.weights + ".updated", optimized_weights)
