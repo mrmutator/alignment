@@ -94,12 +94,13 @@ def write_weight_file(out_file_name, weights):
             outfile.write("w " + str(w_id) + " " + str(w) + "\n")
 
 
-def optimization_worker(buffer, results_queue):
-    d_weights = buffer[0]
-    feature_dim = len(d_weights)
-    ll = 0
-    grad_ll = np.zeros(len(d_weights))
-    for expectation_vector, dynamic_feat_sets in buffer[1]:
+def optimization_worker(feature_dim, process_queue, results_queue):
+    while True:
+        buffer = process_queue.get()
+        if buffer is None:
+            return
+        d_weights, expectation_vector, dynamic_feat_sets = buffer
+
         f_matrix = lil_matrix((len(dynamic_feat_sets), feature_dim))
         for i, dynamic_feat_set in enumerate(dynamic_feat_sets):
             f_matrix.rows[i] = dynamic_feat_set
@@ -107,15 +108,14 @@ def optimization_worker(buffer, results_queue):
         f_matrix = f_matrix.tocsr()
         numerator = np.exp(f_matrix.dot(d_weights))
         cond_params = (numerator / np.sum(numerator))
-        ll += np.sum(np.multiply(expectation_vector, np.log(cond_params)))
+        ll = np.sum(np.multiply(expectation_vector, np.log(cond_params)))
         # ll += expectation_vector.dot(np.log(cond_params)) # slower
 
         c_t_sum = f_matrix.T.dot(cond_params)
         grad_c_t_w = np.asarray(f_matrix - c_t_sum)  # still a |d| x |f| matrix
         grad_c_t = expectation_vector.dot(grad_c_t_w)  # multiply each row by d_expectation_count
-        grad_ll += grad_c_t
 
-    results_queue.put((ll, grad_ll))
+        results_queue.put((ll, grad_c_t))
 
 
 if __name__ == "__main__":
@@ -137,18 +137,12 @@ if __name__ == "__main__":
     process_queue = mp.Queue()
     trans_queue = mp.Queue()
 
-
-    def worker_wrapper(process_queue):
-        while True:
-            buffer = process_queue.get()
-            if buffer is None:
-                return
-            optimization_worker(buffer, results_queue)
-
+    d_weights = load_weights(args.weights)
+    feature_dim = len(d_weights)
 
     pool = []
     for w in xrange(max(1, args.num_workers - 2)):
-        p = mp.Process(target=worker_wrapper, args=(process_queue,))
+        p = mp.Process(target=optimization_worker, args=(feature_dim, process_queue, results_queue))
         p.start()
         pool.append(p)
 
@@ -173,35 +167,22 @@ if __name__ == "__main__":
 
     logger.info("Optimizing / M-step")
 
-    d_weights = load_weights(args.weights)
-    feature_dim = len(d_weights)
+
 
     dist_con_voc = features.FeatureConditions()
     dist_con_voc.load_voc(args.cons)
 
     compute_expectation_vectors(static_dynamic_dict, al_counts)
-
+    data_num = len(static_dynamic_dict)
 
     def objective_func(d_weights):
         # compute regularized expected complete log-likelihood
-        buffers = 0
         ll = 0
-        grad_ll = np.zeros(len(d_weights))
-        buffer = [np.array(d_weights), []]
-        buffer_c = 0
+        grad_ll = np.zeros(feature_dim)
         for (expectation_vector, dynamic_ids) in static_dynamic_dict.itervalues():
-            buffer[1].append((expectation_vector, map(dist_con_voc.get_feature_set, dynamic_ids)))
-            buffer_c += 1
-            if buffer_c == 10:
-                buffers += 1
-                process_queue.put(buffer)
-                buffer_c = 0
-                buffer = [np.array(d_weights), []]
-        if buffer_c > 0:
-            buffers += 1
-            process_queue.put(buffer)
+            process_queue.put((np.array(d_weights), expectation_vector, map(dist_con_voc.get_feature_set, dynamic_ids)))
 
-        for _ in xrange(buffers):
+        for _ in xrange(data_num):
             buffer_ll, buffer_grad_ll = results_queue.get()
             ll += buffer_ll
             grad_ll += buffer_grad_ll
