@@ -26,8 +26,9 @@ def get_all_viterbi_alignments(buffer, p_0, dist_cons, dist_weights, queue):
         # i_p is 0 for start_probs
         feature_matrix = lil_matrix((I, feature_dim))
         for i in xrange(I):
-            for did in dist_cons[feature_ids[0][0][1][i]]:  # dynamic feature set
-                feature_matrix[i, did] = 1.0
+            features_i =  dist_cons[feature_ids[0][0][1][i]]
+            feature_matrix.rows[i] = features_i
+            feature_matrix.data[i] = [1.0] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
         numerator = np.exp(feature_matrix.dot(dist_weights))
         s_probs = (numerator / np.sum(numerator)) * norm_coeff
@@ -41,8 +42,9 @@ def get_all_viterbi_alignments(buffer, p_0, dist_cons, dist_weights, queue):
             for i_p in xrange(I):
                 feature_matrix = lil_matrix((I, feature_dim))
                 for i in xrange(I):
-                    for did in dist_cons[feature_ids[j][i_p][1][i]]:
-                        feature_matrix[i, did] = 1.0
+                    features_i = dist_cons[feature_ids[j][i_p][1][i]]
+                    feature_matrix.rows[i] = features_i
+                    feature_matrix.data[i] = [1.0] * len(features_i)
                 feature_matrix = feature_matrix.tocsr()
                 num = np.exp(feature_matrix.dot(dist_weights))
                 d_probs[j-1, i_p, :I] = num

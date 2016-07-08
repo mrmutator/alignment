@@ -38,8 +38,9 @@ def train_iteration(buffer, p_0, trans_params, dist_cons, dist_weights):
         f_0 = f_toks[0]
         for i in xrange(I):
             translation_matrix[0][i] = trans_params.get((e_toks[i], f_0), SMALL_PROB_CONST) # abuse for loop
-            for did in dist_cons[feature_ids[0][0][1][i]]:  # dynamic feature set
-                feature_matrix[i, did] = 1.0
+            features_i = dist_cons[feature_ids[0][0][1][i]]
+            feature_matrix.rows[i] = features_i
+            feature_matrix.data[i] = [1.0] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
         numerator = np.exp(feature_matrix.dot(dist_weights))
         s_probs = (numerator / np.sum(numerator)) * norm_coeff
@@ -58,8 +59,9 @@ def train_iteration(buffer, p_0, trans_params, dist_cons, dist_weights):
                 feature_matrix = lil_matrix((I, feature_dim))
                 translation_matrix[j][i_p] = trans_params.get((e_toks[i_p], f_j), SMALL_PROB_CONST)
                 for i in xrange(I):
-                    for did in dist_cons[feature_ids[j][i_p][1][i]]:
-                        feature_matrix[i, did] = 1.0
+                    features_i = dist_cons[feature_ids[j][i_p][1][i]]
+                    feature_matrix.rows[i] = features_i
+                    feature_matrix.data[i] = [1.0] * len(features_i)
                 feature_matrix = feature_matrix.tocsr()
                 num = np.exp(feature_matrix.dot(dist_weights))
                 d_probs[j-1, i_p, :I] = num

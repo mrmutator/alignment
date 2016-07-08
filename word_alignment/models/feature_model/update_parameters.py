@@ -102,8 +102,8 @@ def optimization_worker(buffer, results_queue):
     for expectation_vector, dynamic_feat_sets in buffer[1]:
         f_matrix = lil_matrix((len(dynamic_feat_sets), feature_dim))
         for i, dynamic_feat_set in enumerate(dynamic_feat_sets):
-            for di in dynamic_feat_set:
-                f_matrix[i, di] = 1.0
+            f_matrix.rows[i] = dynamic_feat_set
+            f_matrix.data[i] = [1.0] * len(dynamic_feat_set)
         f_matrix = f_matrix.tocsr()
         numerator = np.exp(f_matrix.dot(d_weights))
         cond_params = (numerator / np.sum(numerator))
