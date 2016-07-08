@@ -17,8 +17,6 @@ def get_params(args):
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../..'))
     params['num_workers'] = args.num_workers
-    params['buffer_size_estep'] = args.buffer_size_estep
-    params['buffer_size_mstep'] = args.buffer_size_mstep
     params['p_0'] = args.p_0
     params['kappa'] = args.kappa
     params['num_nodes'] = len(glob.glob(params['it0_dir'] + "/*.params.*.gz"))
@@ -61,8 +59,6 @@ arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
 arg_parser.add_argument("-kappa", required=False, default=0.001, type=float)
 
 arg_parser.add_argument("-num_workers", required=False, default=16, type=int)
-arg_parser.add_argument("-buffer_size_estep", required=False, default=200, type=int)
-arg_parser.add_argument("-buffer_size_mstep", required=False, default=20, type=int)
 
 arg_parser.add_argument("-align_limit", required=False, default=0, type=int)
 

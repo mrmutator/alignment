@@ -11,7 +11,7 @@ gunzip params.txt.gz
 gunzip corpus.psnt.gz
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt -params params.txt -cons cons -weights weights -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s
+python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt -params params.txt -cons cons -weights weights -num_workers %(num_workers)s -p_0 %(p_0)s
 gzip params.txt.counts
 cp params.txt.counts.gz %(it_dir)s/%(job_name)s.counts.${part}.gz
 wait

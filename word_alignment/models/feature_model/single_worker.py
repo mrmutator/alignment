@@ -169,7 +169,6 @@ if __name__ == "__main__":
     arg_parser.add_argument("-cons", required=True)
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
-    arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
 
     args = arg_parser.parse_args()
 

@@ -21,12 +21,12 @@ do
   for part in $(seq 1 %(num_nodes)s);
   do
    >&2 echo "Starting E-Step " ${part};
-   python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -cons cons -weights weights -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s
+   python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -cons cons -weights weights -num_workers %(num_workers)s -p_0 %(p_0)s
    mv params.${part}.counts params.counts.${part}
   done
  # update
  >&2 echo "Starting M-step";
- python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -cons cons -kappa %(kappa)s -num_workers %(num_workers)s -buffer_size %(buffer_size_mstep)s > ll.${it}.log
+ python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -cons cons -kappa %(kappa)s -num_workers %(num_workers)s > ll.${it}.log
  rename "s/^params.params/new_params/" params.params.*
  rm params.*
  rm weights
@@ -39,7 +39,7 @@ do
  for part in $(seq 1 %(align_parts)s);
  do
  >&2 echo "Aligning part " ${part};
-   python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -cons cons -weights weights -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -buffer_size %(buffer_size_estep)s -limit %(align_limit)s
+   python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -cons cons -weights weights -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -limit %(align_limit)s
    done
  cat corpus.aligned.* > all.aligned.${it}
  rm corpus.aligned.*

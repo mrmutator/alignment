@@ -9,7 +9,7 @@ cp %(dir)s/it0/%(job_name)s.cons cons
 gunzip data/%(job_name)s.counts.*.gz
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir data/ -weights weights -cons cons -kappa %(kappa)s -num_workers %(num_workers)s -buffer_size %(buffer_size_mstep)s > ll.log
+python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir data/ -weights weights -cons cons -kappa %(kappa)s -num_workers %(num_workers)s > ll.log
 gzip data/%(job_name)s.params.*
 gzip ll.log
 cp data/%(job_name)s.params.*.gz %(it_dir)s/
