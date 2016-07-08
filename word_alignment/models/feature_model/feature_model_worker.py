@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import SubcorpusReader, Corpus_Buffer
+from CorpusReader import SubcorpusReader
 import logging
 import hmt
 from scipy.sparse import lil_matrix
@@ -13,23 +13,27 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 
-def train_iteration(buffer, p_0, dist_cons, dist_weights, queue):
-    # set all counts to zero
-    lex_counts = Counter()  # (e,f)
-    lex_norm = Counter()  # e
-    al_counts = Counter()  # (static_cond, dynamic_cond)
-    ll = 0
+def train_iteration(process_queue, queue):
+    dist_cons = dict(cond_ids)
+    dist_weights = np.array(d_weights)
+    p_0 = args.p_0
+    feature_dim = len(dist_weights)
     norm_coeff = 1.0 - p_0
     SMALL_PROB_CONST = 0.00000001
+    while True:
+        buffer = process_queue.get()
+        if buffer is None:
+            return
 
-    corpus, trans_params = buffer
-    feature_dim = len(dist_weights)
+        e_toks, f_toks, f_heads, feature_ids, trans_params = buffer
+        # set all counts to zero
+        lex_counts = Counter()  # (e,f)
+        lex_norm = Counter()  # e
+        al_counts = Counter()  # (static_cond, dynamic_cond)
 
-    for (e_toks, f_toks, f_heads, feature_ids) in corpus:
         I = len(e_toks)
         I_double = 2 * I
         J = len(f_toks)
-
 
         translation_matrix = np.zeros((J, I_double))
         # start probs
@@ -99,8 +103,7 @@ def train_iteration(buffer, p_0, dist_cons, dist_weights, queue):
                     dynamic_cond = feature_ids[j][actual_i_p][1][i]
                     al_counts[(static_cond, dynamic_cond)] += xis[j][i_p][i]
 
-        ll += pair_ll
-    queue.put((lex_counts, lex_norm, al_counts, ll))
+        queue.put((lex_counts, lex_norm, al_counts, pair_ll))
 
 
 def load_params(file_name):
@@ -192,26 +195,17 @@ if __name__ == "__main__":
     counts_file_name = args.params + ".counts"
 
     update_queue = mp.Queue()
-    process_queue = mp.Queue(maxsize=args.num_workers - 1)
+    num_workers = max(1, args.num_workers - 1)
+    process_queue = mp.Queue(maxsize=num_workers)
 
     cond_ids = load_cons(args.cons)
     d_weights = load_weights(args.weights)
 
 
-    def worker_wrapper(process_queue):
-        cons = dict(cond_ids)
-        weights = np.array(d_weights)
-        while True:
-            buffer = process_queue.get()
-            if buffer is None:
-                return
-            train_iteration(buffer, args.p_0, cons, weights, update_queue)
-
-
     corpus = SubcorpusReader(args.corpus)
     pool = []
-    for w in xrange(args.num_workers - 1):
-        p = mp.Process(target=worker_wrapper, args=(process_queue,))
+    for w in xrange(num_workers):
+        p = mp.Process(target=train_iteration, args=(process_queue, update_queue))
         p.start()
         pool.append(p)
 
@@ -221,22 +215,20 @@ if __name__ == "__main__":
     updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
     updater.start()
 
-    corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
     logger.info("Starting worker processes..")
 
-    for buff in corpus_buffer:
+    for (e_toks, f_toks, f_heads, feature_ids) in corpus:
         # get all t-params of buffer
         required_ts = set()
-        for (e_toks, f_toks, f_heads, feature_ids) in buff:
-            I = len(e_toks)
-            for e_tok in e_toks + [0]:
-                for f_tok in f_toks:
-                    required_ts.add((e_tok, f_tok))
+        I = len(e_toks)
+        for e_tok in e_toks + [0]:
+            for f_tok in f_toks:
+                required_ts.add((e_tok, f_tok))
 
         t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-        process_queue.put((buff, t_probs))
+        process_queue.put((e_toks, f_toks, f_heads, feature_ids, t_probs))
     # Send termination signal
-    for _ in xrange(args.num_workers - 1):
+    for _ in xrange(num_workers):
         process_queue.put(None)
     logger.info("Entire corpus loaded.")
     for p in pool:

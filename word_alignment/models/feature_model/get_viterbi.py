@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import SubcorpusReader, Corpus_Buffer
+from CorpusReader import SubcorpusReader
 import logging
 from feature_model_worker import load_cons, load_params, load_weights
 from scipy.sparse import lil_matrix
@@ -11,13 +11,21 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
 
-def get_all_viterbi_alignments(buffer, p_0, dist_cons, dist_weights, queue):
-    worker_num, corpus, t_probs = buffer
-    all_alignments = []
+def get_viterbi_alignment(process_queue, queue):
+    dist_cons = dict(cond_ids)
+    dist_weights = np.array(d_weights)
+    p_0 = args.p_0
     norm_coeff = 1.0 - p_0
     feature_dim = len(dist_weights)
     SMALL_PROB_CONST = 0.0000001
-    for e_toks, f_toks, f_heads, feature_ids in corpus:
+
+
+    while True:
+        buffer = process_queue.get()
+        if buffer is None:
+            return
+
+        e_toks, f_toks, f_heads, feature_ids, t_probs, pair_num = buffer
         I = len(e_toks)
         J = len(f_toks)
         I_double = 2 * I
@@ -91,10 +99,41 @@ def get_all_viterbi_alignments(buffer, p_0, dist_cons, dist_weights, queue):
 
         # alignment = [(al, order[j]) for j, al in enumerate(alignment) if al < I]
         alignment = [(al, j) for j, al in enumerate(alignment) if al < I]
-        all_alignments.append(alignment)
 
-    queue.put((worker_num, all_alignments))
+        queue.put((pair_num, alignment))
 
+def aggregate_alignments(queue):
+    outfile = open(args.out_file, "w")
+    buffer_dict = dict()
+    next_c = 0
+    while True:
+        if next_c in buffer_dict:
+            alignment = buffer_dict[next_c]
+            alignment = [str(al[0]) + "-" + str(al[1]) for al in alignment]
+            outfile.write(" ".join(alignment) + "\n")
+            del buffer_dict[next_c]
+            next_c += 1
+            continue
+
+        obj = queue.get()
+        if obj is None:
+            break
+        num, alignment = obj
+        if num == next_c:
+            alignment = [str(al[0]) + "-" + str(al[1]) for al in alignment]
+            outfile.write(" ".join(alignment) + "\n")
+            next_c += 1
+        else:
+            buffer_dict[num] = alignment
+
+    while len(buffer_dict) > 0:
+        alignment = buffer_dict[next_c]
+        alignment = [str(al[0]) + "-" + str(al[1]) for al in alignment]
+        outfile.write(" ".join(alignment) + "\n")
+        del buffer_dict[next_c]
+        next_c += 1
+
+    outfile.close()
 
 #############################################
 # main
@@ -111,67 +150,49 @@ if __name__ == "__main__":
     arg_parser.add_argument("-limit", required=False, type=int, default=0)
 
     args = arg_parser.parse_args()
+    num_workers = max(1, args.num_workers-1)
 
     results_queue = mp.Queue()
-    process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers) / 4)))
+    process_queue = mp.Queue(maxsize=num_workers)
 
     cond_ids = load_cons(args.cons)
     d_weights = load_weights(args.weights)
 
-
-    def worker_wrapper(process_queue):
-        cons = dict(cond_ids)
-        weights = np.array(d_weights)
-        while True:
-            buffer = process_queue.get()
-            if buffer is None:
-                return
-            get_all_viterbi_alignments(buffer, args.p_0, cons, weights, results_queue)
-
-
     corpus = SubcorpusReader(args.corpus, limit=args.limit)
     pool = []
-    for w in xrange(args.num_workers):
-        p = mp.Process(target=worker_wrapper, args=(process_queue,))
+    for w in xrange(num_workers):
+        p = mp.Process(target=get_viterbi_alignment, args=(process_queue, results_queue))
         p.start()
         pool.append(p)
+
+    aggregator = mp.Process(target=aggregate_alignments, args=(results_queue,))
+    aggregator.start()
 
     logger.info("Loading parameters.")
     t_params = load_params(args.params)
 
 
-    corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
     logger.info("Loading corpus.")
 
-    for num_buffer, buff in enumerate(corpus_buffer):
+    for pair_num, (e_toks, f_toks, f_heads, feature_ids) in enumerate(corpus):
         # get all t-params of buffer
         required_ts = set()
-        for (e_toks, f_toks, f_heads, feature_ids) in buff:
-            I = len(e_toks)
-            for e_tok in e_toks + [0]:
-                for f_tok in f_toks:
-                    required_ts.add((e_tok, f_tok))
+        I = len(e_toks)
+        for e_tok in e_toks + [0]:
+            for f_tok in f_toks:
+                required_ts.add((e_tok, f_tok))
 
         t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-        process_queue.put((num_buffer, buff, t_probs))
-
-
-    for _ in xrange(args.num_workers):
-        process_queue.put(None)
+        process_queue.put((e_toks, f_toks, f_heads, feature_ids, t_probs, pair_num))
 
     logger.info("Entire corpus loaded.")
+    for _ in pool:
+        process_queue.put(None)
 
-    results = [None] * (num_buffer + 1)
-    for _ in xrange(num_buffer+1):
-        res = results_queue.get()
-        i, als = res
-        results[i] = als
+    for p in pool:
+        p.join()
 
-    logger.info("Writing alignment file.")
-    outfile = open(args.out_file, "w")
-    for group in results:
-        for als in group:
-            als = [str(al[0]) + "-" + str(al[1]) for al in als]
-            outfile.write(" ".join(als) + "\n")
-    outfile.close()
+    results_queue.put(None)
+    aggregator.join()
+
     logger.info("Done.")

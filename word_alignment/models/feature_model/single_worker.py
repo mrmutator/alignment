@@ -2,7 +2,7 @@ from __future__ import division
 from collections import Counter
 import numpy as np
 import argparse
-from CorpusReader import SubcorpusReader, Corpus_Buffer
+from CorpusReader import SubcorpusReader
 import logging
 import hmt
 from scipy.sparse import lil_matrix
