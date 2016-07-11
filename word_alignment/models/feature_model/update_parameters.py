@@ -72,8 +72,9 @@ def normalize_trans(in_queue):
                     if count_i == 0:
                         k_str = k.split(" ")
                         k_int = (int(k_str[0]), int(k_str[1]))
-                        value = str(trans_prob[k_int])
-                        outfile.write(" ".join(["t", k_str[0], k_str[1], value]) + "\n")
+                        if k_int in trans_prob:
+                            value = str(trans_prob[k_int])
+                            outfile.write(" ".join(["t", k_str[0], k_str[1], value]) + "\n")
 
     while True:
         fname = in_queue.get()
