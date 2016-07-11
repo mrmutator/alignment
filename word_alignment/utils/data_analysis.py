@@ -1,6 +1,7 @@
 from collections import defaultdict
 import numpy as np
 import itertools
+import sys
 
 class CorpusReader(object):
     def __init__(self, corpus_file, limit=None):
@@ -157,7 +158,7 @@ class Statistics(object):
         self.make_arrays()
         self.pos_voc = dict()
         self.rel_voc = dict()
-        self.dir_voc = {-1: "l", 1:  "r", None: "---"}
+        self.dir_voc = {-1: "l", 1:  "r", None: "-"}
 
         if pos_voc_file:
             self.pos_voc = self.read_cond_voc_file(pos_voc_file)
@@ -168,7 +169,7 @@ class Statistics(object):
 
     def read_cond_voc_file(self, fname):
         voc = dict()
-        voc[None] = "---"
+        voc[None] = "-"
         with open(fname, "r") as infile:
             for line in infile:
                 i, lbl = line.strip().split()
@@ -275,11 +276,13 @@ class Statistics(object):
     def make_stats(self):
         combos = ["", "p", "r", "d", "pr", "pd", "rd", "prd"]
         aggregated_results = dict()
+        total_results = dict() # setting: pos-entropy / freq
+        total_freq = dict()
         for p_comb in combos:
             for c_comb in combos:
                 if not p_comb and not c_comb:
                     continue
-                print "Computing ", p_comb, c_comb
+                print >> sys.stderr, "Computing ", p_comb, c_comb
                 dist, freq = self.get_dist(p_comb, c_comb)
                 results = self.compute_results(dist)
                 aggregated_reorder = 0
@@ -287,6 +290,8 @@ class Statistics(object):
                 norm = 0
                 for key, v in results.iteritems():
                     f = freq[key]
+                    total_freq[key] = f
+                    total_results[key] = v[2]
                     norm += f
                     aggregated_reorder += f * v[1]
                     aggregated_pos += f * v[2]
@@ -294,18 +299,19 @@ class Statistics(object):
                 aggregated_reorder = float(aggregated_reorder) / norm
                 aggregated_results[p_comb, c_comb] = (aggregated_reorder, aggregated_pos)
 
-        for k, v in sorted(aggregated_results.items(), key=lambda t: t[1][0]):
-            print k, v
-                # for (pp, pr, pd, cp, cr, cd), v in sorted(results.items(), key= lambda t: t[1][1]):
-                #     f = freq[pp, pr, pd, cp, cr, cd]
-                #     pp = self.pos_voc.get(pp, pp)
-                #     pr = self.rel_voc.get(pr, pr)
-                #     pd = self.dir_voc.get(pd, pd)
-                #     cp = self.pos_voc.get(cp, cp)
-                #     cr = self.rel_voc.get(cr, cr)
-                #     cd = self.dir_voc.get(cd, cd)
-                #
-                #     print pp, pr, pd, cp, cr, cd, np.round(v[0], decimals=3), f
+        # for k, v in sorted(aggregated_results.items(), key=lambda t: t[1][1]):
+        #     print k, v
+        for (pp, pr, pd, cp, cr, cd) in sorted(total_results, key= total_results.get):
+            v = total_results[(pp, pr, pd, cp, cr, cd)]
+            f = total_freq[pp, pr, pd, cp, cr, cd]
+            pp = self.pos_voc.get(pp, pp)
+            pr = self.rel_voc.get(pr, pr)
+            pd = self.dir_voc.get(pd, pd)
+            cp = self.pos_voc.get(cp, cp)
+            cr = self.rel_voc.get(cr, cr)
+            cd = self.dir_voc.get(cd, cd)
+
+            print pp, pr, pd, cp, cr, cd, np.round(v, decimals=3), f
 
 
 
