@@ -1,6 +1,4 @@
-from collections import defaultdict
 import random
-import numpy as np
 import argparse
 from CorpusReader import CorpusReader
 
@@ -57,7 +55,6 @@ class Parameters(object):
                     self.cooc.add((e, f))
 
     def initialize_trans_t_file(self, t_file):
-        trans_dict = defaultdict(dict)
         with open(t_file, "r") as infile:
             for line in infile:
                 e, f, p = line.strip().split()
