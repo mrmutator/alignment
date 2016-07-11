@@ -64,11 +64,7 @@ class Parameters(object):
                 e = int(e)
                 f = int(f)
                 if (e, f) in self.cooc:
-                    trans_dict[e][f] = float(p)
-        for e in trans_dict:
-            Z = np.sum(trans_dict[e].values())
-            for f in trans_dict[e]:
-                self.t_params[(e, f)] = trans_dict[e][f] / float(Z)
+                    self.t_params[(e,f)] = float(p)
         del self.cooc
 
     def write_params(self, sub_t, out_file_name):

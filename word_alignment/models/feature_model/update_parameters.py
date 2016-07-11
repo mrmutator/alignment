@@ -53,10 +53,13 @@ def write_param_file(count_file_name, normalized_trans_prob):
 
 
 def normalize_trans(in_queue):
+    SMALL_PROB_CONST = 0.00000001
     lex_counts, lex_norm = in_queue.get()
     trans_prob = dict()
     for (e, f), count in lex_counts.iteritems():
-        trans_prob[(e, f)] = count / lex_norm[e]
+        v = count / lex_norm[e]
+        if v > SMALL_PROB_CONST:
+            trans_prob[(e, f)] = v
 
     def write_param_file(count_file_name):
         param_file_name = re.sub(r"counts\.(\d+)$", r"params.\1", count_file_name)

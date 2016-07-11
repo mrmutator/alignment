@@ -25,7 +25,7 @@ def train_iteration(process_queue, queue):
         if buffer is None:
             return
 
-        e_toks, f_toks, f_heads, feature_ids, trans_params = buffer
+        e_toks, f_toks, f_heads, feature_ids, translation_matrix = buffer
         # set all counts to zero
         lex_counts = Counter()  # (e,f)
         lex_norm = Counter()  # e
@@ -35,13 +35,12 @@ def train_iteration(process_queue, queue):
         I_double = 2 * I
         J = len(f_toks)
 
-        translation_matrix = np.zeros((J, I_double))
+
         # start probs
         # i_p is 0 for start_probs
         feature_matrix = lil_matrix((I, feature_dim))
         f_0 = f_toks[0]
         for i in xrange(I):
-            translation_matrix[0][i] = trans_params.get((e_toks[i], f_0), SMALL_PROB_CONST) # abuse for loop
             features_i =  dist_cons[feature_ids[0][0][1][i]]
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
@@ -54,14 +53,11 @@ def train_iteration(process_queue, queue):
         d_probs = np.zeros((J-1, I_double, I_double))
         tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
         template = np.vstack((tmp, tmp))
-        translation_matrix[0][I:] = trans_params.get((0, f_0), SMALL_PROB_CONST) # null word for first word
         for j in xrange(1, J):
             f_j = f_toks[j]
-            translation_matrix[j][I:] = trans_params.get((0, f_j), SMALL_PROB_CONST)
             #temp_probs = np.zeros((I_double, I_double))
             for i_p in xrange(I):
                 feature_matrix = lil_matrix((I, feature_dim))
-                translation_matrix[j][i_p] = trans_params.get((e_toks[i_p], f_j), SMALL_PROB_CONST)
                 for i in xrange(I):
                     features_i =  dist_cons[feature_ids[j][i_p][1][i]]
                     feature_matrix.rows[i] = features_i
@@ -80,12 +76,12 @@ def train_iteration(process_queue, queue):
 
         # add start counts and counts for lex f_0
         for j, f_tok in enumerate(f_toks):
-            if (0, f_tok) in trans_params:
+            if translation_matrix[j, 0] > SMALL_PROB_CONST:
                 gammas_0_j = np.sum(gammas[j][I:])
                 lex_counts[(0, f_tok)] += gammas_0_j
                 lex_norm[0] += gammas_0_j
             for i, e_tok in enumerate(e_toks):
-                if (e_tok, f_tok) in trans_params:
+                if translation_matrix[j, i] > SMALL_PROB_CONST:
                     lex_counts[(e_tok, f_tok)] += gammas[j][i]
                     lex_norm[e_tok] += gammas[j][i]
                 if j == 0:
@@ -188,6 +184,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=2)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
+    SMALL_PROB_CONST = 0.00000001
 
     args = arg_parser.parse_args()
 
@@ -217,15 +214,14 @@ if __name__ == "__main__":
     logger.info("Starting worker processes..")
 
     for (e_toks, f_toks, f_heads, feature_ids) in corpus:
-        # get all t-params of buffer
-        required_ts = set()
-        I = len(e_toks)
-        for e_tok in e_toks + [0]:
-            for f_tok in f_toks:
-                required_ts.add((e_tok, f_tok))
+        J, I = len(f_toks), len(e_toks)
+        translation_matrix = np.zeros((J, I*2))
+        for j, f_tok in enumerate(f_toks):
+            for i, e_tok in enumerate(e_toks):
+                translation_matrix[j][i] = t_params.get((e_tok, f_tok), SMALL_PROB_CONST)
+            translation_matrix[j][I:] = t_params.get((0, f_tok), SMALL_PROB_CONST)
 
-        t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-        process_queue.put((e_toks, f_toks, f_heads, feature_ids, t_probs))
+        process_queue.put((e_toks, f_toks, f_heads, feature_ids, translation_matrix))
     # Send termination signal
     for _ in xrange(num_workers):
         process_queue.put(None)
