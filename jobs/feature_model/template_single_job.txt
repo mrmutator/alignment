@@ -33,7 +33,9 @@ do
  mv weights.updated weights
  rename "s/new_params/params/" new_params.*
  mv log_likelihood log_likelihood.${it}
-
+ cp log_likelihood.${it} %(result_dir)s/%(job_name)s.log_likelihood.${it}
+ cp params.* %(result_dir)s/
+ cp weights %(result_dir)s/
  # evaluate
  >&2 echo "Aligning corpus";
  for part in $(seq 1 %(align_parts)s);
@@ -45,7 +47,6 @@ do
  rm corpus.aligned.*
  python %(script_dir)s/word_alignment/models/feature_model/reorder_aligned.py -order_file order -aligned_file all.aligned.${it}
 
- cp log_likelihood.${it} %(result_dir)s/%(job_name)s.log_likelihood.${it}
  cp all.aligned.${it}.reordered %(result_dir)s/%(job_name)s.aligned.${it}
 done
 
