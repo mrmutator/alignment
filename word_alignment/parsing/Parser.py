@@ -50,8 +50,10 @@ class Spacy_Parser(object):
                 if head_of_last.head is head_of_last and head_of_last is not last_tok:
                     # last token is attached to root and is punctuation. Fix tree
                     nodes[-1].add_parent(None, "ROOT")
+                    tree.relations[-1] = "ROOT"
                     tree.set_root(nodes[-1])
                     nodes[head_of_last.i].add_parent(nodes[-1], "ROOT2")
+                    tree.relations[head_of_last.i] = "ROOT2"
                     nodes[-1].left_children = [(nodes[head_of_last.i], "ROOT2")] + nodes[-1].left_children
                     assert nodes[head_of_last.i].right_children[-1][0] is nodes[-1]
                     nodes[head_of_last.i].right_children.pop()
