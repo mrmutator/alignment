@@ -40,8 +40,9 @@ def write_param_file(count_file_name, normalized_counts):
                 if count_i == 0:
                     k_str = k.split(" ")
                     k_int = (int(k_str[0]), int(k_str[1]))
-                    value = str(normalized_counts["trans_prob"][k_int])
-                    outfile.write(" ".join(["t", k_str[0], k_str[1], value]) + "\n")
+                    if k_int in normalized_counts["trans_prob"]:
+                        value = str(normalized_counts["trans_prob"][k_int])
+                        outfile.write(" ".join(["t", k_str[0], k_str[1], value]) + "\n")
                 elif count_i == 5:
                     k = int(k)
                     lengths_I.add(k)
@@ -68,7 +69,9 @@ def write_param_file(count_file_name, normalized_counts):
 def normalize_trans(queue):
     trans_prob = dict()
     for (e, f), count in lex_counts.iteritems():
-        trans_prob[(e, f)] = count / lex_norm[e]
+        v = count / lex_norm[e]
+        if v > 0.00000001:
+            trans_prob[(e, f)] = v
     queue.put(("trans_prob", trans_prob))
 
 

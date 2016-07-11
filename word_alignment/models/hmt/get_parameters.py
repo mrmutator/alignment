@@ -3,14 +3,14 @@ import random
 import numpy as np
 import argparse
 from CorpusReader import CorpusReader
-from scipy.stats import norm
 from ReorderTrees import TreeNode
+
 
 def make_smoothed_probs(I, alpha):
     # alpha = 1.0 is uniform
     mid = I / 2
     probs = np.ones(I)
-    pn = 1.0 / ((I-1)+alpha)
+    pn = 1.0 / ((I - 1) + alpha)
     probs = probs * pn
     probs[mid] = alpha * pn
     return probs
@@ -119,6 +119,8 @@ class Parameters(object):
 
         self.t_params = dict()
         self.s_params = dict()
+        self.j_params = dict()
+        self.c_params = dict()
         self.cond_voc = CondVoc()
 
     def add_corpus(self, corpus):
@@ -132,19 +134,6 @@ class Parameters(object):
                 for e in e_toks:
                     self.cooc.add((e, f))
 
-    def initialize_start_randomly(self):
-        for I in self.lengths:
-            Z = 0
-            start = np.zeros(I)
-            for i in xrange(I):
-                p = random_prob()
-                start[i] = p
-                Z += p
-            Z += self.p_0  # p_0 for null word at start
-            start = start / Z
-            for i in xrange(I):
-                self.s_params[(I, i)] = start[i]
-
     def initialize_start_uniformly(self):
         for I in self.lengths:
             Z = 0
@@ -152,19 +141,32 @@ class Parameters(object):
             for i in xrange(I):
                 self.s_params[(I, i)] = start
 
+    def initialize_j(self):
+        max_I = max(self.lengths)
+        num_jumps = 1 + ((max_I - 1) * 2)
+        probs = make_smoothed_probs(num_jumps, self.init_t)
+
+        for jmp_i, jmp in enumerate(xrange(-max_I + 1, max_I)):
+            value = probs[jmp_i]
+            self.j_params[jmp] = value
+
+    def initialize_c(self):
+        max_I = max(self.lengths)
+        num_jumps = 1 + ((max_I - 1) * 2)
+        probs = make_smoothed_probs(num_jumps, self.init_c)
+
+        for jmp_i, jmp in enumerate(xrange(-max_I + 1, max_I)):
+            value = probs[jmp_i]
+            self.c_params[jmp] = value
+
     def initialize_trans_t_file(self, t_file):
-        trans_dict = defaultdict(dict)
         with open(t_file, "r") as infile:
             for line in infile:
                 e, f, p = line.strip().split()
                 e = int(e)
                 f = int(f)
                 if (e, f) in self.cooc:
-                    trans_dict[e][f] = float(p)
-        for e in trans_dict:
-            Z = np.sum(trans_dict[e].values())
-            for f in trans_dict[e]:
-                self.t_params[(e, f)] = trans_dict[e][f] / float(Z)
+                    self.t_params[(e, f)] = float(p)
         del self.cooc
 
     def write_params(self, sub_lengths_pos, sub_lengths, sub_t, out_file_name):
@@ -182,13 +184,12 @@ class Parameters(object):
 
         for pos in sub_lengths_pos:
             max_I = max(sub_lengths_pos[pos])
-            num_jumps = 1+((max_I-1)*2)
             if pos in self.hmm_cons:
-                probs = make_smoothed_probs(num_jumps, self.init_c)
+                probs = self.c_params
             else:
-                probs = make_smoothed_probs(num_jumps, self.init_t)
-            for jmp_i, jmp in enumerate(xrange(-max_I + 1, max_I)):
-                value = probs[jmp_i]
+                probs = self.j_params
+            for jmp in xrange(-max_I + 1, max_I):
+                value = probs[jmp]
                 key_str = ["j"] + map(str, [pos, jmp, value])
                 outfile.write(" ".join(key_str) + "\n")
 
@@ -284,12 +285,14 @@ class Parameters(object):
             self.write_params(sub_lengths_pos, sub_lengths, sub_t, file_prefix + ".params." + str(subset_id))
 
 
-def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init_c=1.0, init_t=1.0, tj_cond_head="", tj_cond_tok="",
+def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init_c=1.0, init_t=1.0, tj_cond_head="",
+                 tj_cond_tok="",
                  cj_cond_head="", cj_con_tok="", hmm=False, mixed_model={}):
     parameters = Parameters(corpus, p_0=p_0, init_c=init_c, init_t=init_t)
 
-
     parameters.initialize_start_uniformly()
+    parameters.initialize_c()
+    parameters.initialize_j()
     parameters.initialize_trans_t_file(t_file)
 
     parameters.split_data_get_parameters(corpus, file_prefix, num_sentences, tj_head_con=tj_cond_head,
@@ -318,11 +321,10 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-
     corpus = CorpusReader(args.corpus, limit=args.limit)
 
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, p_0=args.p_0,
-                 file_prefix=args.output_prefix, init_c = args.init_c, init_t=args.init_t, tj_cond_head=args.tj_cond_head,
+                 file_prefix=args.output_prefix, init_c=args.init_c, init_t=args.init_t, tj_cond_head=args.tj_cond_head,
                  tj_cond_tok=args.tj_cond_tok,
                  cj_con_tok=args.cj_cond_tok, cj_cond_head=args.cj_cond_head, hmm=args.hmm,
                  mixed_model=read_reorder_file(args.mixed))
