@@ -32,15 +32,15 @@ class Spacy_Parser(object):
             if tok.head is tok:
                 tree.set_root(nodes[tok.i])
                 nodes[tok.i].add_parent(None, "ROOT")
-                directions.append(-1)
+                directions.append(0)
             else:
                 nodes[tok.i].add_parent(nodes[tok.head.i], tok.dep_)
                 if tok.head.i > tok.i:
                     nodes[tok.head.i].add_left_child(nodes[tok.i], tok.dep_)
-                    directions.append(1)
+                    directions.append(-1)
                 else:
                     nodes[tok.head.i].add_right_child(nodes[tok.i], tok.dep_)
-                    directions.append(0)
+                    directions.append(1)
         tree.directions = directions
 
         if self.fix_punctuation:
@@ -51,9 +51,11 @@ class Spacy_Parser(object):
                     # last token is attached to root and is punctuation. Fix tree
                     nodes[-1].add_parent(None, "ROOT")
                     tree.relations[-1] = "ROOT"
+                    tree.directions[-1] = 0
                     tree.set_root(nodes[-1])
                     nodes[head_of_last.i].add_parent(nodes[-1], "ROOT2")
                     tree.relations[head_of_last.i] = "ROOT2"
+                    tree.directions[head_of_last.i] = -1
                     nodes[-1].left_children = [(nodes[head_of_last.i], "ROOT2")] + nodes[-1].left_children
                     assert nodes[head_of_last.i].right_children[-1][0] is nodes[-1]
                     nodes[head_of_last.i].right_children.pop()
