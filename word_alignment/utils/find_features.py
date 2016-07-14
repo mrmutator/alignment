@@ -64,7 +64,7 @@ class CondIndex(object):
                 return self.i
 
     def get_combinations(self, max=np.inf):
-        for num_classes in xrange(1, min(max, len(self.feature_data)+1)):
+        for num_classes in xrange(1, min(max, len(self.feature_data))+1):
             logger.info("Extracting combinations dim="+str(num_classes))
             for combo in itertools.combinations(self.feature_data, num_classes):
                 for feature_set in itertools.product(*map(self.feature_data.__getitem__, combo)):
@@ -133,7 +133,7 @@ class Statistics(object):
     def read_corpus(self, corpus_file):
         corpus = CorpusReader(corpus_file)
 
-        for sent_num, (e_toks, f_toks, f_heads, pos, rel, dir, order) in enumerate(corpus):
+        for sent_num, (e_toks, f_toks, f_heads, pos, rel, _, order) in enumerate(corpus):
             J = len(f_toks)
             tree_levels = [0]*J
             tree_levels[0] = 0
@@ -144,14 +144,18 @@ class Statistics(object):
             f_toks = map(f_toks.__getitem__, order_indices)
             pos = map(pos.__getitem__, order_indices)
             rel = map(rel.__getitem__, order_indices)
-            dir = map(dir.__getitem__, order_indices)
+            # dir = map(dir.__getitem__, order_indices)
             tree_levels = map(tree_levels.__getitem__, order_indices)
             f_heads = [order[f_heads[oi]] for oi in order_indices]
 
             # translate con Ids
             pos = map(lambda p: self.pos_voc.get(p,p), pos)
             rel = map(lambda p: self.rel_voc.get(p,p), rel)
-            dir = map(lambda p: self.dir_voc.get(p,p), dir)
+            # dir = map(lambda p: self.dir_voc.get(p,p), dir)
+            # there is some faulty dir data in some parses
+            # to be safe, recompute unless it's guaranteed to be correct
+            # also uncomment dir above!!!
+            dir = [np.sign(f_heads[j]-j) for j in xrange(J)]
 
             children = [set() for _ in xrange(J)]
             for j, h in enumerate(f_heads):
@@ -288,7 +292,7 @@ if __name__ == "__main__":
     concentrations = defaultdict(dict)
 
 
-    for features, ids in stat.feature_voc.get_combinations(max=3):
+    for features, ids in stat.feature_voc.get_combinations(max=args.max_combo):
         freq = len(ids)
         entropy, dist = stat.compute_entropy(ids)
         freqs[features] = freq
