@@ -275,13 +275,23 @@ if __name__ == "__main__":
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-gold", required=True)
     arg_parser.add_argument("-output", required=True)
+    arg_parser.add_argument("-order", required=True)
     arg_parser.add_argument("-pos_voc", required=False, default="")
     arg_parser.add_argument("-rel_voc", required=False, default="")
     arg_parser.add_argument("-max_combo", required=False, default=3, type=int)
     arg_parser.add_argument("-result_limit", required=False, default=30, type=int)
     arg_parser.add_argument("-plots", required=False, default="", type=str)
+    arg_parser.add_argument("-num_range", required=False, default=3, type=int)
+
 
     args = arg_parser.parse_args()
+
+    if args.order == "ef":
+        order = ("e", "f")
+    elif args.order == "fe":
+        order = ("f", "e")
+    else:
+        raise Exception("Invalid order: "+ args.order)
 
     stat = Statistics(args.corpus, args.gold, ("f", "e"), pos_voc_file=args.pos_voc, rel_voc_file=args.rel_voc, sure_only=False)
 
@@ -299,7 +309,7 @@ if __name__ == "__main__":
         entropies[features] = entropy
         weighted[features] = entropy * freq
         dists[features] = dist
-        w_conc = stat.compute_concentrations(dist, 3) * freq
+        w_conc = stat.compute_concentrations(dist, args.num_range) * freq
         best_m = np.argmax(w_conc)
         concentrations[best_m][features] = w_conc
 
@@ -315,7 +325,7 @@ if __name__ == "__main__":
             stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/we" + str(i))
 
     outfile.close()
-    for m in xrange(3):
+    for m in xrange(args.num_range):
         outfile = open(args.output + ".c" + str(m), "w")
         for i, features in enumerate(sorted(concentrations[m], key= lambda x: concentrations[m][x][m], reverse=True)[:args.result_limit]):
             outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(np.round(concentrations[m][features], 2)), str(freqs[features])]) + "\n")
