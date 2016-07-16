@@ -19,7 +19,8 @@ class Features(object):
     def get_voc(self):
         output = ""
         for k in sorted(self.feature_dict, key=self.feature_dict.get):
-            output += str(self.feature_dict[k]) + "\t" + k + "\n"
+            print k
+            output += str(self.feature_dict[k]) + "\t" + "\t".join([f + " " + str(v) for (f,v) in k]) + "\n"
         return output
 
     def load_voc(self, fname):

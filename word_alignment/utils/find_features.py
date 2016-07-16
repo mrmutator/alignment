@@ -302,7 +302,6 @@ if __name__ == "__main__":
     concentrations = defaultdict(lambda: defaultdict(dict))
 
 
-    smoothing = np.ones(stat.array_length) * 0.000000001
     for features, ids in stat.feature_voc.get_combinations(max=args.max_combo):
         num_features = len(features)
         freq = len(ids)
@@ -322,29 +321,12 @@ if __name__ == "__main__":
     logger.info("Total feature combinations tested: " + str(len(freqs)))
     logger.info("Writing output file and plots.")
     selected = dict()
-    for n in xrange(1,args.max_combo+1):
-        outfile = open(args.output + ".e" + str(n), "w")
-        selected_n = 0
-        for features in sorted(weighted[n], key= weighted[n].get, reverse=True):
-            current_dist = dists[features].toarray().flatten() + smoothing
-            for s, s_dist in selected.iteritems():
-                kl = kldiv(s_dist, current_dist)
-                if kl < 0.5:
-                    break
-            else:
-                selected_n += 1
-                selected[features] = current_dist
-                outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(weighted[n][features]), str(freqs[features])]) + "\n")
-                if args.plots:
-                    stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/we" + str(n) + "." + str(selected_n))
-            if selected_n == args.result_limit:
-                break
-
-        outfile.close()
+    mr_outfile = open(args.output + ".features", "w")
 
     for m in xrange(args.num_range):
         selected = dict()
         for n in xrange(1, args.max_combo + 1):
+            mr_outfile.write("### Concentration range " + str(m) + ", " + str(n) + " ###")
             outfile = open(args.output + ".c" + str(m) + "." + str(n), "w")
             selected_n = 0
             for features in sorted(concentrations[m][n], key= lambda x: concentrations[m][n][x][m], reverse=True):
@@ -358,6 +340,7 @@ if __name__ == "__main__":
                     selected[features] = current_dist
                     outfile.write(" ".join(
                         [",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(np.round(concentrations[m][n][features], 2)), str(freqs[features])]) + "\n")
+                    mr_outfile.write("\t".join([" ".join(map(str, [fn, fv])) for (fn, fv) in features]) + "\n")
                     if args.plots:
                         stat.make_plot(dists[features], features,
                                        args.plots.rstrip("/") + "/c" + str(m) + "." + str(n) + "." + str(selected_n))
@@ -365,6 +348,29 @@ if __name__ == "__main__":
                     break
 
             outfile.close()
+
+    for n in xrange(1,args.max_combo+1):
+        mr_outfile.write("### Weighted Inverse Entropy " + str(n) + " ###")
+        outfile = open(args.output + ".e" + str(n), "w")
+        selected_n = 0
+        for features in sorted(weighted[n], key= weighted[n].get, reverse=True):
+            current_dist = dists[features].toarray().flatten() + smoothing
+            for s, s_dist in selected.iteritems():
+                kl = kldiv(s_dist, current_dist)
+                if kl < 0.5:
+                    break
+            else:
+                selected_n += 1
+                selected[features] = current_dist
+                outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(weighted[n][features]), str(freqs[features])]) + "\n")
+                mr_outfile.write("\t".join([" ".join(map(str, [fn, fv])) for (fn, fv) in features]) + "\n")
+                if args.plots:
+                    stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/we" + str(n) + "." + str(selected_n))
+            if selected_n == args.result_limit:
+                break
+
+        outfile.close()
+    mr_outfile.close()
 
 
 
