@@ -2,6 +2,7 @@ from collections import defaultdict
 import numpy as np
 import itertools
 from scipy.sparse import lil_matrix
+from scipy.stats import entropy as kldiv
 from matplotlib import pyplot as plt
 import logging
 
@@ -295,44 +296,87 @@ if __name__ == "__main__":
 
     stat = Statistics(args.corpus, args.gold, ("f", "e"), pos_voc_file=args.pos_voc, rel_voc_file=args.rel_voc, sure_only=False)
 
-    entropies = dict()
+    weighted = defaultdict(dict)
     freqs = dict()
-    weighted = dict()
     dists = dict()
-    concentrations = defaultdict(dict)
+    concentrations = defaultdict(lambda: defaultdict(dict))
 
 
+    smoothing = np.ones(stat.array_length) * 0.000000001
     for features, ids in stat.feature_voc.get_combinations(max=args.max_combo):
+        num_features = len(features)
         freq = len(ids)
-        entropy, dist = stat.compute_entropy(ids)
-        freqs[features] = freq
-        entropies[features] = entropy
-        weighted[features] = entropy * freq
-        dists[features] = dist
-        w_conc = stat.compute_concentrations(dist, args.num_range) * freq
-        best_m = np.argmax(w_conc)
-        concentrations[best_m][features] = w_conc
+        if freq > 10:
+            entropy, dist = stat.compute_entropy(ids)
+            freqs[features] = freq
+            weighted[num_features][features] = (1.0/entropy) * freq
+            dists[features] = dist
+            w_conc = stat.compute_concentrations(dist, args.num_range) * freq
+            best_m = np.argmax(w_conc)
+            concentrations[best_m][num_features][features] = w_conc
 
 
 
 
+    smoothing = np.ones(stat.array_length) * 0.000000001
     logger.info("Total feature combinations tested: " + str(len(freqs)))
     logger.info("Writing output file and plots.")
-    outfile = open(args.output + ".e", "w")
-    for i, features in enumerate(sorted(weighted, key=weighted.get, reverse=True)[:args.result_limit]):
-        outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(weighted[features]), str(freqs[features])]) + "\n")
-        if args.plots:
-            stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/we" + str(i))
-
-    outfile.close()
-    for m in xrange(args.num_range):
-        outfile = open(args.output + ".c" + str(m), "w")
-        for i, features in enumerate(sorted(concentrations[m], key= lambda x: concentrations[m][x][m], reverse=True)[:args.result_limit]):
-            outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(np.round(concentrations[m][features], 2)), str(freqs[features])]) + "\n")
-            if args.plots:
-                stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/c" + str(m) + "-" + str(i))
+    selected = dict()
+    for n in xrange(1,args.max_combo+1):
+        outfile = open(args.output + ".e" + str(n), "w")
+        selected_n = 0
+        for features in sorted(weighted[n], key= weighted[n].get, reverse=True):
+            current_dist = dists[features].toarray().flatten() + smoothing
+            for s, s_dist in selected.iteritems():
+                kl = kldiv(s_dist, current_dist)
+                if kl < 0.5:
+                    break
+            else:
+                selected_n += 1
+                selected[features] = current_dist
+                outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(weighted[n][features]), str(freqs[features])]) + "\n")
+                if args.plots:
+                    stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/we" + str(n) + "." + str(selected_n))
+            if selected_n == args.result_limit:
+                break
 
         outfile.close()
+
+    for m in xrange(args.num_range):
+        selected = dict()
+        for n in xrange(1, args.max_combo + 1):
+            outfile = open(args.output + ".c" + str(m) + "." + str(n), "w")
+            selected_n = 0
+            for features in sorted(concentrations[m][n], key= lambda x: concentrations[m][n][x][m], reverse=True):
+                current_dist = dists[features].toarray().flatten() + smoothing
+                for s, s_dist in selected.iteritems():
+                    kl = kldiv(s_dist, current_dist)
+                    if kl < 0.5:
+                        break
+                else:
+                    selected_n += 1
+                    selected[features] = current_dist
+                    outfile.write(" ".join(
+                        [",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(np.round(concentrations[m][n][features], 2)), str(freqs[features])]) + "\n")
+                    if args.plots:
+                        stat.make_plot(dists[features], features,
+                                       args.plots.rstrip("/") + "/c" + str(m) + "." + str(n) + "." + str(selected_n))
+                if selected_n == args.result_limit:
+                    break
+
+            outfile.close()
+
+
+
+
+    # for m in xrange(args.num_range):
+    #     outfile = open(args.output + ".c" + str(m), "w")
+    #     for i, features in enumerate(sorted(concentrations[m], key= lambda x: concentrations[m][x][m], reverse=True)[:args.result_limit]):
+    #         outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(np.round(concentrations[m][features], 2)), str(freqs[features])]) + "\n")
+    #         if args.plots:
+    #             stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/c" + str(m) + "-" + str(i))
+    #
+    #     outfile.close()
 
 # read gold file
 
