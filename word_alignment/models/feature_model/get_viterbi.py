@@ -4,7 +4,7 @@ import multiprocessing as mp
 import argparse
 from CorpusReader import SubcorpusReader
 import logging
-from feature_model_worker import load_cons, load_params, load_weights
+from feature_model_worker import load_vecs, load_params, load_weights
 from scipy.sparse import lil_matrix
 
 logging.basicConfig(level=logging.DEBUG,
@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 def get_viterbi_alignment(process_queue, queue):
-    dist_cons = dict(cond_ids)
+    dist_vecs = dict(vec_ids)
     dist_weights = np.array(d_weights)
     p_0 = args.p_0
     norm_coeff = 1.0 - p_0
@@ -34,7 +34,7 @@ def get_viterbi_alignment(process_queue, queue):
         # i_p is 0 for start_probs
         feature_matrix = lil_matrix((I, feature_dim))
         for i in xrange(I):
-            features_i =  dist_cons[feature_ids[0][0][1][i]]
+            features_i =  dist_vecs[feature_ids[0][0][1][i]]
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
@@ -50,7 +50,7 @@ def get_viterbi_alignment(process_queue, queue):
             for i_p in xrange(I):
                 feature_matrix = lil_matrix((I, feature_dim))
                 for i in xrange(I):
-                    features_i = dist_cons[feature_ids[j][i_p][1][i]]
+                    features_i = dist_vecs[feature_ids[j][i_p][1][i]]
                     feature_matrix.rows[i] = features_i
                     feature_matrix.data[i] = [1.0] * len(features_i)
                 feature_matrix = feature_matrix.tocsr()
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-params", required=True)
-    arg_parser.add_argument("-cons", required=True)
+    arg_parser.add_argument("-vecs", required=True)
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-out_file", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     results_queue = mp.Queue()
     process_queue = mp.Queue(maxsize=num_workers)
 
-    cond_ids = load_cons(args.cons)
+    vec_ids = load_vecs(args.vecs)
     d_weights = load_weights(args.weights)
 
     corpus = SubcorpusReader(args.corpus, limit=args.limit)

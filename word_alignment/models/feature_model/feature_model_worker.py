@@ -14,7 +14,7 @@ logger = logging.getLogger()
 
 
 def train_iteration(process_queue, queue):
-    dist_cons = dict(cond_ids)
+    dist_vecs = dict(vec_ids)
     dist_weights = np.array(d_weights)
     p_0 = args.p_0
     feature_dim = len(dist_weights)
@@ -41,7 +41,7 @@ def train_iteration(process_queue, queue):
         feature_matrix = lil_matrix((I, feature_dim))
         f_0 = f_toks[0]
         for i in xrange(I):
-            features_i =  dist_cons[feature_ids[0][0][1][i]]
+            features_i =  dist_vecs[feature_ids[0][0][1][i]]
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
@@ -59,7 +59,7 @@ def train_iteration(process_queue, queue):
             for i_p in xrange(I):
                 feature_matrix = lil_matrix((I, feature_dim))
                 for i in xrange(I):
-                    features_i =  dist_cons[feature_ids[j][i_p][1][i]]
+                    features_i =  dist_vecs[feature_ids[j][i_p][1][i]]
                     feature_matrix.rows[i] = features_i
                     feature_matrix.data[i] = [1.0] * len(features_i)
                 feature_matrix = feature_matrix.tocsr()
@@ -119,14 +119,14 @@ def load_params(file_name):
     return t_params
 
 
-def load_cons(file_name):
+def load_vecs(file_name):
     cond_ids = dict()
     infile = open(file_name, "r")
     for line in infile:
         els = line.strip().split()
         cid = int(els[0])
-        feature_ids = map(int, els[1:])
-        cond_ids[cid] = frozenset(feature_ids)
+        feature_ids = sorted(map(int, els[1:]))
+        cond_ids[cid] = feature_ids
     infile.close()
     return cond_ids
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-params", required=True)
-    arg_parser.add_argument("-cons", required=True)
+    arg_parser.add_argument("-vecs", required=True)
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=2)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     num_workers = max(1, args.num_workers - 1)
     process_queue = mp.Queue(maxsize=num_workers)
 
-    cond_ids = load_cons(args.cons)
+    vec_ids = load_vecs(args.vecs)
     d_weights = load_weights(args.weights)
 
 

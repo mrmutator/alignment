@@ -5,8 +5,7 @@ import re
 import logging
 import numpy as np
 import multiprocessing as mp
-import features
-from feature_model_worker import load_weights
+from feature_model_worker import load_weights, load_vecs
 from scipy.optimize import fmin_l_bfgs_b
 from scipy.sparse import lil_matrix
 
@@ -126,7 +125,7 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-dir", required=True)
     arg_parser.add_argument("-weights", required=True)
-    arg_parser.add_argument("-cons", required=True)
+    arg_parser.add_argument("-vecs", required=True)
     arg_parser.add_argument("-kappa", required=True, type=float)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=3)
 
@@ -172,8 +171,7 @@ if __name__ == "__main__":
 
 
 
-    dist_con_voc = features.FeatureConditions()
-    dist_con_voc.load_voc(args.cons)
+    dist_vecs = load_vecs(args.vecs)
 
     compute_expectation_vectors(static_dynamic_dict, al_counts)
     data_num = len(static_dynamic_dict)
@@ -183,7 +181,7 @@ if __name__ == "__main__":
         ll = 0
         grad_ll = np.zeros(feature_dim)
         for (expectation_vector, dynamic_ids) in static_dynamic_dict.itervalues():
-            process_queue.put((np.array(d_weights), expectation_vector, map(dist_con_voc.get_feature_set, dynamic_ids)))
+            process_queue.put((np.array(d_weights), expectation_vector, map(dist_vecs.__getitem__, dynamic_ids)))
 
         for _ in xrange(data_num):
             buffer_ll, buffer_grad_ll = results_queue.get()
