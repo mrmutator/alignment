@@ -5,21 +5,26 @@ import gzip
 import numpy as np
 
 def read_feature_file(file_name):
-    features = set()
+    features = dict()
+    features[frozenset([("empty", 0)])] = 0
+    c = 0
     with open(file_name, "r") as infile:
         for line in infile:
             if line.strip():
                 f_pairs = line.strip().split("\t")
                 f_pairs = [tuple(p.split(" ")) for p in f_pairs]
                 subfeatures = frozenset([(k, int(v)) for k,v in f_pairs])
-                features.add(subfeatures)
+                if subfeatures not in features:
+                    c += 1
+                    features[subfeatures] = c
 
     return features
 
 
 def extract_features(corpus, feature_pool, out_file_name):
     feature_voc = fm.Features()
-    vector_ids = fm.FeatureConditions()
+    vector_ids = fm.VectorVoc()
+    con_ids = fm.ConditionsVoc()
     outfile = gzip.open(out_file_name + ".extracted.gz", "w")
     for e_toks, f_toks, f_heads, pos, rel, _, order in corpus:
         # because of dir bug in parsing code
@@ -54,7 +59,40 @@ def extract_features(corpus, feature_pool, out_file_name):
 
 
         # j=0
+        j=0
+        features_0 = set(features_sentence_level)
+        j_tree_level = 0
+        features_0.add(("cpos", pos[j]))
+        features_0.add(("crel", rel[j]))
+        features_0.add(("cdir", dir[j]))
+        features_0.add(("ctl", j_tree_level))
+        features_0.add(("clc", left_children[j]))
+        features_0.add(("crc", right_children[j]))
+        features_0.add(("cc", children[j]))
+        features_0.add(("j", j))
+        features_0.add(("oj", order[j]))
 
+        conditions = []
+        for cand, cand_i in feature_pool.iteritems():
+            if cand.issubset(features_0):
+                conditions.append(cand_i)
+        if not conditions:
+            conditions = [0]
+        condition_id = con_ids.get_id(frozenset(conditions))
+        vectors = []
+        for i in xrange(I):
+            features_i = set()
+            # add dynamic features
+            for cond in conditions:
+                cond_set = set([("fn", cond)])
+                cond_set.add(("jmp", i))
+                feature_id = feature_voc.add(frozenset(cond_set))
+                features_i.add(feature_id)
+            vector_id = vector_ids.get_id(frozenset(features_i))
+            vectors.append(vector_id)
+
+        # do all the wirting here
+        outfile.write(" ".join(map(str, [condition_id] + vectors)) + "\n")
 
 
         # rest
@@ -80,27 +118,32 @@ def extract_features(corpus, feature_pool, out_file_name):
             features_j.add(("clc", left_children[j]))
             features_j.add(("crc", right_children[j]))
             features_j.add(("cc", children[j]))
+            features_j.add(("j", j))
+            features_j.add(("pj", h))
+            features_j.add(("oj", order[j]))
+            features_j.add(("op", order[h]))
 
 
             for i_p in xrange(I):
                 features_i_p = set(features_j)
-                # add featuers
+                # add featueres
+                features_i_p.add(("ip", i_p))
 
                 # static features complete
                 # check if there is a feature that matches
                 conditions = []
-                for cand in feature_pool:
+                for cand, cand_i in feature_pool.iteritems():
                     if cand.issubset(features_i_p):
-                        conditions.append(cand)
+                        conditions.append(cand_i)
                 if not conditions:
-                    conditions = [frozenset([("empty", 0)])]
-                condition_id = vector_ids.get_id(tuple(conditions))
+                    conditions = [0]
+                condition_id = con_ids.get_id(frozenset(conditions))
                 vectors = []
                 for i in xrange(I):
                     features_i = set()
                     # add dynamic features
                     for cond in conditions:
-                        cond_set = set(cond)
+                        cond_set = set([("fn", cond)])
                         cond_set.add(("jmp", i-i_p))
                         feature_id = feature_voc.add(frozenset(cond_set))
                         features_i.add(feature_id)
@@ -119,8 +162,11 @@ def extract_features(corpus, feature_pool, out_file_name):
     with open(out_file_name + ".fvoc", "w") as outfile:
         outfile.write(feature_voc.get_voc())
 
-    with open(out_file_name + ".convoc", "w") as outfile:
+    with open(out_file_name + ".vecvoc", "w") as outfile:
         outfile.write(vector_ids.get_voc())
+
+    with open(out_file_name + ".convoc", "w") as outfile:
+        outfile.write(con_ids.get_voc())
 
 
 if __name__ == "__main__":

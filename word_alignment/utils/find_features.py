@@ -203,6 +203,11 @@ class Statistics(object):
                             features.add(("clc", c_left_children))
                             features.add(("crc", c_right_children))
                             features.add(("cc", c_children))
+                            features.add(("j", order_indices[c]))
+                            features.add(("pj", order_indices[h]))
+                            features.add(("oj", j))
+                            features.add(("op", h))
+                            features.add(("ip", i_p))
 
 
                             set_id = self.feature_voc.add(frozenset(features))
@@ -326,7 +331,7 @@ if __name__ == "__main__":
     for m in xrange(args.num_range):
         selected = dict()
         for n in xrange(1, args.max_combo + 1):
-            mr_outfile.write("### Concentration range " + str(m) + ", " + str(n) + " ###")
+            mr_outfile.write("### Concentration range " + str(m) + ", " + str(n) + " ###\n")
             outfile = open(args.output + ".c" + str(m) + "." + str(n), "w")
             selected_n = 0
             for features in sorted(concentrations[m][n], key= lambda x: concentrations[m][n][x][m], reverse=True):
@@ -350,7 +355,7 @@ if __name__ == "__main__":
             outfile.close()
 
     for n in xrange(1,args.max_combo+1):
-        mr_outfile.write("### Weighted Inverse Entropy " + str(n) + " ###")
+        mr_outfile.write("### Weighted Inverse Entropy " + str(n) + " ###\n")
         outfile = open(args.output + ".e" + str(n), "w")
         selected_n = 0
         for features in sorted(weighted[n], key= weighted[n].get, reverse=True):
