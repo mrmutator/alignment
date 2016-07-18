@@ -1,0 +1,47 @@
+#!/bin/bash
+#$ -l h_rt=%(wall_time)s
+#$ -cwd
+. $HOME/.bashrc
+
+cd /local
+mkdir %(job_name)s
+cd %(job_name)s
+
+cp %(psnt)s corpus.psnt
+cp %(ibm1_table)s ibm1.table
+cp %(feature_extraction_script)s extract_features.py
+cp %(script_dir)s/word_alignment/models/feature_model/CorpusReader.py CorpusReader.py
+cp %(script_dir)s/word_alignment/models/feature_model/features.py features.py
+cp %(features_file)s features.txt
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Splitting corpus."
+python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -group_size_feature_extraction %(group_size_feature_extraction)s %(hmm)s
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Starting feature extraction"
+for f in %(job_name)s.*.sub_feat
+ do
+ python extract_features.py -corpus $f -feature_file features.txt &
+done
+wait
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Aggregating features."
+python %(script_dir)s/word_alignment/models/feature_model/aggregate_features.py -dir .
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Translating features."
+for f in %(job_name)s.*.sub_feat
+do
+ python %(script_dir)s/word_alignment/models/feature_model/translate_ids.py -vec_file $f.vecvoc.trans -con_file $f.convoc.trans $f.extracted.gz &
+done
+wait
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Reshaping corpus."
+python %(script_dir)s/word_alignment/models/feature_model/reshape_groups.py -dir . -group_size %(group_size)s
+gzip %(job_name)s.params.*
+cp %(job_name)s.params.*.gz %(it0_dir)s/
+cp %(job_name)s.corpus.*.gz %(it0_dir)s/
+cp %(job_name)s.weights %(it0_dir)s/
+cp %(job_name)s.cons %(it0_dir)s/
+cp %(job_name)s.vecs %(it0_dir)s/
+cp %(job_name)s.features %(it0_dir)s/
+gzip %(job_name)s.order
+cp %(job_name)s.order.gz %(it0_dir)s/
+
+cd /local
+rm -r %(job_name)s
+wait
