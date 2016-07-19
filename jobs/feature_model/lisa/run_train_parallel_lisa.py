@@ -59,7 +59,7 @@ def make_directory(path_it):
 def generate_iteration_jobs(**params):
     params['it_dir'] = params["result_dir"] + "/it" + params["it_number"]
     make_directory(params['it_dir'])
-    if params["it_number"] == 1:
+    if params["it_number"] == "1":
         params['prev_it_dir'] = params['it0_dir']
     else:
         params['prev_it_dir'] = params["result_dir"] + "/it" + str(int(params["it_number"]) -1)
