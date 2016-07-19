@@ -44,7 +44,7 @@ def send_jobs(jobs, log_file_name):
                 raise Exception("Failed sending job " + str(job_id) + " : " + stderr)
             system_job_id = stdout.strip().split(".")[0]
             system_job_ids[job_id] = system_job_id
-            outfile.write(" ".join([system_job_id, job_id] + command) + "\n")
+            outfile.write(" ".join([system_job_id, str(job_id)] + command) + "\n")
     print "All jobs sent."
     print "Check logfile ", log_file_name
 
