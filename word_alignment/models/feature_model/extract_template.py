@@ -6,7 +6,10 @@ import numpy as np
 
 def read_feature_file(file_name):
     features = dict()
-    features[frozenset([("empty", 0)])] = 0
+    features["standard"] = dict()
+    features["start"] = dict()
+    features["standard"][frozenset([("empty", 0)])] = 0
+    features["start"][frozenset([("empty", 0)])] = 0
     c = 0
     with open(file_name, "r") as infile:
         for line in infile:
@@ -14,9 +17,14 @@ def read_feature_file(file_name):
                 f_pairs = line.strip().split("\t")
                 f_pairs = [tuple(p.split(" ")) for p in f_pairs]
                 subfeatures = frozenset([(k, int(v)) for k,v in f_pairs])
-                if subfeatures not in features:
-                    c += 1
-                    features[subfeatures] = c
+                if ("j", 0) in subfeatures:
+                    if subfeatures not in features["start"]:
+                        c += 1
+                        features["start"][subfeatures] = c
+                else:
+                    if subfeatures not in features["standard"]:
+                        c += 1
+                        features["standard"][subfeatures] = c
 
     return features
 
@@ -73,7 +81,7 @@ def extract_features(corpus, feature_pool, out_file_name):
         features_0.add(("oj", order[j]))
 
         conditions = []
-        for cand, cand_i in feature_pool.iteritems():
+        for cand, cand_i in feature_pool["start"].iteritems():
             if cand.issubset(features_0):
                 conditions.append(cand_i)
         if not conditions:
@@ -132,7 +140,7 @@ def extract_features(corpus, feature_pool, out_file_name):
                 # static features complete
                 # check if there is a feature that matches
                 conditions = []
-                for cand, cand_i in feature_pool.iteritems():
+                for cand, cand_i in feature_pool["standard"].iteritems():
                     if cand.issubset(features_i_p):
                         conditions.append(cand_i)
                 if not conditions:
