@@ -32,7 +32,7 @@ def parse_config(config_file):
     params['job_name'] = config_dict["job_name"]
     params['num_iterations'] = int(config_dict["num_iterations"])
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
-    params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../..'))
+    params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../../../'))
     params['num_workers'] = int(config_dict["num_workers"])
     params['p_0'] = float(config_dict["p_0"])
     params['kappa'] = float(config_dict["kappa"])
