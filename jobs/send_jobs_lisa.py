@@ -11,6 +11,8 @@ def read_job_file(file_name):
                 array = None
             if dep == "-":
                 dep = None
+            else:
+                dep = int(dep)
             assert job_id not in jobs
             jobs[job_id] = (job_file, array, dep)
     return jobs
@@ -25,7 +27,7 @@ def send_jobs(jobs, log_file_name):
                 continue
 
             depend_string = []
-            if dep:
+            if dep is not None:
                 if jobs[dep][1]:
                     depend_string = ["-Wdepend=afterokarray:" + system_job_ids[dep]]
                 else:
