@@ -17,8 +17,6 @@ do
 done
 gunzip *.gz
 
-module load python
-source %(script_dir)s/venv/bin/activate
 for it in $(seq 1 %(num_iterations)s);
 do
  >&2 echo "Starting iteration " ${it};
