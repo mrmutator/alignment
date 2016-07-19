@@ -106,7 +106,7 @@ def write_dependency_file(**params):
                 [str(job_id), params["result_dir"] + "/jobs1/evaluate_job_it1." + str(part) + ".job", "-", str(update_id)]) + "\n")
             job_id += 1
 
-        for it in xrange(2, params["num_iterations"]):
+        for it in xrange(2, params["num_iterations"]+1):
             outfile.write(" ".join(
                 [str(job_id), params["result_dir"] + "/jobs" + str(it) + "/train_job_it" + str(it) +".job", "1-" + str(params["num_nodes"]),
                  str(update_id)]) + "\n")
