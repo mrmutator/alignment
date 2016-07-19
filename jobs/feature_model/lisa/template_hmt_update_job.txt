@@ -1,15 +1,18 @@
 #PBS -S /bin/bash
 #PBS -lnodes=1:cores16
-#PBS -lwalltime=%(PBS_time_update_job)s
+#PBS -lwalltime=%(wall_time_update)s
 cd "$TMPDIR"
+
 mkdir data
 cp %(it_dir)s/%(job_name)s.counts.*.gz data/
 cp %(prev_it_dir)s/%(job_name)s.weights weights
-cp %(dir)s/it0/%(job_name)s.cons cons
+cp %(it0_dir)s/%(job_name)s.vecs vecs
 gunzip data/%(job_name)s.counts.*.gz
+
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir data/ -weights weights -cons cons -kappa %(kappa)s -num_workers %(num_workers)s > ll.log
+
+python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir data/ -weights weights -vecs vecs -kappa %(kappa)s -num_workers %(num_workers)s > ll.log
 gzip data/%(job_name)s.params.*
 gzip ll.log
 cp data/%(job_name)s.params.*.gz %(it_dir)s/
