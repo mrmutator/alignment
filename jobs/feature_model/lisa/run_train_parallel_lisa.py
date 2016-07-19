@@ -108,16 +108,16 @@ def write_dependency_file(**params):
 
         for it in xrange(2, params["num_iterations"]):
             outfile.write(" ".join(
-                [str(job_id), params["result_dir"] + "/jobs1/train_job_it" + str(it) +".job", "1-" + str(params["num_nodes"]),
+                [str(job_id), params["result_dir"] + "/jobs" + str(it) + "/train_job_it" + str(it) +".job", "1-" + str(params["num_nodes"]),
                  str(update_id)]) + "\n")
             job_id += 1
             outfile.write(
-                " ".join([str(job_id), params["result_dir"] + "/jobs1/update_job_it" + str(it) + ".job", "-", str(job_id - 1)]) + "\n")
+                " ".join([str(job_id), params["result_dir"] + "/jobs" + str(it) + "/update_job_it" + str(it) + ".job", "-", str(job_id - 1)]) + "\n")
             update_id = job_id
             job_id += 1
             for part in xrange(1, params["align_parts"] + 1):
                 outfile.write(" ".join(
-                    [str(job_id), params["result_dir"] + "/jobs1/evaluate_job_it" + str(it) + "." + str(part) + ".job", "-",
+                    [str(job_id), params["result_dir"] + "/jobs" + str(it) + "/evaluate_job_it" + str(it) + "." + str(part) + ".job", "-",
                     str(update_id)]) + "\n")
                 job_id += 1
 
