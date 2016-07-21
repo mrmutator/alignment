@@ -139,7 +139,7 @@ class Parameters(object):
         subset_c = 0
         total = 0
         for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
-            dir = [0] + [1 if order[f_heads[j]] < order[j] else -1 for j in xrange(1, len(f_toks))]
+            dir = [np.sign(order[j] - order[f_heads[j]]) for j in xrange(len(f_toks))]
             subset_c += 1
             total += 1
 

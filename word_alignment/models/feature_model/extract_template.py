@@ -36,7 +36,7 @@ def extract_features(corpus, feature_pool, out_file_name):
     outfile = gzip.open(out_file_name + ".extracted.gz", "w")
     for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
 
-        dir = [0] + [np.sign(order[f_heads[j]] - order[j]) for j in xrange(1, len(f_toks))]
+        dir = [np.sign(order[j] - order[f_heads[j]]) for j in xrange(J)]
 
         outfile.write(" ".join(map(str, e_toks)) + "\n")
         outfile.write(" ".join(map(str, f_toks)) + "\n")

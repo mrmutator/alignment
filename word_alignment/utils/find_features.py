@@ -134,7 +134,7 @@ class Statistics(object):
     def read_corpus(self, corpus_file):
         corpus = CorpusReader(corpus_file)
 
-        for sent_num, (e_toks, f_toks, f_heads, pos, rel, _, order) in enumerate(corpus):
+        for sent_num, (e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order) in enumerate(corpus):
             J = len(f_toks)
             tree_levels = [0]*J
             tree_levels[0] = 0
@@ -145,6 +145,7 @@ class Statistics(object):
             f_toks = map(f_toks.__getitem__, order_indices)
             pos = map(pos.__getitem__, order_indices)
             rel = map(rel.__getitem__, order_indices)
+            hmm_transitions = map(hmm_transitions.__getitem__, order_indices)
             # dir = map(dir.__getitem__, order_indices)
             tree_levels = map(tree_levels.__getitem__, order_indices)
             f_heads = [order[f_heads[oi]] for oi in order_indices]
@@ -152,11 +153,7 @@ class Statistics(object):
             # translate con Ids
             pos = map(lambda p: self.pos_voc.get(p,p), pos)
             rel = map(lambda p: self.rel_voc.get(p,p), rel)
-            # dir = map(lambda p: self.dir_voc.get(p,p), dir)
-            # there is some faulty dir data in some parses
-            # to be safe, recompute unless it's guaranteed to be correct
-            # also uncomment dir above!!!
-            dir = [np.sign(f_heads[j]-j) for j in xrange(J)]
+            dir = [np.sign(j-f_heads[j]) for j in xrange(J)]
 
             children = [set() for _ in xrange(J)]
             for j, h in enumerate(f_heads):
@@ -208,6 +205,8 @@ class Statistics(object):
                             features.add(("oj", j))
                             features.add(("op", h))
                             features.add(("ip", i_p))
+                            features.add(("phmm", hmm_transitions[j]))
+                            features.add(("chmm", hmm_transitions[c]))
 
 
                             set_id = self.feature_voc.add(frozenset(features))
