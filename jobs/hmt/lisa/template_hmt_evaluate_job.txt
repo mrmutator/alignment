@@ -1,14 +1,14 @@
 #PBS -S /bin/bash
 #PBS -lnodes=1:cores16
-#PBS -lwalltime=%(PBS_time_evaluate_job)s
+#PBS -lwalltime=%(wall_time_evaluate)s
 cd "$TMPDIR"
-cp %(dir)s/it0/%(job_name)s.corpus.%(part)s.gz corpus.test.gz
+cp %(it0_dir)s/%(job_name)s.corpus.%(part)s.gz corpus.test.gz
 cp %(it_dir)s/%(job_name)s.params.%(part)s.gz params.txt.gz
 %(cp_exempt_file)s
 gunzip params.txt.gz
 gunzip corpus.test.gz
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/hmt/get_viterbi.py -corpus corpus.test  -params params.txt -out_file corpus.aligned -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -fertility %(fertility)s %(exempt_chain_params)s -buffer_size %(buffer_size)s %(vit_limit)s
+python %(script_dir)s/word_alignment/models/hmt/get_viterbi.py -corpus corpus.test  -params params.txt -out_file corpus.aligned -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -fertility %(fertility)s %(exempt_chain_params)s -buffer_size %(buffer_size)s -limit %(align_limit)s
 cp corpus.aligned %(it_dir)s/%(job_name)s.aligned.%(part)s
 wait
