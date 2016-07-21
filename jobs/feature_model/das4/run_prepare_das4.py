@@ -62,12 +62,6 @@ def parse_config(config_file):
         params["feature_extraction_script"] = os.path.abspath(os.path.join(params['script_dir'], 'word_alignment/models/feature_model/extract_template.py'))
     else:
         params["feature_extraction_script"] = config_dict["feature_extraction_script"]
-    if config_dict["hmm"].lower() == "true":
-        params["hmm"] = "-hmm"
-    elif config_dict["hmm"].lower() == "false":
-        params["hmm"] = ""
-    else:
-        raise Exception("Option <hmm> should be <true> or <false>.")
 
     return params
 

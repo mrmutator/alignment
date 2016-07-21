@@ -13,7 +13,7 @@ cp %(features_file)s features.txt
 module load python
 source %(script_dir)s/venv/bin/activate
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Splitting corpus."
-python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -group_size_feature_extraction %(group_size_feature_extraction)s %(hmm)s
+python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -group_size_feature_extraction %(group_size_feature_extraction)s
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Starting feature extraction"
 for f in %(job_name)s.*.sub_feat
  do

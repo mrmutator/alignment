@@ -15,7 +15,7 @@ cp %(script_dir)s/word_alignment/models/feature_model/features.py features.py
 cp %(features_file)s features.txt
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Splitting corpus."
-python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -group_size_feature_extraction %(group_size_feature_extraction)s %(hmm)s
+python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -group_size_feature_extraction %(group_size_feature_extraction)s
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Starting feature extraction"
 for f in %(job_name)s.*.sub_feat
  do
