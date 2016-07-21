@@ -3,7 +3,6 @@ import random
 import numpy as np
 import argparse
 from CorpusReader import CorpusReader
-from ReorderTrees import TreeNode
 
 
 def make_smoothed_probs(I, alpha):
@@ -14,71 +13,6 @@ def make_smoothed_probs(I, alpha):
     probs = probs * pn
     probs[mid] = alpha * pn
     return probs
-
-
-def read_reorder_file(f):
-    if not f:
-        return None
-    reorder_dict = dict()
-    with open(f, "r") as infile:
-        for line in infile:
-            pos, left, right = map(int, line.strip().split())
-            reorder_dict[pos] = (left, right)
-    return reorder_dict
-
-
-def reorder(data, order):
-    """
-    Order is a list with same length as data that specifies for each position of data, which rank it has in the new order.
-    :param data:
-    :param order:
-    :return:
-    """
-    new_data = [None] * len(data)
-    for i, j in enumerate(order):
-        new_data[j] = data[i]
-    return new_data
-
-
-def hmm_reorder(f_toks, pos, rel, dir, order):
-    # HMM reorder
-    J = len(f_toks)
-    new_f_toks = reorder(f_toks, order)
-    new_pos = reorder(pos, order)
-    new_rel = reorder(rel, order)
-    new_dir = reorder(dir, order)
-    new_f_heads = [0] + range(J - 1)
-    new_order = range(J)
-    return new_f_toks, new_f_heads, new_pos, new_rel, new_dir, new_order
-
-
-def make_mixed_data(f_heads, pos, order, reorder_dict={}):
-    root = TreeNode(0, -1, None, None)
-    actual_root = TreeNode(0, order[0], pos[0], root)
-    root.right_children.append(actual_root)
-    nodes = [actual_root]
-    for j in xrange(1, len(f_heads)):
-        p = nodes[f_heads[j]]
-        n = TreeNode(j, order[j], pos[j], p)
-        if order[j] < p.o:
-            p.add_left_child(n)
-        else:
-            p.add_right_child(n)
-        nodes.append(n)
-    hmm_toks = []
-    for j in xrange(len(nodes) - 1, -1, -1):
-        n = nodes[j]
-        left, right = reorder_dict.get(n.p, (0, 0))
-        if left or right:
-            hmm_toks += n.reorder_chain(left=left, right=right)
-    actual_root = root.right_children[0]
-    new_order, new_heads = zip(*actual_root.traverse_head_first())
-    new_heads = map(new_order.index, new_heads)
-    reordered_hmm_toks = map(new_order.index, hmm_toks)
-    new_order = map(new_order.index, range(len(f_heads)))
-
-    return new_order, new_heads, reordered_hmm_toks
-
 
 class CondVoc(object):
     def __init__(self):
@@ -136,7 +70,6 @@ class Parameters(object):
 
     def initialize_start_uniformly(self):
         for I in self.lengths:
-            Z = 0
             start = (1.0 - self.p_0) / I
             for i in xrange(I):
                 self.s_params[(I, i)] = start
@@ -196,7 +129,7 @@ class Parameters(object):
         outfile.close()
 
     def split_data_get_parameters(self, corpus, file_prefix, num_sentences, tj_head_con="", tj_tok_con="",
-                                  cj_head_con="", cj_tok_con="", hmm=False, mixed_model={}):
+                                  cj_head_con="", cj_tok_con=""):
         self.hmm_cons = set()
         subset_id = 1
         outfile_corpus = open(file_prefix + ".corpus." + str(subset_id), "w")
@@ -205,19 +138,10 @@ class Parameters(object):
         sub_lengths = set()
         subset_c = 0
         total = 0
-        for e_toks, f_toks, f_heads, pos, rel, dir, order in corpus:
-            hmm_transitions = []
+        for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
+            dir = [0] + [1 if order[f_heads[j]] < order[j] else -1 for j in xrange(1, len(f_toks))]
             subset_c += 1
             total += 1
-            if hmm:
-                f_toks, f_heads, pos, rel, dir, order = hmm_reorder(f_toks, pos, rel, dir, order)
-            elif mixed_model:
-                new_order, f_heads, hmm_transitions = make_mixed_data(f_heads, pos, order, mixed_model)
-                order = reorder(order, new_order)
-                f_toks = reorder(f_toks, new_order)
-                pos = reorder(pos, new_order)
-                dir = reorder(dir, new_order)
-                rel = reorder(rel, new_order)
 
             outfile_corpus.write(" ".join([str(w) for w in e_toks]) + "\n")
             outfile_corpus.write(" ".join([str(w) for w in f_toks]) + "\n")
@@ -231,7 +155,7 @@ class Parameters(object):
                 head_con = tj_head_con
                 tok_con = tj_tok_con
                 hmm_j = False
-                if j in hmm_transitions:
+                if hmm_transitions[j]:
                     hmm_j = True
                     head_con = cj_head_con
                     tok_con = cj_tok_con
@@ -287,7 +211,7 @@ class Parameters(object):
 
 def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init_c=1.0, init_t=1.0, tj_cond_head="",
                  tj_cond_tok="",
-                 cj_cond_head="", cj_con_tok="", hmm=False, mixed_model={}):
+                 cj_cond_head="", cj_con_tok=""):
     parameters = Parameters(corpus, p_0=p_0, init_c=init_c, init_t=init_t)
 
     parameters.initialize_start_uniformly()
@@ -296,8 +220,7 @@ def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init_c=
     parameters.initialize_trans_t_file(t_file)
 
     parameters.split_data_get_parameters(corpus, file_prefix, num_sentences, tj_head_con=tj_cond_head,
-                                         tj_tok_con=tj_cond_tok, cj_head_con=cj_cond_head, cj_tok_con=cj_con_tok,
-                                         hmm=hmm, mixed_model=mixed_model)
+                                         tj_tok_con=tj_cond_tok, cj_head_con=cj_cond_head, cj_tok_con=cj_con_tok)
     with open(file_prefix + ".condvoc", "w") as outfile:
         outfile.write(parameters.cond_voc.get_voc())
 
@@ -312,10 +235,8 @@ if __name__ == "__main__":
     arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
     arg_parser.add_argument("-tj_cond_tok", required=False, default="", type=str)
     arg_parser.add_argument("-tj_cond_head", required=False, default="", type=str)
-    arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
     arg_parser.add_argument('-init_t', required=False, default=1.0, type=float)
     arg_parser.add_argument('-init_c', required=False, default=1.0, type=float)
-    arg_parser.add_argument('-mixed', required=False, default="")
     arg_parser.add_argument("-cj_cond_tok", required=False, default="", type=str)
     arg_parser.add_argument("-cj_cond_head", required=False, default="", type=str)
 
@@ -326,5 +247,4 @@ if __name__ == "__main__":
     prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, p_0=args.p_0,
                  file_prefix=args.output_prefix, init_c=args.init_c, init_t=args.init_t, tj_cond_head=args.tj_cond_head,
                  tj_cond_tok=args.tj_cond_tok,
-                 cj_con_tok=args.cj_cond_tok, cj_cond_head=args.cj_cond_head, hmm=args.hmm,
-                 mixed_model=read_reorder_file(args.mixed))
+                 cj_con_tok=args.cj_cond_tok, cj_cond_head=args.cj_cond_head)

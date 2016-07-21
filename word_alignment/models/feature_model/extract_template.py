@@ -34,10 +34,8 @@ def extract_features(corpus, feature_pool, out_file_name):
     vector_ids = fm.VectorVoc()
     con_ids = fm.ConditionsVoc()
     outfile = gzip.open(out_file_name + ".extracted.gz", "w")
-    for e_toks, f_toks, f_heads, pos, rel, _, order in corpus:
-        # because of dir bug in parsing code
-        # not all corpora have been updated.
-        # manually compute dir
+    for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
+
         dir = [0] + [np.sign(order[f_heads[j]] - order[j]) for j in xrange(1, len(f_toks))]
 
         outfile.write(" ".join(map(str, e_toks)) + "\n")
@@ -130,6 +128,8 @@ def extract_features(corpus, feature_pool, out_file_name):
             features_j.add(("pj", h))
             features_j.add(("oj", order[j]))
             features_j.add(("op", order[h]))
+            features_j.add(("phmm", hmm_transitions[h]))
+            features_j.add(("chmm", hmm_transitions[j]))
 
 
             for i_p in xrange(I):
