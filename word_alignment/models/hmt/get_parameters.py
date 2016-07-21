@@ -40,11 +40,10 @@ def random_prob():
 
 
 class Parameters(object):
-    def __init__(self, corpus, p_0=0.2, init_t=1.0, init_c=1.0):
+    def __init__(self, corpus, init_t=1.0, init_c=1.0):
         self.corpus = corpus
         self.cooc = set()
         self.lengths = set()
-        self.p_0 = p_0
         self.init_t = init_t
         self.init_c = init_c
 
@@ -70,7 +69,7 @@ class Parameters(object):
 
     def initialize_start_uniformly(self):
         for I in self.lengths:
-            start = (1.0 - self.p_0) / I
+            start = 1.0 / I
             for i in xrange(I):
                 self.s_params[(I, i)] = start
 
@@ -209,10 +208,10 @@ class Parameters(object):
             self.write_params(sub_lengths_pos, sub_lengths, sub_t, file_prefix + ".params." + str(subset_id))
 
 
-def prepare_data(corpus, t_file, num_sentences, p_0=0.2, file_prefix="", init_c=1.0, init_t=1.0, tj_cond_head="",
+def prepare_data(corpus, t_file, num_sentences, file_prefix="", init_c=1.0, init_t=1.0, tj_cond_head="",
                  tj_cond_tok="",
                  cj_cond_head="", cj_con_tok=""):
-    parameters = Parameters(corpus, p_0=p_0, init_c=init_c, init_t=init_t)
+    parameters = Parameters(corpus, init_c=init_c, init_t=init_t)
 
     parameters.initialize_start_uniformly()
     parameters.initialize_c()
@@ -232,7 +231,6 @@ if __name__ == "__main__":
     arg_parser.add_argument("-t_file", required=True)
     arg_parser.add_argument("-limit", required=False, type=int, default=0)
     arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
-    arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
     arg_parser.add_argument("-tj_cond_tok", required=False, default="", type=str)
     arg_parser.add_argument("-tj_cond_head", required=False, default="", type=str)
     arg_parser.add_argument('-init_t', required=False, default=1.0, type=float)
@@ -244,7 +242,7 @@ if __name__ == "__main__":
 
     corpus = CorpusReader(args.corpus, limit=args.limit)
 
-    prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, p_0=args.p_0,
+    prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size,
                  file_prefix=args.output_prefix, init_c=args.init_c, init_t=args.init_t, tj_cond_head=args.tj_cond_head,
                  tj_cond_tok=args.tj_cond_tok,
                  cj_con_tok=args.cj_cond_tok, cj_cond_head=args.cj_cond_head)

@@ -43,7 +43,7 @@ def train_iteration(buffer, alpha, p_0, fertility_const, chain_cons, queue):
         I_double = 2 * I
         uniform_const = 1.0 / I
 
-        s_probs = s_params[I]
+        s_probs = s_params[I] * start_norm_coeff
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
         cons_set = set()
         for con in cons[1:]:
@@ -81,7 +81,7 @@ def train_iteration(buffer, alpha, p_0, fertility_const, chain_cons, queue):
         # add start counts and counts for lex f_0
         f_0 = f_toks[0]
         for i, e_tok in enumerate(e_toks):
-            start_counts[(I, i)] += gammas[0][i] * start_norm_coeff
+            start_counts[(I, i)] += gammas[0][i]
             start_norm[I] += gammas[0][i]
             if (e_tok, f_0) in trans_params:
                 lex_counts[(e_tok, f_0)] += gammas[0][i]

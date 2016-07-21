@@ -48,7 +48,7 @@ def get_all_viterbi_alignments(buffer, alpha, p_0, fertility_const, chain_cons, 
             dist_mat = np.vstack((tmp, tmp))
             d_probs[p] = dist_mat
 
-        s_probs = np.hstack((np.array(s_params[I]), np.ones(I) * (float(p_0) / I)))
+        s_probs = np.hstack((np.array(s_params[I]) * start_norm_coeff, np.ones(I) * (float(p_0) / I)))
 
         e_toks = e_toks + [0] * I
         dependencies = [set() for _ in xrange(J)]
