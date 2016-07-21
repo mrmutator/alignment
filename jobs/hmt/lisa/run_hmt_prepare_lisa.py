@@ -52,10 +52,10 @@ def parse_config(config_file):
     params['num_nodes'] = int(config_dict["num_nodes"])
     assert params['num_nodes'] > 0
     params['wall_time'] = config_dict["wall_time"]
-    params["tj_cond_tok"] = config_dict["tj_cond_tok"] if config_dict["tj_cond_tok"] != "-" else ""
-    params["tj_cond_head"] = config_dict["tj_cond_head"] if config_dict["tj_cond_head"] != "-" else ""
-    params["cj_cond_tok"] = config_dict["cj_cond_tok"] if config_dict["cj_cond_tok"] != "-" else ""
-    params["cj_cond_head"] = config_dict["cj_cond_head"] if config_dict["cj_cond_head"] != "-" else ""
+    params["tj_cond_tok"] = "-tj_cond_tok " + config_dict["tj_cond_tok"] if config_dict["tj_cond_tok"] != "-" else ""
+    params["tj_cond_head"] = "-tj_cond_head " + config_dict["tj_cond_head"] if config_dict["tj_cond_head"] != "-" else ""
+    params["cj_cond_tok"] = "-cj_cond_tok " + config_dict["cj_cond_tok"] if config_dict["cj_cond_tok"] != "-" else ""
+    params["cj_cond_head"] = "-cj_cond_head " + config_dict["cj_cond_head"] if config_dict["cj_cond_head"] != "-" else ""
     params["init_c"] = float(config_dict["init_c"])
     params["init_t"] = float(config_dict["init_t"])
 
