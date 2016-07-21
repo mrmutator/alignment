@@ -61,8 +61,8 @@ for e, f_i in corpus:
         relations = tree.relations
         relations = map(relations.__getitem__, order)
         relations = map(rel_voc.get_id, relations)
-        directions = tree.directions
-        directions = map(directions.__getitem__, order)
+        # directions = tree.directions
+        # directions = map(directions.__getitem__, order)
         # test for weird cases (bug reported)
         test_order = sorted(order)
         if test_order != range(len(f_i)):
@@ -77,7 +77,7 @@ for e, f_i in corpus:
         outfile.write(" ".join(map(str, f_heads)) + "\n")
         outfile.write(" ".join(map(str, pos_tags)) + "\n")
         outfile.write(" ".join(map(str, relations)) + "\n")
-        outfile.write(" ".join(map(str, directions)) + "\n")
+        outfile.write(" ".join(map(str, [0]*len(f))) + "\n")
         outfile.write(" ".join(map(str, order)) + "\n\n")
 
     else:
