@@ -38,7 +38,7 @@ do
  for part in $(seq 1 %(align_parts)s);
  do
  >&2 echo "Aligning part " ${part};
-   python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -fertility %(fertility)s %(exempt_chain_params)s -buffer_size %(buffer_size)s -limit %(align_limit)s
+   python %(script_dir)s/word_alignment/models/hmt/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -fertility %(fertility)s %(exempt_chain_params)s -buffer_size %(buffer_size)s -limit %(align_limit)s
    done
  cat corpus.aligned.* > all.aligned.${it}
  rm corpus.aligned.*
