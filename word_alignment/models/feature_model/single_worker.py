@@ -126,7 +126,7 @@ def load_cons(file_name):
     infile = open(file_name, "r")
     for line in infile:
         els = line.strip().split()
-        cid = int(els[0])
+        cid = els[0]
         feature_ids = map(int, els[1:])
         cond_ids[cid] = frozenset(feature_ids)
     infile.close()

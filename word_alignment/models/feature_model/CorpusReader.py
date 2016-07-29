@@ -36,9 +36,8 @@ class CorpusReader(object):
 
 
 class SubcorpusReader(object):
-    def __init__(self, corpus_file, limit=None):
+    def __init__(self, corpus_file):
         self.corpus_file = open(corpus_file, "r")
-        self.limit = limit
         self.next = self.__iter_sent
 
     def reset(self):
@@ -48,28 +47,27 @@ class SubcorpusReader(object):
         self.reset()
         c = 0
         while True:
-            e_toks = map(int, self.corpus_file.readline().strip().split())
-            f_toks = map(int, self.corpus_file.readline().strip().split())
+            e_toks = map(int, self.corpus_file.readline().split())
+            f_toks = map(int, self.corpus_file.readline().split())
             if not f_toks:
                 break
-            f_heads = map(int, self.corpus_file.readline().strip().split())
-            feature_sets = []
-            els = map(int, self.corpus_file.readline().strip().split())
+            f_heads = map(int, self.corpus_file.readline().split())
+            J = len(f_toks)
+            feature_sets = [None] * J
+            els = self.corpus_file.readline().split()
             static_cond_id = els[0]
-            feature_sets.append([(static_cond_id, els[1:])])
+            feature_sets[0] = [(static_cond_id, els[1:])]
             I =len(e_toks)
-            for _ in xrange(1, len(f_toks)):
-                j_sets = []
-                for _ in xrange(I):
-                    els = map(int, self.corpus_file.readline().strip().split())
+            for j in xrange(1, J):
+                j_sets = [None] * I
+                for i in xrange(I):
+                    els = self.corpus_file.readline().split()
                     j_ip_static_cond_id = els[0]
-                    j_sets.append((j_ip_static_cond_id, els[1:]))
-                feature_sets.append(j_sets)
+                    j_sets[i] = (j_ip_static_cond_id, els[1:])
+                feature_sets[j] = j_sets
             self.corpus_file.readline()
             yield (e_toks, f_toks, f_heads, feature_sets)
             c += 1
-            if c == self.limit:
-                break
 
 
     def __iter__(self):

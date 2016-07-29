@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def upward_downward(J, I, heads, translation_matrix, dist_probs, start_probs):
+def upward_downward(J, I, heads, translation_matrix, dist_probs, marginals):
     # I already includes the NULL word extension
     # heads = list of dim J, where each position specifies the index of the head in the list (heads[0] = 0)
     # dist_probs = 2I X 2I matrix (rows = from i', cols = to i)
@@ -14,10 +14,6 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, start_probs):
         children[h].add(j + 1)
 
     # compute marginals
-
-    marginals = np.zeros((J, I))
-
-    marginals[0] = start_probs
 
     for j in xrange(1, J):
         marginals[j] = np.dot(marginals[heads[j]], dist_probs[j-1])
