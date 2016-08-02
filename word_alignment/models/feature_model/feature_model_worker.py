@@ -41,11 +41,13 @@ def train_iteration(process_queue, queue):
         # start probs
         # i_p is 0 for start_probs
         feature_matrix = lil_matrix((I, feature_dim))
-        f_0 = f_toks[0]
-        translation_matrix[0][I:] = t_params.get((0, f_0), SMALL_PROB_CONST)
+        #f_0 = f_toks[0]
+        t_params_j = t_params.get(f_toks[0], {})
+        translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+        static = dist_vecs[feature_ids[0]]
         for i in xrange(I):
-            translation_matrix[0][i] = t_params.get((e_toks[i], f_0), SMALL_PROB_CONST)
-            features_i = dist_vecs[feature_ids[0][0][1][i]]
+            translation_matrix[0][i] = t_params_j.get(e_toks[i], SMALL_PROB_CONST)
+            features_i = static[i]
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
@@ -58,13 +60,15 @@ def train_iteration(process_queue, queue):
         tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
         template = np.vstack((tmp, tmp))
         for j in xrange(1, J):
-            f_j = f_toks[j]
-            translation_matrix[j][I:] = t_params.get((0, f_j), SMALL_PROB_CONST)
+            #f_j = f_toks[j]
+            t_params_j = t_params.get(f_toks[j], {})
+            translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
             for i_p in xrange(I):
-                translation_matrix[j][i] = t_params.get((e_toks[i_p], f_j), SMALL_PROB_CONST)
+                translation_matrix[j][i_p] = t_params_j.get(e_toks[i_p], SMALL_PROB_CONST)
                 feature_matrix = lil_matrix((I, feature_dim))
+                static = dist_vecs[feature_ids[j][i_p]]
                 for i in xrange(I):
-                    features_i = dist_vecs[feature_ids[j][i_p][1][i]]
+                    features_i = static[i-i_p]
                     feature_matrix.rows[i] = features_i
                     feature_matrix.data[i] = [1.0] * len(features_i)
                 feature_matrix = feature_matrix.tocsr()
@@ -89,19 +93,17 @@ def train_iteration(process_queue, queue):
                 if translation_matrix[j, i] > SMALL_PROB_CONST:
                     lex_counts[(e_tok, f_tok)] += gammas[j][i]
                 for i_p in range(I):
-                    static_cond = feature_ids[j][i_p][0]
-                    dynamic_cond = feature_ids[j][i_p][1][i]
-                    al_counts[(static_cond, dynamic_cond)] += xis[j][i_p][i] + xis[j][i_p+I][i]
+                    static_cond = feature_ids[j][i_p]
+                    al_counts[(static_cond, i-i_p)] += xis[j][i_p][i] + xis[j][i_p+I][i]
 
         f_0 = f_toks[0]
         if translation_matrix[0, I] > SMALL_PROB_CONST:
             lex_counts[(0, f_0)] += np.sum(gammas[0][I:])
         e_norm = np.sum(gammas, axis=0)
-        static_cond = feature_ids[0][0][0]
+        static_cond = feature_ids[0]
         for i, e_tok in enumerate(e_toks):
             lex_norm[e_tok] += e_norm[i]
-            dynamic_cond = feature_ids[0][0][1][i]
-            al_counts[(static_cond, dynamic_cond)] += gammas[0][i]
+            al_counts[(static_cond, i)] += gammas[0][i]
             if translation_matrix[0, i] > SMALL_PROB_CONST:
                 lex_counts[(e_tok, f_0)] += gammas[0][i]
         lex_norm[0] += np.sum(e_norm[I:])
@@ -119,7 +121,9 @@ def load_params(file_name):
             e = int(els[1])
             f = int(els[2])
             p = float(els[3])
-            t_params[(e, f)] = p
+            if f not in t_params:
+                t_params[f] = dict()
+            t_params[f][e] = p
         else:
             raise Exception("Should not happen.")
     infile.close()
@@ -127,15 +131,17 @@ def load_params(file_name):
 
 
 def load_vecs(file_name):
-    cond_ids = dict()
+    vec_ids = dict()
     infile = open(file_name, "r")
     for line in infile:
         els = line.strip().split()
-        cid = els[0]
-        feature_ids = sorted(map(int, els[1:]))
-        cond_ids[cid] = feature_ids
+        jmp, cid = els[0].split(".")
+        if cid not in vec_ids:
+            vec_ids[cid] = dict()
+
+        vec_ids[cid][int(jmp)] = sorted(map(int, els[1:]))
     infile.close()
-    return cond_ids
+    return vec_ids
 
 
 def load_weights(file_name):

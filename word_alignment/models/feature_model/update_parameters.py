@@ -27,12 +27,14 @@ def update_count_file(file_name, total, static_dynamic_dict):
             if len(k) == 1:
                 k = int(k[0])
             else:
-                k = tuple(map(int, k))
                 if count_i == 2:
+                    k = (k[0], int(k[1]))
                     # make association of static and dynamic conds
                     static = k[0]
                     dynamic = k[1]
                     static_dynamic_dict[static].add(dynamic)
+                else:
+                    k = tuple(map(int, k))
             total[count_i][k] += v
 
 
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts.*")
 
     results_queue = mp.Queue()
-    process_queue = mp.Queue()
+    process_queue = mp.Queue(maxsize=args.num_workers)
     trans_queue = mp.Queue()
 
     d_weights = load_weights(args.weights)
@@ -180,8 +182,9 @@ if __name__ == "__main__":
         # compute regularized expected complete log-likelihood
         ll = 0
         grad_ll = np.zeros(feature_dim)
-        for (expectation_vector, dynamic_ids) in static_dynamic_dict.itervalues():
-            process_queue.put((np.array(d_weights), expectation_vector, map(dist_vecs.__getitem__, dynamic_ids)))
+        for static_cond_id, (expectation_vector, dynamic_ids) in static_dynamic_dict.iteritems():
+            vecs = dist_vecs[static_cond_id]
+            process_queue.put((np.array(d_weights), expectation_vector, map(vecs.__getitem__, dynamic_ids)))
 
         for _ in xrange(data_num):
             buffer_ll, buffer_grad_ll = results_queue.get()

@@ -54,16 +54,12 @@ class SubcorpusReader(object):
             f_heads = map(int, self.corpus_file.readline().split())
             J = len(f_toks)
             feature_sets = [None] * J
-            els = self.corpus_file.readline().split()
-            static_cond_id = els[0]
-            feature_sets[0] = [(static_cond_id, els[1:])]
+            feature_sets[0] = self.corpus_file.readline().strip()
             I =len(e_toks)
             for j in xrange(1, J):
                 j_sets = [None] * I
                 for i in xrange(I):
-                    els = self.corpus_file.readline().split()
-                    j_ip_static_cond_id = els[0]
-                    j_sets[i] = (j_ip_static_cond_id, els[1:])
+                    j_sets[i] = self.corpus_file.readline().strip()
                 feature_sets[j] = j_sets
             self.corpus_file.readline()
             yield (e_toks, f_toks, f_heads, feature_sets)

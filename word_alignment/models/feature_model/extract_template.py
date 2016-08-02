@@ -1,9 +1,22 @@
 import argparse
 from CorpusReader import CorpusReader
-import features as fm
 import gzip
 import numpy as np
 from collections import defaultdict
+
+class MaxDict(object):
+
+    def __init__(self):
+        self.max = 0
+
+    def add(self, v):
+        if v > self.max:
+            self.max = v
+    def get(self):
+        return self.max
+
+def max_dict():
+    return MaxDict()
 
 class FeatureStore(object):
 
@@ -62,14 +75,22 @@ class ExtractedFeatures(object):
             valid = self.feature_store.lookup[k][v].union(self.feature_store.lookup[k][None])
             self.extracted_features = self.extracted_features.intersection(valid)
 
+    def add_exclusive_feature(self, tpl):
+        k,v = tpl
+        if k in self.feature_store.lookup:
+            valid = self.feature_store.lookup[k][v]
+            self.extracted_features = self.extracted_features.intersection(valid)
+        else:
+            self.extracted_features = set()
+
+
     def get_feature_ids(self):
         return frozenset(self.extracted_features)
 
 
 def extract_features(corpus, feature_pool, out_file_name):
-    feature_voc = fm.Features()
-    vector_ids = fm.VectorVoc()
-    con_ids = fm.ConditionsVoc()
+    all_jmp_condition_ids = defaultdict(max_dict)
+    all_start_condition_ids = defaultdict(max_dict)
     outfile = gzip.open(out_file_name + ".extracted.gz", "w")
     for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
 
@@ -113,27 +134,17 @@ def extract_features(corpus, feature_pool, out_file_name):
         features_0.add_feature(("clc", left_children[j]))
         features_0.add_feature(("crc", right_children[j]))
         features_0.add_feature(("cc", children[j]))
-        features_0.add_feature(("j", j))
+        features_0.add_exclusive_feature(("j", j))
         features_0.add_feature(("oj", order[j]))
 
         conditions = features_0.get_feature_ids()
         if not conditions:
             conditions = frozenset([0])
-        condition_id = con_ids.get_id(conditions)
-        vectors = []
-        for i in xrange(I):
-            features_i = set()
-            # add dynamic features
-            for cond in conditions:
-                cond_set = set([("fn", cond)])
-                cond_set.add(("jmp", i))
-                feature_id = feature_voc.add(frozenset(cond_set))
-                features_i.add(feature_id)
-            vector_id = vector_ids.get_id(frozenset(features_i))
-            vectors.append(vector_id)
+        condition_id = "-".join(map(str, sorted(conditions)))
+        all_start_condition_ids[condition_id].add(I)
 
         # do all the writing here
-        outfile.write(" ".join(map(str, [condition_id] + vectors)) + "\n")
+        outfile.write(condition_id + "\n")
 
 
         # rest
@@ -169,7 +180,7 @@ def extract_features(corpus, feature_pool, out_file_name):
 
             for i_p in xrange(I):
                 features_i_p = ExtractedFeatures(feature_pool, features_j)
-                # add featueres
+                # add features
                 features_i_p.add_feature(("ip", i_p))
 
                 # static features complete
@@ -177,36 +188,25 @@ def extract_features(corpus, feature_pool, out_file_name):
                 conditions = features_i_p.get_feature_ids()
                 if not conditions:
                     conditions = frozenset([0])
-                condition_id = con_ids.get_id(conditions)
-                vectors = []
-                for i in xrange(I):
-                    features_i = set()
-                    # add dynamic features
-                    for cond in conditions:
-                        cond_set = set([("fn", cond)])
-                        cond_set.add(("jmp", i-i_p))
-                        feature_id = feature_voc.add(frozenset(cond_set))
-                        features_i.add(feature_id)
-                    vector_id = vector_ids.get_id(frozenset(features_i))
-                    vectors.append(vector_id)
-
+                condition_id = "-".join(map(str, sorted(conditions)))
+                all_jmp_condition_ids[condition_id].add(I)
 
                 # do all the wirting here
-                outfile.write(" ".join(map(str, [condition_id] + vectors)) + "\n")
-
+                outfile.write(condition_id + "\n")
 
         outfile.write("\n")
 
     outfile.close()
 
-    with open(out_file_name + ".fvoc", "w") as outfile:
-        outfile.write(feature_voc.get_voc())
-
-    with open(out_file_name + ".vecvoc", "w") as outfile:
-        outfile.write(vector_ids.get_voc())
 
     with open(out_file_name + ".convoc", "w") as outfile:
-        outfile.write(con_ids.get_voc())
+        for cid in all_start_condition_ids:
+            max_I = all_start_condition_ids[cid].get()
+            outfile.write(" ".join(["s", cid, str(max_I)]) + "\n")
+
+        for cid in all_jmp_condition_ids:
+            max_I = all_jmp_condition_ids[cid].get()
+            outfile.write(" ".join(["j", cid, str(max_I)]) + "\n")
 
 
 if __name__ == "__main__":
