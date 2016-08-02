@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 
-def train_iteration(buffer, p_0, trans_params, dist_cons, dist_weights):
+def train_iteration(buffer, p_0, trans_params, dist_vecs, dist_weights):
     # set all counts to zero
     lex_counts = Counter()  # (e,f)
     lex_norm = Counter()  # e
@@ -32,19 +32,20 @@ def train_iteration(buffer, p_0, trans_params, dist_cons, dist_weights):
 
 
         translation_matrix = np.zeros((J, I_double))
+        marginals = np.zeros((J, I_double))
         # start probs
         # i_p is 0 for start_probs
         feature_matrix = lil_matrix((I, feature_dim))
         f_0 = f_toks[0]
         for i in xrange(I):
             translation_matrix[0][i] = trans_params.get((e_toks[i], f_0), SMALL_PROB_CONST) # abuse for loop
-            features_i = dist_cons[feature_ids[0][0][1][i]]
+            features_i = dist_vecs[feature_ids[0][0][1][i]]
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
         numerator = np.exp(feature_matrix.dot(dist_weights))
         s_probs = (numerator / np.sum(numerator)) * norm_coeff
-        start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
+        marginals[0]= np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
         # dist probs
         d_probs = np.zeros((J-1, I_double, I_double))
@@ -59,7 +60,7 @@ def train_iteration(buffer, p_0, trans_params, dist_cons, dist_weights):
                 feature_matrix = lil_matrix((I, feature_dim))
                 translation_matrix[j][i_p] = trans_params.get((e_toks[i_p], f_j), SMALL_PROB_CONST)
                 for i in xrange(I):
-                    features_i = dist_cons[feature_ids[j][i_p][1][i]]
+                    features_i = dist_vecs[feature_ids[j][i_p][1][i]]
                     feature_matrix.rows[i] = features_i
                     feature_matrix.data[i] = [1.0] * len(features_i)
                 feature_matrix = feature_matrix.tocsr()
@@ -70,34 +71,36 @@ def train_iteration(buffer, p_0, trans_params, dist_cons, dist_weights):
         d_probs = ((d_probs / np.sum(d_probs, axis=2)[:, :, np.newaxis]) * norm_coeff) + template
 
         gammas, xis, pair_ll = hmt.upward_downward(J, I_double, f_heads, translation_matrix, d_probs,
-                                                   start_prob)
+                                                   marginals)
 
         # update counts
 
         # add start counts and counts for lex f_0
-        for j, f_tok in enumerate(f_toks):
-            if (0, f_tok) in trans_params:
-                gammas_0_j = np.sum(gammas[j][I:])
+        for j_p, f_tok in enumerate(f_toks[1:]):
+            j = j_p+1
+            gammas_0_j = np.sum(gammas[j][I:])
+            if translation_matrix[j, I] > SMALL_PROB_CONST:
                 lex_counts[(0, f_tok)] += gammas_0_j
-                lex_norm[0] += gammas_0_j
             for i, e_tok in enumerate(e_toks):
-                if (e_tok, f_tok) in trans_params:
+                if translation_matrix[j, i] > SMALL_PROB_CONST:
                     lex_counts[(e_tok, f_tok)] += gammas[j][i]
-                    lex_norm[e_tok] += gammas[j][i]
-                if j == 0:
-                    static_cond = feature_ids[j][0][0]
-                    dynamic_cond = feature_ids[j][0][1][i]
-                    al_counts[(static_cond, dynamic_cond)] += gammas[0][i]
-                    continue
+                for i_p in range(I):
+                    static_cond = feature_ids[j][i_p][0]
+                    dynamic_cond = feature_ids[j][i_p][1][i]
+                    al_counts[(static_cond, dynamic_cond)] += xis[j][i_p][i] + xis[j][i_p+I][i]
 
-                for i_p in range(I_double):
-                    if i_p < I:
-                        actual_i_p = i_p
-                    else:
-                        actual_i_p = i_p - I
-                    static_cond = feature_ids[j][actual_i_p][0]
-                    dynamic_cond = feature_ids[j][actual_i_p][1][i]
-                    al_counts[(static_cond, dynamic_cond)] += xis[j][i_p][i]
+        f_0 = f_toks[0]
+        if translation_matrix[0, I] > SMALL_PROB_CONST:
+            lex_counts[(0, f_0)] += np.sum(gammas[0][I:])
+        e_norm = np.sum(gammas, axis=0)
+        static_cond = feature_ids[0][0][0]
+        for i, e_tok in enumerate(e_toks):
+            lex_norm[e_tok] += e_norm[i]
+            dynamic_cond = feature_ids[0][0][1][i]
+            al_counts[(static_cond, dynamic_cond)] += gammas[0][i]
+            if translation_matrix[0, i] > SMALL_PROB_CONST:
+                lex_counts[(e_tok, f_0)] += gammas[0][i]
+        lex_norm[0] += np.sum(e_norm[I:])
 
         ll += pair_ll
 
@@ -121,16 +124,16 @@ def load_params(file_name):
     return t_params
 
 
-def load_cons(file_name):
-    cond_ids = dict()
+def load_vecs(file_name):
+    vec_ids = dict()
     infile = open(file_name, "r")
     for line in infile:
         els = line.strip().split()
         cid = els[0]
         feature_ids = map(int, els[1:])
-        cond_ids[cid] = frozenset(feature_ids)
+        vec_ids[cid] = frozenset(feature_ids)
     infile.close()
-    return cond_ids
+    return vec_ids
 
 
 def load_weights(file_name):
@@ -166,7 +169,7 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-params", required=True)
-    arg_parser.add_argument("-cons", required=True)
+    arg_parser.add_argument("-vecs", required=True)
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
 
@@ -174,7 +177,7 @@ if __name__ == "__main__":
 
     counts_file_name = args.params + ".counts"
 
-    cond_ids = load_cons(args.cons)
+    vec_ids = load_vecs(args.vecs)
     d_weights = load_weights(args.weights)
 
 
@@ -187,7 +190,7 @@ if __name__ == "__main__":
 
     #corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
     logger.info("Starting worker processes.")
-    lex_counts, lex_norm, al_counts, ll = train_iteration(corpus, args.p_0, t_params, cond_ids, d_weights)
+    lex_counts, lex_norm, al_counts, ll = train_iteration(corpus, args.p_0, t_params, vec_ids, d_weights)
 
     logger.info("Writing counts to file.")
     writing_counts([lex_counts, lex_norm, al_counts], ll, re.sub("\.params\.", ".counts.", args.params))
