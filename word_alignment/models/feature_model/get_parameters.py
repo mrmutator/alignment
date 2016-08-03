@@ -41,18 +41,15 @@ class Parameters(object):
                 key_str = ["t"] + map(str, [key[0], key[1], value])
                 outfile.write(" ".join(key_str) + "\n")
 
-    def split_data_get_parameters(self, corpus, file_prefix, num_sentences, num_sentences_feature_extraction):
+    def split_data_get_parameters(self, corpus, file_prefix, num_sentences):
         subset_id = 1
-        feature_id = 1
-        outfile_corpus = open(file_prefix + "." + str(feature_id) + ".sub_feat", "w")
+        outfile_corpus = open(file_prefix + "." + str(subset_id) + ".sub_feat", "w")
         order_file = open(file_prefix + ".order", "w")
         sub_t = set()
         subset_c = 0
         total = 0
-        feature_c = 0
         for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
             subset_c += 1
-            feature_c += 1
             total += 1
 
             # produce subcorpus file
@@ -76,26 +73,21 @@ class Parameters(object):
                 subset_id += 1
                 sub_t = set()
                 subset_c = 0
-
-            if feature_c == num_sentences_feature_extraction:
                 outfile_corpus.close()
-                feature_c = 0
-                feature_id += 1
                 if total < self.c:
-                    outfile_corpus = open(file_prefix + "." + str(feature_id) + ".sub_feat", "w")
+                    outfile_corpus = open(file_prefix + "." + str(subset_id) + ".sub_feat", "w")
 
         if subset_c > 0:
             self.write_params(sub_t, file_prefix + ".params." + str(subset_id))
-        if feature_c > 0:
             outfile_corpus.close()
         order_file.close()
 
 
-def prepare_data(corpus, t_file, num_sentences, num_feature_sentences, file_prefix=""):
+def prepare_data(corpus, t_file, num_sentences, file_prefix=""):
     parameters = Parameters(corpus)
     parameters.initialize_trans_t_file(t_file)
 
-    parameters.split_data_get_parameters(corpus, file_prefix, num_sentences, num_feature_sentences)
+    parameters.split_data_get_parameters(corpus, file_prefix, num_sentences)
 
 
 if __name__ == "__main__":
@@ -103,13 +95,9 @@ if __name__ == "__main__":
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-t_file", required=True)
     arg_parser.add_argument("-output_prefix", required=True)
-    arg_parser.add_argument("-limit", required=False, type=int, default=0)
     arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
-    arg_parser.add_argument('-hmm', dest='hmm', action='store_true', default=False)
-    arg_parser.add_argument('-group_size_feature_extraction', required=False, default=-1, type=int)
     args = arg_parser.parse_args()
 
-    corpus = CorpusReader(args.corpus, limit=args.limit)
+    corpus = CorpusReader(args.corpus)
 
-    prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size,
-                 num_feature_sentences=args.group_size_feature_extraction, file_prefix=args.output_prefix)
+    prepare_data(corpus=corpus, t_file=args.t_file, num_sentences=args.group_size, file_prefix=args.output_prefix)

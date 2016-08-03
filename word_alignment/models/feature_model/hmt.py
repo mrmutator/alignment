@@ -9,10 +9,6 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, marginals):
     # the gamma here is the xi in the Kondo paper (single posterior)
     # the xi here is the p(aj|a_pa(j)) (double posterior) in the Kondo paper
 
-    children = [set() for _ in xrange(J)]
-    for j, h in enumerate(heads[1:]):
-        children[h].add(j + 1)
-
     # compute marginals
 
     for j in xrange(1, J):
@@ -21,23 +17,26 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, marginals):
     # upward recursion betas
     betas = np.zeros((J, I))
     betas_p = np.zeros((J, I))
+    prod = np.ones((J, I), dtype=np.longfloat)
     log_likelihood = 0
-    for j in xrange(J - 1, -1, -1):
-        prod = np.ones(I, dtype=np.longfloat)
-        for c in children[j]:
-            # compute betas_p for j,c
-            betas_p_c = np.dot(dist_probs[c-1], (betas[c] / marginals[c]))
-            prod *= betas_p_c
-            betas_p[c] = betas_p_c
-        numerator = prod * translation_matrix[j] * marginals[j]
+    for j in xrange(J - 1, 0, -1):
+        numerator = prod[j] * translation_matrix[j] * marginals[j]
         N_j = np.sum(numerator)
         log_likelihood += np.log(N_j)
         betas[j] = np.divide(numerator, N_j)
+        betas_p[j] = np.dot(dist_probs[j - 1], (betas[j] / marginals[j]))
+        prod[heads[j]]*= betas_p[j]
+
+    # j=0
+    numerator = prod[0] * translation_matrix[0] * marginals[0]
+    N_j = np.sum(numerator)
+    log_likelihood += np.log(N_j)
+    betas[0] = np.divide(numerator, N_j)
 
     # downward recursion gammas and xis
     gammas = np.zeros((J, I))
     gammas[0] = betas[0]
-    xis = [None]
+    xis = [gammas[0]]
     for j in xrange(1, J):
         parent = heads[j]
         gammas[j] = (betas[j] / marginals[j]) * np.dot((gammas[parent] / betas_p[j]), dist_probs[j-1])

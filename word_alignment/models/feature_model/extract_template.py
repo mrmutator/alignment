@@ -1,97 +1,14 @@
 import argparse
 from CorpusReader import CorpusReader
-import gzip
 import numpy as np
 from collections import defaultdict
-
-class MaxDict(object):
-
-    def __init__(self):
-        self.max = 0
-
-    def add(self, v):
-        if v > self.max:
-            self.max = v
-    def get(self):
-        return self.max
-
-def max_dict():
-    return MaxDict()
-
-class FeatureStore(object):
-
-    def __init__(self, feature_file):
-        self.index = 0
-        self.lookup = dict()
-        self.features = dict()
-        self.read_feature_file(feature_file)
-
-
-    def add_key(self, k):
-        self.lookup[k] = defaultdict(set)
-        self.lookup[k][None] = set(self.features.keys())
-
-
-    def add_features(self, features):
-        self.index += 1
-        curr_id = self.index
-        features = dict(features)
-        for k in features:
-            if k not in self.lookup:
-                self.add_key(k)
-
-        self.features[curr_id] = features
-        for k in self.lookup:
-            if k in features:
-                self.lookup[k][features[k]].add(curr_id)
-            else:
-                self.lookup[k][None].add(curr_id)
-
-    def read_feature_file(self, fn):
-        collected = set()
-        with open(fn, "r") as infile:
-            for line in infile:
-                if line.strip():
-                    f_pairs = line.strip().split("\t")
-                    f_pairs = [tuple(p.split(" ")) for p in f_pairs]
-                    subfeatures = frozenset([(k, int(v)) for k, v in f_pairs])
-                    if subfeatures not in collected:
-                        self.add_features(subfeatures)
-                        collected.add(subfeatures)
-
-
-class ExtractedFeatures(object):
-
-    def __init__(self, feature_store, extracted_features=None):
-        self.feature_store = feature_store
-        if extracted_features:
-            self.extracted_features = extracted_features.extracted_features
-        else:
-            self.extracted_features = set(self.feature_store.features.keys())
-
-    def add_feature(self, tpl):
-        k,v = tpl
-        if k in self.feature_store.lookup:
-            valid = self.feature_store.lookup[k][v].union(self.feature_store.lookup[k][None])
-            self.extracted_features = self.extracted_features.intersection(valid)
-
-    def add_exclusive_feature(self, tpl):
-        k,v = tpl
-        if k in self.feature_store.lookup:
-            valid = self.feature_store.lookup[k][v]
-            self.extracted_features = self.extracted_features.intersection(valid)
-        else:
-            self.extracted_features = set()
-
-
-    def get_feature_ids(self):
-        return frozenset(self.extracted_features)
+from features import max_dict, FeatureStore, ExtractedFeatures
 
 
 def extract_features(corpus, feature_pool, out_file_name):
     all_jmp_condition_ids = defaultdict(max_dict)
     all_start_condition_ids = defaultdict(max_dict)
-    outfile = gzip.open(out_file_name + ".extracted.gz", "w")
+    outfile = open(out_file_name + ".extracted", "w")
     for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
 
 
@@ -219,3 +136,6 @@ if __name__ == "__main__":
     feature_pool = FeatureStore(args.feature_file)
 
     extract_features(corpus, feature_pool, args.corpus)
+
+    with open(args.corpus + ".cons", "w") as outfile:
+        outfile.write(feature_pool.get_voc())

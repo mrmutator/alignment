@@ -1,7 +1,6 @@
 class CorpusReader(object):
-    def __init__(self, corpus_file, limit=None):
+    def __init__(self, corpus_file):
         self.corpus_file = open(corpus_file, "r")
-        self.limit = limit
         self.next = self.__iter_sent
 
     def reset(self):
@@ -19,8 +18,6 @@ class CorpusReader(object):
             if b == 7:
                 yield buffer
                 c += 1
-                if c == self.limit:
-                    break
                 b = -1
                 buffer = []
 

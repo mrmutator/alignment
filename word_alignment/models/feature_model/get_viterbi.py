@@ -25,69 +25,65 @@ def get_viterbi_alignment(process_queue, queue):
         if buffer is None:
             return
 
-        e_toks, f_toks, f_heads, feature_ids, t_probs, pair_num = buffer
+        pair_num, (e_toks, f_toks, f_heads, feature_ids) = buffer
         I = len(e_toks)
         J = len(f_toks)
         I_double = 2 * I
 
+        translation_matrix = np.zeros((J, I_double))
+
         # start probs
         # i_p is 0 for start_probs
         feature_matrix = lil_matrix((I, feature_dim))
-        for i in xrange(I):
-            features_i =  dist_vecs[feature_ids[0][0][1][i]]
+        t_params_j = t_params.get(f_toks[0], {})
+        translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+        static = dist_vecs[feature_ids[0]]
+        for i, e_tok in enumerate(e_toks):
+            translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
+            features_i = static[i]
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
-        feature_matrix = feature_matrix.tocsr()
-        numerator = np.exp(feature_matrix.dot(dist_weights))
+        feature_matrix2 = feature_matrix.tocsr()
+        numerator = np.exp(feature_matrix2.dot(dist_weights))
         s_probs = (numerator / np.sum(numerator)) * norm_coeff
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
         # dist probs
-        d_probs = np.zeros((J-1, I_double, I_double))
+        d_probs = np.zeros((J - 1, I_double, I_double))
         tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
         template = np.vstack((tmp, tmp))
         for j in xrange(1, J):
-            for i_p in xrange(I):
-                feature_matrix = lil_matrix((I, feature_dim))
+            t_params_j = t_params.get(f_toks[j], {})
+            translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+            for i_p, e_tok in enumerate(e_toks):
+                translation_matrix[j][i_p] = t_params_j.get(e_tok, SMALL_PROB_CONST)
+                static = dist_vecs[feature_ids[j][i_p]]
                 for i in xrange(I):
-                    features_i = dist_vecs[feature_ids[j][i_p][1][i]]
+                    features_i = static[i-i_p]
                     feature_matrix.rows[i] = features_i
                     feature_matrix.data[i] = [1.0] * len(features_i)
-                feature_matrix = feature_matrix.tocsr()
-                num = np.exp(feature_matrix.dot(dist_weights))
-                d_probs[j-1, i_p, :I] = num
-                d_probs[j-1, i_p +I, :I] = num
+                feature_matrix2 = feature_matrix.tocsr()
+                num = np.exp(feature_matrix2.dot(dist_weights))
+                d_probs[j - 1, i_p, :I] = num
+                d_probs[j - 1, i_p + I, :I] = num
 
-        d_probs = ((d_probs / np.sum(d_probs, axis=2)[:, :, np.newaxis]) * norm_coeff) + template
+        dist_probs = ((d_probs / np.sum(d_probs, axis=2)[:, :, np.newaxis]) * norm_coeff) + template
 
-        e_toks = e_toks + [0] * I
-        dependencies = [set() for _ in xrange(J)]
-        for j, h in enumerate(f_heads[1:]):
-            dependencies[h].add(j + 1)
 
         f = np.zeros((J, I_double))
+        f_in = np.zeros((J, I_double))
         best = np.zeros((J, I_double), dtype=int)
 
-        for j in reversed(range(1, J)):
-            f_j_in = np.zeros(I_double)
-            for dep in dependencies[j]:
-                f_j_in += f[dep]
+        for j in reversed(xrange(1, J)):
+            values = (np.log(translation_matrix[j]) + np.log(dist_probs[j-1])) + f_in[j]
+            best_is = np.argmax(values, axis=1)
+            best[j] = best_is
+            f[j] = values[np.arange(I_double), best_is]
+            f_in[f_heads[j]] += f[j]
 
-            for i_p in range(I_double):
-                values = np.zeros(I_double)
-                for i in range(I_double):
-                    values[i] = (np.log(t_probs.get((e_toks[i], f_toks[j]), SMALL_PROB_CONST)) + np.log(d_probs[j-1][i_p, i])) + \
-                                f_j_in[i]
+        f[0] = np.log(start_prob) + np.log(translation_matrix[0]) + f_in[0]
 
-                best_i = np.argmax(values)
-                best[j][i_p] = best_i
-                f[j][i_p] = values[best_i]
 
-        f[0] = np.array(
-            [np.log(start_prob[i]) + np.log(t_probs.get((e_toks[i], f_toks[0]), SMALL_PROB_CONST)) for i in range(I_double)])
-
-        for dep in dependencies[0]:
-            f[0] += f[dep]
         last_best = np.argmax(f[0])
         alignment = [int(last_best)]
         for j in range(1, J):
@@ -155,10 +151,11 @@ if __name__ == "__main__":
     results_queue = mp.Queue()
     process_queue = mp.Queue(maxsize=num_workers)
 
+    logger.info("Loading parameters.")
+    t_params = load_params(args.params)
     vec_ids = load_vecs(args.vecs)
     d_weights = load_weights(args.weights)
 
-    corpus = SubcorpusReader(args.corpus, limit=args.limit)
     pool = []
     for w in xrange(num_workers):
         p = mp.Process(target=get_viterbi_alignment, args=(process_queue, results_queue))
@@ -168,22 +165,12 @@ if __name__ == "__main__":
     aggregator = mp.Process(target=aggregate_alignments, args=(results_queue,))
     aggregator.start()
 
-    logger.info("Loading parameters.")
-    t_params = load_params(args.params)
-
-
     logger.info("Loading corpus.")
-
-    for pair_num, (e_toks, f_toks, f_heads, feature_ids) in enumerate(corpus):
-        # get all t-params of buffer
-        required_ts = set()
-        I = len(e_toks)
-        for e_tok in e_toks + [0]:
-            for f_tok in f_toks:
-                required_ts.add((e_tok, f_tok))
-
-        t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-        process_queue.put((e_toks, f_toks, f_heads, feature_ids, t_probs, pair_num))
+    corpus = SubcorpusReader(args.corpus)
+    for buff in enumerate(corpus):
+        process_queue.put(buff)
+        if buff[0]+1 == args.limit:
+            break
 
     logger.info("Entire corpus loaded.")
     for _ in pool:

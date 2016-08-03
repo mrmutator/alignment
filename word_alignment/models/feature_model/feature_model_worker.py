@@ -13,6 +13,14 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 
+def all_traces(x):
+    jj = np.tile(np.arange(x.shape[1]),x.shape[0])
+    ii = (np.arange(x.shape[1])+np.arange(x.shape[0])[::-1,None]).ravel()
+    z = np.zeros(((x.shape[0]+x.shape[1]-1),x.shape[1]))
+    z[ii,jj] = x.ravel()
+    return z.sum(axis=1)
+
+
 def train_iteration(process_queue, queue):
     dist_vecs = dict(vec_ids)
     dist_weights = np.array(d_weights)
@@ -29,7 +37,6 @@ def train_iteration(process_queue, queue):
         # set all counts to zero
         lex_counts = Counter()  # (e,f)
         lex_norm = Counter()  # e
-        al_counts = Counter()  # (static_cond, dynamic_cond)
 
         I = len(e_toks)
         I_double = 2 * I
@@ -79,32 +86,16 @@ def train_iteration(process_queue, queue):
                                                    marginals)
 
         # update counts
-
-        for j_p, f_tok in enumerate(f_toks[1:]):
-            j = j_p+1
-            if translation_matrix[j, I] > SMALL_PROB_CONST:
-                lex_counts[(0, f_tok)] += np.sum(gammas[j][I:])
-            for i, e_tok in enumerate(e_toks):
-                if translation_matrix[j, i] > SMALL_PROB_CONST:
-                    lex_counts[(e_tok, f_tok)] += gammas[j][i]
-                for i_p in xrange(I):
-                    static_cond = feature_ids[j][i_p]
-                    al_counts[(static_cond, i-i_p)] += xis[j_p][i_p][i] + xis[j_p][i_p+I][i]
-
-        # add start counts and counts for lex f_0
-        f_0 = f_toks[0]
-        if translation_matrix[0, I] > SMALL_PROB_CONST:
-            lex_counts[(0, f_0)] += np.sum(gammas[0][I:])
-        e_norm = np.sum(gammas, axis=0)
-        static_cond = feature_ids[0]
+        gammas[:, I] = np.sum(gammas[:, I:], axis=1)
+        e_norm = np.sum(gammas[:,:I+1], axis=0)
+        e_toks += [0]
         for i, e_tok in enumerate(e_toks):
             lex_norm[e_tok] += e_norm[i]
-            al_counts[(static_cond, i)] += gammas[0][i]
-            if translation_matrix[0, i] > SMALL_PROB_CONST:
-                lex_counts[(e_tok, f_0)] += gammas[0][i]
-        lex_norm[0] += np.sum(e_norm[I:])
+            for j, f_tok in enumerate(f_toks):
+                if translation_matrix[j, i] > SMALL_PROB_CONST:
+                    lex_counts[(e_tok, f_tok)] += gammas[j][i]
 
-        queue.put((lex_counts, lex_norm, al_counts, log_likelihood))
+        queue.put((lex_counts, lex_norm, (feature_ids, xis), log_likelihood))
 
 
 def load_params(file_name):
@@ -150,25 +141,44 @@ def load_weights(file_name):
     return np.array(d_weights)
 
 
-def aggregate_counts(queue, counts_file):
+def aggregate_counts(queue, convoc_file, counts_file):
     # total = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
     # total_ll = 0
-    initial = queue.get()
-    total = initial[:-1]
-    total_ll = initial[-1]
+
+    with open(convoc_file, "r") as infile:
+        al_counts = dict()
+        start_counts = dict()
+        for line in infile:
+            t, con, max_I = line.split()
+            max_I = int(max_I)
+            if t == "s":
+                start_counts[con] = np.zeros(max_I)
+            elif t == "j":
+                al_counts[con] = np.zeros((max_I, max_I))
+
+    total = [Counter(), Counter()]
+    total_ll = 0
     while True:
         counts = queue.get()
         if counts is None:
             break
-        for i, c in enumerate(counts[:-1]):
+        for i, c in enumerate(counts[:2]):
             total[i].update(c)
         total_ll += counts[-1]
+        statics, xis = counts[2]
+        I = int(len(xis[0])/2)
+        start_counts[statics[0]][:I] += xis[0][:I]
+        for j, ips in enumerate(statics[1:]):
+            xis[j+1][:I][:I] += xis[j+1][I:][:I]
+            for ip, static in enumerate(ips):
+                al_counts[static][ip, :I] += xis[j+1][ip][:I]
+
 
     logger.info("Writing counts to file.")
 
     # store counts
     # types = ["lex_counts", "lex_norm", "al_counts", "al_norm", "start_counts", "start_norm"]
-    types = map(str, range(6))
+    types = ["0", "1"]
     with open(counts_file, "w") as outfile:
         outfile.write("LL:\t" + str(total_ll) + "\n")
         for i, counter in enumerate(total):
@@ -180,6 +190,16 @@ def aggregate_counts(queue, counts_file):
                     k = str(k)
                 v = str(v)
                 outfile.write("\t".join([t, k, v]) + "\n")
+        for con, array in start_counts.iteritems():
+            I = len(array)
+            for i in xrange(I):
+                outfile.write("\t".join(["2", con +" "+str(i), str(array[i])]) + "\n")
+        for con, array in al_counts.iteritems():
+            I = len(array)
+            diagonal_sums = all_traces(array)
+            for i, jmp in enumerate(xrange(-I+1, I)):
+                outfile.write("\t".join(["2", con+" "+str(jmp), str(diagonal_sums[i])]) + "\n")
+
     logger.info("Counts written.")
 
 
@@ -191,6 +211,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-params", required=True)
     arg_parser.add_argument("-vecs", required=True)
     arg_parser.add_argument("-weights", required=True)
+    arg_parser.add_argument("-convoc", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=2)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
     SMALL_PROB_CONST = 0.00000001
@@ -201,7 +222,7 @@ if __name__ == "__main__":
 
     update_queue = mp.Queue()
     num_workers = max(1, args.num_workers - 1)
-    updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
+    updater = mp.Process(target=aggregate_counts, args=(update_queue, args.convoc, counts_file_name))
     updater.start()
     process_queue = mp.Queue(maxsize=num_workers*2)
 

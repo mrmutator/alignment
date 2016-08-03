@@ -4,24 +4,10 @@ from features import Features
 import random
 from collections import defaultdict
 import re
+from features import max_dict
 
 def random_weight():
     return random.uniform(-1, 1)
-
-
-class MaxDict(object):
-
-    def __init__(self):
-        self.max = 0
-
-    def add(self, v):
-        if v > self.max:
-            self.max = v
-    def get(self):
-        return self.max
-
-def max_dict():
-    return MaxDict()
 
 
 if __name__ == "__main__":
