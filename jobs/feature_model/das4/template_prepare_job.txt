@@ -24,7 +24,7 @@ python %(script_dir)s/word_alignment/models/feature_model/aggregate_features.py 
 
 rename "s/(.*?)\.(\d+)\.sub_feat.extracted/\1.corpus.\2/" *.sub_feat.extracted
 rename "s/(.*?)\.(\d+)\.sub_feat.convoc/\1.convoc.\2/" *.sub_feat.convoc
-mv %(job_name)s.1.sub_feat.cons %(job_name).cons
+mv %(job_name)s.1.sub_feat.cons %(job_name)s.cons
 
 gzip %(job_name)s.params.*
 gzip %(job_name)s.corpus.*
