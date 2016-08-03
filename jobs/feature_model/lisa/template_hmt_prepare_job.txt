@@ -5,38 +5,35 @@ cd "$TMPDIR"
 
 cp  %(psnt)s corpus.psnt
 cp %(ibm1_table)s ibm1.table
-cp %(feature_extraction_script)s extract_features.py
-cp %(script_dir)s/word_alignment/models/feature_model/CorpusReader.py CorpusReader.py
-cp %(script_dir)s/word_alignment/models/feature_model/features.py features.py
 cp %(features_file)s features.txt
 
 module load python
 source %(script_dir)s/venv/bin/activate
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Splitting corpus."
-python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -group_size_feature_extraction %(group_size_feature_extraction)s
+python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Starting feature extraction"
 for f in %(job_name)s.*.sub_feat
  do
- python extract_features.py -corpus $f -feature_file features.txt &
+ python %(script_dir)s/word_alignment/models/feature_model/extract_features.py -corpus $f -feature_file features.txt &
 done
 wait
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Aggregating features."
 python %(script_dir)s/word_alignment/models/feature_model/aggregate_features.py -dir .
-date +"%(pr)sH:%(pr)sM:%(pr)sS> Translating features."
-for f in %(job_name)s.*.sub_feat
-do
- python %(script_dir)s/word_alignment/models/feature_model/translate_ids.py -vec_file $f.vecvoc.trans -con_file $f.convoc.trans $f.extracted.gz &
-done
-wait
-date +"%(pr)sH:%(pr)sM:%(pr)sS> Reshaping corpus."
-python %(script_dir)s/word_alignment/models/feature_model/reshape_groups.py -dir . -group_size %(group_size)s
+
+rename "s/(.*?)\.(\d+)\.sub_feat.extracted/\1.corpus.\2/" *.sub_feat.extracted
+rename "s/(.*?)\.(\d+)\.sub_feat.convoc/\1.convoc.\2/" *.sub_feat.convoc
+mv %(job_name).1.sub_feat.cons %(job_name).cons
+
 gzip %(job_name)s.params.*
+gzip %(job_name)s.corpus.*
+gzip %(job_name)s.order
+gzip %(job_name)s.convoc.*
 cp %(job_name)s.params.*.gz %(it0_dir)s/
 cp %(job_name)s.corpus.*.gz %(it0_dir)s/
+cp %(job_name)s.convoc.*.gz %(it0_dir)s/
 cp %(job_name)s.weights %(it0_dir)s/
 cp %(job_name)s.cons %(it0_dir)s/
 cp %(job_name)s.vecs %(it0_dir)s/
-cp %(job_name)s.features %(it0_dir)s/
-gzip %(job_name)s.order
+cp %(job_name)s.fvoc %(it0_dir)s/
 cp %(job_name)s.order.gz %(it0_dir)s/
 wait

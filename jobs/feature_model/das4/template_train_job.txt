@@ -14,6 +14,7 @@ for part in $(seq 1 %(num_nodes)s);
 do
  cp %(it0_dir)s/%(job_name)s.corpus.${part}.gz corpus.psnt.${part}.gz
  cp %(it0_dir)s/%(job_name)s.params.${part}.gz params.${part}.gz
+ cp %(it0_dir)s/%(job_name)s.convoc.${part}.gz convoc.${part}.gz
 done
 gunzip *.gz
 
@@ -24,7 +25,7 @@ do
   for part in $(seq 1 %(num_nodes)s);
   do
    >&2 echo "Starting E-Step " ${part};
-   python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -vecs vecs -weights weights -num_workers %(num_workers)s -p_0 %(p_0)s
+   python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -vecs vecs -weights weights -convoc convoc.${part} -num_workers %(num_workers)s -p_0 %(p_0)s
    mv params.${part}.counts params.counts.${part}
   done
  # update

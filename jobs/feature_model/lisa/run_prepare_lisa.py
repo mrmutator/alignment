@@ -48,16 +48,11 @@ def parse_config(config_file):
     params['features_file'] = os.path.abspath(config_dict["features_file"])
     params['job_name'] = config_dict["job_name"]
     params['group_size'] = int(config_dict["group_size"])
-    params['group_size_feature_extraction'] = int(config_dict["group_size_feature_extraction"])
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../../../'))
     params['num_nodes'] = int(config_dict["num_nodes"])
     assert params['num_nodes'] > 0
     params['wall_time'] = config_dict["wall_time"]
-    if config_dict["feature_extraction_script"] == "standard":
-        params["feature_extraction_script"] = os.path.abspath(os.path.join(params['script_dir'], 'word_alignment/models/feature_model/extract_template.py'))
-    else:
-        params["feature_extraction_script"] = config_dict["feature_extraction_script"]
 
     return params
 
