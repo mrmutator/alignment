@@ -35,23 +35,22 @@ def train_iteration(process_queue, queue):
         I_double = 2 * I
         J = len(f_toks)
 
-        translation_matrix = np.zeros((J, I * 2))
+        translation_matrix = np.zeros((J, I_double))
         marginals = np.zeros((J, I_double))
 
         # start probs
         # i_p is 0 for start_probs
         feature_matrix = lil_matrix((I, feature_dim))
-        #f_0 = f_toks[0]
         t_params_j = t_params.get(f_toks[0], {})
         translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
         static = dist_vecs[feature_ids[0]]
-        for i in xrange(I):
-            translation_matrix[0][i] = t_params_j.get(e_toks[i], SMALL_PROB_CONST)
+        for i, e_tok in enumerate(e_toks):
+            translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
             features_i = static[i]
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
-        feature_matrix = feature_matrix.tocsr()
-        numerator = np.exp(feature_matrix.dot(dist_weights))
+        feature_matrix2 = feature_matrix.tocsr()
+        numerator = np.exp(feature_matrix2.dot(dist_weights))
         s_probs = (numerator / np.sum(numerator)) * norm_coeff
         marginals[0] = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
@@ -60,19 +59,17 @@ def train_iteration(process_queue, queue):
         tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
         template = np.vstack((tmp, tmp))
         for j in xrange(1, J):
-            #f_j = f_toks[j]
             t_params_j = t_params.get(f_toks[j], {})
             translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
-            for i_p in xrange(I):
-                translation_matrix[j][i_p] = t_params_j.get(e_toks[i_p], SMALL_PROB_CONST)
-                feature_matrix = lil_matrix((I, feature_dim))
+            for i_p, e_tok in enumerate(e_toks):
+                translation_matrix[j][i_p] = t_params_j.get(e_tok, SMALL_PROB_CONST)
                 static = dist_vecs[feature_ids[j][i_p]]
                 for i in xrange(I):
                     features_i = static[i-i_p]
                     feature_matrix.rows[i] = features_i
                     feature_matrix.data[i] = [1.0] * len(features_i)
-                feature_matrix = feature_matrix.tocsr()
-                num = np.exp(feature_matrix.dot(dist_weights))
+                feature_matrix2 = feature_matrix.tocsr()
+                num = np.exp(feature_matrix2.dot(dist_weights))
                 d_probs[j - 1, i_p, :I] = num
                 d_probs[j - 1, i_p + I, :I] = num
 
@@ -83,19 +80,18 @@ def train_iteration(process_queue, queue):
 
         # update counts
 
-        # add start counts and counts for lex f_0
         for j_p, f_tok in enumerate(f_toks[1:]):
             j = j_p+1
-            gammas_0_j = np.sum(gammas[j][I:])
             if translation_matrix[j, I] > SMALL_PROB_CONST:
-                lex_counts[(0, f_tok)] += gammas_0_j
+                lex_counts[(0, f_tok)] += np.sum(gammas[j][I:])
             for i, e_tok in enumerate(e_toks):
                 if translation_matrix[j, i] > SMALL_PROB_CONST:
                     lex_counts[(e_tok, f_tok)] += gammas[j][i]
-                for i_p in range(I):
+                for i_p in xrange(I):
                     static_cond = feature_ids[j][i_p]
-                    al_counts[(static_cond, i-i_p)] += xis[j][i_p][i] + xis[j][i_p+I][i]
+                    al_counts[(static_cond, i-i_p)] += xis[j_p][i_p][i] + xis[j_p][i_p+I][i]
 
+        # add start counts and counts for lex f_0
         f_0 = f_toks[0]
         if translation_matrix[0, I] > SMALL_PROB_CONST:
             lex_counts[(0, f_0)] += np.sum(gammas[0][I:])
@@ -207,7 +203,7 @@ if __name__ == "__main__":
     num_workers = max(1, args.num_workers - 1)
     updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
     updater.start()
-    process_queue = mp.Queue(maxsize=num_workers)
+    process_queue = mp.Queue(maxsize=num_workers*2)
 
     vec_ids = load_vecs(args.vecs)
     d_weights = load_weights(args.weights)
