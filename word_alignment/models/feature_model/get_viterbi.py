@@ -142,7 +142,6 @@ if __name__ == "__main__":
     arg_parser.add_argument("-out_file", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
-    arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
     arg_parser.add_argument("-limit", required=False, type=int, default=0)
 
     args = arg_parser.parse_args()
