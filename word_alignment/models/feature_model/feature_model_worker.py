@@ -169,9 +169,9 @@ def aggregate_counts(queue, convoc_file, counts_file):
         I = int(len(xis[0])/2)
         start_counts[statics[0]][:I] += xis[0][:I]
         for j, ips in enumerate(statics[1:]):
-            xis[j+1][:I][:I] += xis[j+1][I:][:I]
+            xis[j+1][:I,:I] += xis[j+1][I:,:I]
             for ip, static in enumerate(ips):
-                al_counts[static][ip, :I] += xis[j+1][ip][:I]
+                al_counts[static][ip, :I] += xis[j+1][ip, :I]
 
 
     logger.info("Writing counts to file.")
