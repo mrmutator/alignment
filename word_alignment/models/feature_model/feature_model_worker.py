@@ -42,17 +42,19 @@ def train_iteration(process_queue, queue):
         I_double = 2 * I
         J = len(f_toks)
 
-        translation_matrix = np.zeros((J, I_double))
+        translation_matrix = np.zeros((J, I_double)) * SMALL_PROB_CONST
         marginals = np.zeros((J, I_double))
 
         # start probs
         # i_p is 0 for start_probs
         feature_matrix = lil_matrix((I, feature_dim))
-        t_params_j = t_params.get(f_toks[0], {})
-        translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+        t_params_j = t_params.get(f_toks[0], None)
+        if t_params_j is not None:
+            translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
         static = dist_vecs[feature_ids[0]]
         for i, e_tok in enumerate(e_toks):
-            translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
+            if t_params_j is not None:
+                translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
             features_i = static[i]
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
@@ -66,10 +68,12 @@ def train_iteration(process_queue, queue):
         tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
         template = np.vstack((tmp, tmp))
         for j in xrange(1, J):
-            t_params_j = t_params.get(f_toks[j], {})
-            translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+            t_params_j = t_params.get(f_toks[j], None)
+            if t_params_j is not None:
+                translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
             for i_p, e_tok in enumerate(e_toks):
-                translation_matrix[j][i_p] = t_params_j.get(e_tok, SMALL_PROB_CONST)
+                if t_params_j is not None:
+                    translation_matrix[j][i_p] = t_params_j.get(e_tok, SMALL_PROB_CONST)
                 static = dist_vecs[feature_ids[j][i_p]]
                 for i in xrange(I):
                     features_i = static[i-i_p]
