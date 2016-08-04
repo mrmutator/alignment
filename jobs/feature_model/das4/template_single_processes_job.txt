@@ -28,6 +28,7 @@ do
    python %(script_dir)s/word_alignment/models/feature_model/single_worker.py -corpus corpus.psnt.${part} -params params.${part} -vecs vecs -weights weights -convoc convoc.${part} -p_0 %(p_0)s &
   done
  wait
+ rename "s/^params\.(\d+)\.counts/params.counts.\1/" params.*.counts
  # update
  >&2 echo "Starting M-step";
  python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -vecs vecs -kappa %(kappa)s -num_workers %(num_workers)s > ll.${it}.log

@@ -6,7 +6,6 @@ from CorpusReader import SubcorpusReader
 import logging
 import hmt
 from scipy.sparse import lil_matrix
-import re
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -207,5 +206,5 @@ if __name__ == "__main__":
     lex_counts, lex_norm,  ll = train_iteration(corpus, args.p_0, t_params, vec_ids, d_weights, start_counts, al_counts)
 
     logger.info("Writing counts to file.")
-    writing_counts([lex_counts, lex_norm], start_counts, al_counts, ll, re.sub("\.params\.", ".counts.", args.params))
+    writing_counts([lex_counts, lex_norm], start_counts, al_counts, ll, args.params  + ".counts")
     logger.info("Done.")
