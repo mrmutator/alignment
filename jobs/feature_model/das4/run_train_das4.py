@@ -50,6 +50,8 @@ def parse_config(config_file):
 
     params['wall_time'] = config_dict["wall_time"]
 
+    params['single_processes'] = True if config_dict["single_processes"].strip().lower() == "true" else False
+
     return params
 
 
@@ -58,7 +60,10 @@ def make_result_directories(path_it):
         os.makedirs(path_it)
 
 def generate_single_job(**params):
-    with open(params['job_template_dir'] + "/template_train_job.txt", "r") as infile:
+    template_file = "/template_train_job.txt"
+    if params["single_processes"]:
+        template_file = "/template_single_processes_job.txt"
+    with open(params['job_template_dir'] + template_file, "r") as infile:
         template = infile.read()
         job_file = template % params
     with open(params['dir'] + "/" + params["job_name"] + "_train.job", "w") as outfile:

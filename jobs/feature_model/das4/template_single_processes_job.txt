@@ -1,0 +1,63 @@
+#!/bin/bash
+#$ -l h_rt=%(wall_time)s
+#$ -cwd
+. $HOME/.bashrc
+cd /local
+mkdir %(job_name)s
+cd %(job_name)s
+
+
+cp %(it0_dir)s/%(job_name)s.vecs vecs
+cp %(it0_dir)s/%(job_name)s.weights weights
+cp %(it0_dir)s/%(job_name)s.order.gz order.gz
+for part in $(seq 1 %(num_nodes)s);
+do
+ cp %(it0_dir)s/%(job_name)s.corpus.${part}.gz corpus.psnt.${part}.gz
+ cp %(it0_dir)s/%(job_name)s.params.${part}.gz params.${part}.gz
+ cp %(it0_dir)s/%(job_name)s.convoc.${part}.gz convoc.${part}.gz
+done
+gunzip *.gz
+
+for it in $(seq 1 %(num_iterations)s);
+do
+ >&2 echo "Starting iteration " ${it};
+ # E-Steps
+  for part in $(seq 1 %(num_nodes)s);
+  do
+   >&2 echo "Starting E-Step " ${part};
+   python %(script_dir)s/word_alignment/models/feature_model/single_worker.py -corpus corpus.psnt.${part} -params params.${part} -vecs vecs -weights weights -convoc convoc.${part} -p_0 %(p_0)s &
+  done
+ wait
+ # update
+ >&2 echo "Starting M-step";
+ python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -vecs vecs -kappa %(kappa)s -num_workers %(num_workers)s > ll.${it}.log
+ rename "s/^params.params/new_params/" params.params.*
+ rm params.*
+ rm weights
+ mv weights.updated weights
+ rename "s/new_params/params/" new_params.*
+ mv log_likelihood log_likelihood.${it}
+ cp log_likelihood.${it} %(result_dir)s/%(job_name)s.log_likelihood.${it}
+ cp params.* %(result_dir)s/
+ cp weights %(result_dir)s/
+ # evaluate
+ >&2 echo "Aligning corpus";
+ for part in $(seq 1 %(align_parts)s);
+ do
+ >&2 echo "Aligning part " ${part};
+   python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -vecs vecs -weights weights -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -limit %(align_limit)s
+   done
+ cat corpus.aligned.* > all.aligned.${it}
+ rm corpus.aligned.*
+ python %(script_dir)s/word_alignment/models/feature_model/reorder_aligned.py -order_file order -aligned_file all.aligned.${it}
+
+ cp all.aligned.${it}.reordered %(result_dir)s/%(job_name)s.aligned.${it}
+done
+
+>&2 echo "Done. Copying files now."
+rename "s/params/%(job_name)s.params/" params.*
+gzip %(job_name)s.params.*
+cp %(job_name)s.params.*.gz %(result_dir)s/
+cd /local
+rm -r %(job_name)s
+wait
