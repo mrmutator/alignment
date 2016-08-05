@@ -26,9 +26,11 @@ if __name__ == "__main__":
 
     prefix = re.search("^\./(.*?)\.\d+\.sub_feat", f).group(1)
     outfile = open(prefix + ".vecs", "w")
+    convoc_outfile = open(prefix + ".convoc_list", "w")
 
     for con_id in all_cons["s"]:
         max_I = all_cons["s"][con_id].get()
+        convoc_outfile.write(" ".join(["s", con_id, str(max_I)]) + "\n")
         ftype_ids = map(int, con_id.split("-"))
         for jmp in xrange(max_I):
             feature_ids = set()
@@ -41,6 +43,7 @@ if __name__ == "__main__":
 
     for con_id in all_cons["j"]:
         max_I = all_cons["j"][con_id].get()
+        convoc_outfile.write(" ".join(["j", con_id, str(max_I)]) + "\n")
         ftype_ids = map(int, con_id.split("-"))
         for jmp in xrange(-max_I+1, max_I):
             feature_ids = set()
@@ -52,6 +55,7 @@ if __name__ == "__main__":
             outfile.write(" ".join([vec_id] + map(str, feature_ids)) + "\n")
 
     outfile.close()
+    convoc_outfile.close()
 
     with open(prefix + ".weights", "w") as outfile:
         for w_id in sorted(all_features.feature_dict.values()):

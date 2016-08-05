@@ -1,12 +1,11 @@
 from __future__ import division
-from collections import Counter
+from collections import Counter, defaultdict
 import numpy as np
 import multiprocessing as mp
 import argparse
 from CorpusReader import SubcorpusReader
 import logging
 import hmt
-from scipy.sparse import lil_matrix
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -22,10 +21,7 @@ def all_traces(x):
 
 
 def train_iteration(process_queue, queue):
-    dist_vecs = dict(vec_ids)
-    dist_weights = np.array(d_weights)
     p_0 = args.p_0
-    feature_dim = len(dist_weights)
     norm_coeff = 1.0 - p_0
     SMALL_PROB_CONST = 0.00000001
     while True:
@@ -47,19 +43,15 @@ def train_iteration(process_queue, queue):
 
         # start probs
         # i_p is 0 for start_probs
-        feature_matrix = lil_matrix((I, feature_dim))
         t_params_j = t_params.get(f_toks[0], None)
-        if t_params_j is not None:
-            translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
-        static = dist_vecs[feature_ids[0]]
-        for i, e_tok in enumerate(e_toks):
-            if t_params_j is not None:
+        if t_params_j is None:
+            translation_matrix[0] = SMALL_PROB_CONST
+        else:
+            for i, e_tok in enumerate(e_toks):
                 translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
-            features_i = static[i]
-            feature_matrix.rows[i] = features_i
-            feature_matrix.data[i] = [1.0] * len(features_i)
-        feature_matrix2 = feature_matrix.tocsr()
-        numerator = np.exp(feature_matrix2.dot(dist_weights))
+            translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+
+        numerator = start_params[feature_ids[0]][:I_double]
         s_probs = (numerator / np.sum(numerator)) * norm_coeff
         marginals[0] = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
@@ -71,18 +63,15 @@ def train_iteration(process_queue, queue):
             t_params_j = t_params.get(f_toks[j], None)
             if t_params_j is not None:
                 translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
-            for i_p, e_tok in enumerate(e_toks):
+            for actual_i_p, running_ip, in enumerate(xrange(I-1, -1, -1)):
                 if t_params_j is not None:
-                    translation_matrix[j][i_p] = t_params_j.get(e_tok, SMALL_PROB_CONST)
-                static = dist_vecs[feature_ids[j][i_p]]
-                for i in xrange(I):
-                    features_i = static[i-i_p]
-                    feature_matrix.rows[i] = features_i
-                    feature_matrix.data[i] = [1.0] * len(features_i)
-                feature_matrix2 = feature_matrix.tocsr()
-                num = np.exp(feature_matrix2.dot(dist_weights))
-                d_probs[j - 1, i_p, :I] = num
-                d_probs[j - 1, i_p + I, :I] = num
+                    translation_matrix[j][actual_i_p] = t_params_j.get(e_toks[actual_i_p], SMALL_PROB_CONST)
+                all_params = dist_params[feature_ids[j][actual_i_p]]
+                all_I = int((len(all_params)+1) / 2)
+                diff_I = all_I-I
+                tmp = all_params[running_ip+diff_I:running_ip+I+diff_I]
+                d_probs[j - 1, actual_i_p, :I] = tmp
+                d_probs[j - 1, actual_i_p + I, :I] = tmp
 
         dist_probs = ((d_probs / np.sum(d_probs, axis=2)[:, :, np.newaxis]) * norm_coeff) + template
 
@@ -121,28 +110,26 @@ def load_params(file_name):
     return t_params
 
 
-def load_vecs(file_name):
-    vec_ids = dict()
-    infile = open(file_name, "r")
-    for line in infile:
-        els = line.strip().split()
-        jmp, cid = els[0].split(".")
-        if cid not in vec_ids:
-            vec_ids[cid] = dict()
 
-        vec_ids[cid][int(jmp)] = sorted(map(int, els[1:]))
-    infile.close()
-    return vec_ids
-
-
-def load_weights(file_name):
-    d_weights = []
-    with open(file_name, "r") as infile:
+def load_convoc_params(fname):
+    start_params = defaultdict(list)
+    dist_params = defaultdict(list)
+    with open(fname, "r") as infile:
         for line in infile:
-            _, w_id, w = line.strip().split()
-            d_weights.append(float(w))
+            t, con, i, p = line.split()
+            if t == "s":
+                start_params[con].append(float(p))
+            elif t == "j":
+                dist_params[con].append(float(p))
 
-    return np.array(d_weights)
+    new_start_params = dict()
+    new_dist_params = dict()
+    for k, l in start_params.iteritems():
+        new_start_params[k] = np.array(l)
+    for k, l in dist_params.iteritems():
+        new_dist_params[k] = np.array(l)
+
+    return new_start_params, new_dist_params
 
 
 def aggregate_counts(queue, convoc_file, counts_file):
@@ -213,8 +200,7 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-params", required=True)
-    arg_parser.add_argument("-vecs", required=True)
-    arg_parser.add_argument("-weights", required=True)
+    arg_parser.add_argument("-convoc_params", required=True)
     arg_parser.add_argument("-convoc", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=2)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
@@ -230,11 +216,10 @@ if __name__ == "__main__":
     updater.start()
     process_queue = mp.Queue(maxsize=num_workers*2)
 
-    vec_ids = load_vecs(args.vecs)
-    d_weights = load_weights(args.weights)
 
     logger.info("Loading parameters.")
     t_params = load_params(args.params)
+    start_params, dist_params = load_convoc_params(args.convoc_params)
 
     pool = []
     for w in xrange(num_workers):

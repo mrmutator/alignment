@@ -3,6 +3,8 @@ import multiprocessing as mp
 import logging
 import numpy as np
 from scipy.sparse import lil_matrix
+import glob
+from collections import defaultdict
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -68,8 +70,26 @@ def compute_lr_worker(process_queue, update_queue):
 
         update_queue.put((t, con, numerator))
 
-def aggregate_params(update_queue, fname):
-    outfile = open(fname, "w")
+def write_params(fh, t, con, start_i, values):
+    for v in values:
+        fh.write(" ".join([t, con, str(start_i), str(v)]) + "\n")
+        start_i += 1
+
+
+def aggregate_params(update_queue, convoc_files):
+    start_index = defaultdict(list)
+    dist_index = defaultdict(list)
+    outfiles = []
+
+    for i, f in enumerate(convoc_files):
+        with open(f, "r") as infile:
+            for line in infile:
+                t, con, max_I = line.split()
+                if t == "s":
+                    start_index[con].append((i, int(max_I)))
+                elif t == "j":
+                    dist_index[con].append((i, int(max_I)))
+        outfiles.append(open(f + ".params", "w"))
 
     while True:
         buff = update_queue.get()
@@ -77,27 +97,39 @@ def aggregate_params(update_queue, fname):
             break
         t, con, numerator = buff
 
-        for i, v in enumerate(numerator):
-            outfile.write(" ".join([t, con, str(i), str(v)]) + "\n")
+        if t == "s":
+            for fid, max_I in start_index[con]:
+                write_params(outfiles[fid],t, con, 0, numerator[:max_I])
+        elif t == "j":
+            all_I = (len(numerator) + 1) / 2
+            for fid, max_I in dist_index[con]:
+                if all_I != max_I:
+                    diff_I = all_I-max_I
+                    write_params(outfiles[fid], t, con, diff_I, numerator[diff_I:-diff_I])
+                else:
+                    write_params(outfiles[fid], t, con, 0, numerator)
 
-    outfile.close()
 
+    for outfile in outfiles:
+        outfile.close()
     logger.info("Parameters written.")
     return
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("-convoc", required=True)
+    arg_parser.add_argument("-convoc_list", required=True)
     arg_parser.add_argument("-vecs", required=True)
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-num_workers", default=8, type=int, required=False)
     args = arg_parser.parse_args()
 
+    convoc_files = glob.glob("./*.convoc.*")
+
     num_workers = max(1, args.num_workers - 1)
 
     aggregate_queue = mp.Queue()
 
-    aggregator = mp.Process(target=aggregate_params, args=(aggregate_queue, args.convoc + ".params"))
+    aggregator = mp.Process(target=aggregate_params, args=(aggregate_queue, convoc_files))
     aggregator.start()
     process_queue = mp.Queue(maxsize=num_workers*2)
 
@@ -112,7 +144,7 @@ if __name__ == "__main__":
         p.start()
         pool.append(p)
 
-    convoc_list = convoc_reader(args.convoc)
+    convoc_list = convoc_reader(args.convoc_list)
 
     for buff in convoc_list:
         process_queue.put(buff)
