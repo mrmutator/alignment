@@ -123,7 +123,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-num_workers", default=8, type=int, required=False)
     args = arg_parser.parse_args()
 
-    convoc_files = glob.glob("./*.convoc.*")
+    convoc_files = glob.glob("./*convoc.*")
 
     num_workers = max(1, args.num_workers - 1)
 
