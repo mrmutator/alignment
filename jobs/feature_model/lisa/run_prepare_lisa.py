@@ -11,6 +11,9 @@ def get_file_length(f):
     return c
 
 def check_num_nodes_group_size(params):
+    if params["group_size"] <= 0:
+        assert params["num_nodes"] == 1
+        return
     psnt = params['psnt']
     raw_length = get_file_length(psnt)
     file_length = raw_length / 8
