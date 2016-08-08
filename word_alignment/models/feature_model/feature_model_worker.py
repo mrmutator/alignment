@@ -191,7 +191,7 @@ if __name__ == "__main__":
     counts_file_name = args.params + ".counts"
 
     update_queue = mp.Queue()
-    num_workers = max(1, args.num_workers - 1)
+    num_workers = args.num_workers
     updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
     updater.start()
     process_queue = mp.Queue(maxsize=num_workers*2)
