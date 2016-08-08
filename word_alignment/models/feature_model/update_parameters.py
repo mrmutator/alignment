@@ -5,7 +5,7 @@ import re
 import logging
 import numpy as np
 import multiprocessing as mp
-from feature_model_worker import load_weights, load_vecs
+from compute_params import load_weights, load_vecs
 from scipy.optimize import fmin_l_bfgs_b
 from scipy.sparse import lil_matrix
 

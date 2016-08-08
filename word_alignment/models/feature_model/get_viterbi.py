@@ -4,19 +4,15 @@ import multiprocessing as mp
 import argparse
 from CorpusReader import SubcorpusReader
 import logging
-from feature_model_worker import load_vecs, load_params, load_weights
-from scipy.sparse import lil_matrix
+from feature_model_worker import load_params, load_convoc_params
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
 
 def get_viterbi_alignment(process_queue, queue):
-    dist_vecs = dict(vec_ids)
-    dist_weights = np.array(d_weights)
     p_0 = args.p_0
     norm_coeff = 1.0 - p_0
-    feature_dim = len(dist_weights)
     SMALL_PROB_CONST = 0.0000001
 
 
@@ -30,21 +26,19 @@ def get_viterbi_alignment(process_queue, queue):
         J = len(f_toks)
         I_double = 2 * I
 
-        translation_matrix = np.zeros((J, I_double))
+        translation_matrix = np.zeros((J, I_double)) * SMALL_PROB_CONST
 
         # start probs
         # i_p is 0 for start_probs
-        feature_matrix = lil_matrix((I, feature_dim))
-        t_params_j = t_params.get(f_toks[0], {})
-        translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
-        static = dist_vecs[feature_ids[0]]
-        for i, e_tok in enumerate(e_toks):
-            translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
-            features_i = static[i]
-            feature_matrix.rows[i] = features_i
-            feature_matrix.data[i] = [1.0] * len(features_i)
-        feature_matrix2 = feature_matrix.tocsr()
-        numerator = np.exp(feature_matrix2.dot(dist_weights))
+        t_params_j = t_params.get(f_toks[0], None)
+        if t_params_j is None:
+            translation_matrix[0] = SMALL_PROB_CONST
+        else:
+            for i, e_tok in enumerate(e_toks):
+                translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
+            translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+
+        numerator = start_params[feature_ids[0]][:I_double]
         s_probs = (numerator / np.sum(numerator)) * norm_coeff
         start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
@@ -53,19 +47,18 @@ def get_viterbi_alignment(process_queue, queue):
         tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
         template = np.vstack((tmp, tmp))
         for j in xrange(1, J):
-            t_params_j = t_params.get(f_toks[j], {})
-            translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
-            for i_p, e_tok in enumerate(e_toks):
-                translation_matrix[j][i_p] = t_params_j.get(e_tok, SMALL_PROB_CONST)
-                static = dist_vecs[feature_ids[j][i_p]]
-                for i in xrange(I):
-                    features_i = static[i-i_p]
-                    feature_matrix.rows[i] = features_i
-                    feature_matrix.data[i] = [1.0] * len(features_i)
-                feature_matrix2 = feature_matrix.tocsr()
-                num = np.exp(feature_matrix2.dot(dist_weights))
-                d_probs[j - 1, i_p, :I] = num
-                d_probs[j - 1, i_p + I, :I] = num
+            t_params_j = t_params.get(f_toks[j], None)
+            if t_params_j is not None:
+                translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+            for actual_i_p, running_ip, in enumerate(xrange(I-1, -1, -1)):
+                if t_params_j is not None:
+                    translation_matrix[j][actual_i_p] = t_params_j.get(e_toks[actual_i_p], SMALL_PROB_CONST)
+                all_params = dist_params[feature_ids[j][actual_i_p]]
+                all_I = int((len(all_params)+1) / 2)
+                diff_I = all_I-I
+                tmp = all_params[running_ip+diff_I:running_ip+I+diff_I]
+                d_probs[j - 1, actual_i_p, :I] = tmp
+                d_probs[j - 1, actual_i_p + I, :I] = tmp
 
         dist_probs = ((d_probs / np.sum(d_probs, axis=2)[:, :, np.newaxis]) * norm_coeff) + template
 
@@ -137,8 +130,7 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-params", required=True)
-    arg_parser.add_argument("-vecs", required=True)
-    arg_parser.add_argument("-weights", required=True)
+    arg_parser.add_argument("-convoc_params", required=True)
     arg_parser.add_argument("-out_file", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
@@ -152,8 +144,7 @@ if __name__ == "__main__":
 
     logger.info("Loading parameters.")
     t_params = load_params(args.params)
-    vec_ids = load_vecs(args.vecs)
-    d_weights = load_weights(args.weights)
+    start_params, dist_params = load_convoc_params(args.convoc_params)
 
     pool = []
     for w in xrange(num_workers):
