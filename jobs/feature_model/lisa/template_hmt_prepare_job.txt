@@ -14,7 +14,7 @@ python %(script_dir)s/word_alignment/models/feature_model/get_parameters.py -cor
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Starting feature extraction"
 for f in %(job_name)s.*.sub_feat
  do
- python %(script_dir)s/word_alignment/models/feature_model/extract_features.py -corpus $f -feature_file features.txt &
+ python %(script_dir)s/word_alignment/models/feature_model/extract_features.py -corpus $f -feature_file features.txt -num_workers %(num_workers)s
 done
 wait
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Aggregating features."

@@ -3,18 +3,21 @@ from CorpusReader import CorpusReader
 import numpy as np
 from collections import defaultdict
 from features import max_dict, FeatureStore, ExtractedFeatures
+import multiprocessing as mp
 
 
-def extract_features(corpus, feature_pool, out_file_name):
+def extract_features(feature_pool, process_queue, write_queue, result_queue):
     all_jmp_condition_ids = defaultdict(max_dict)
     all_start_condition_ids = defaultdict(max_dict)
-    outfile = open(out_file_name + ".extracted", "w")
-    for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
 
+    while True:
+        buff = process_queue.get()
+        if buff is None:
+            result_queue.put((all_start_condition_ids, all_jmp_condition_ids))
+            return
 
-        outfile.write(" ".join(map(str, e_toks)) + "\n")
-        outfile.write(" ".join(map(str, f_toks)) + "\n")
-        outfile.write(" ".join(map(str, f_heads)) + "\n")
+        num, (e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order) = buff
+        out = "\n".join([" ".join(map(str, e_toks)), " ".join(map(str, f_toks)), " ".join(map(str, f_heads)), ""])
 
         J = len(f_toks)
         I = len(e_toks)
@@ -61,7 +64,7 @@ def extract_features(corpus, feature_pool, out_file_name):
         all_start_condition_ids[condition_id].add(I)
 
         # do all the writing here
-        outfile.write(condition_id + "\n")
+        out += condition_id + "\n"
 
 
         # rest
@@ -109,14 +112,61 @@ def extract_features(corpus, feature_pool, out_file_name):
                 all_jmp_condition_ids[condition_id].add(I)
 
                 # do all the wirting here
-                outfile.write(condition_id + "\n")
+                out += condition_id + "\n"
 
-        outfile.write("\n")
+
+        write_queue.put((num, out))
+
+
+
+
+def write_corpus(queue):
+    outfile = open(args.corpus + ".extracted", "w")
+    buffer_dict = dict()
+    next_c = 0
+    while True:
+        if next_c in buffer_dict:
+            tmp = buffer_dict[next_c]
+            outfile.write(tmp + "\n")
+            del buffer_dict[next_c]
+            next_c += 1
+            continue
+
+        obj = queue.get()
+        if obj is None:
+            break
+        num, tmp_string = obj
+        if num == next_c:
+            outfile.write(tmp_string + "\n")
+            next_c += 1
+        else:
+            buffer_dict[num] = tmp_string
+
+    while len(buffer_dict) > 0:
+        tmp_string = buffer_dict[next_c]
+        outfile.write(tmp_string + "\n")
+        del buffer_dict[next_c]
+        next_c += 1
 
     outfile.close()
 
+def aggregate(result_queue):
+    all_jmp_condition_ids = defaultdict(max_dict)
+    all_start_condition_ids = defaultdict(max_dict)
+    while True:
+        buff = result_queue.get()
+        if buff is None:
+            break
+        start_condition_ids, jmp_condition_ids = buff
+        for cid in start_condition_ids:
+            max_I = start_condition_ids[cid].get()
+            all_start_condition_ids[cid].add(max_I)
+        for cid in jmp_condition_ids:
+            max_I = jmp_condition_ids[cid].get()
+            all_jmp_condition_ids[cid].add(max_I)
 
-    with open(out_file_name + ".convoc", "w") as outfile:
+
+    with open(args.corpus + ".convoc", "w") as outfile:
         for cid in all_start_condition_ids:
             max_I = all_start_condition_ids[cid].get()
             outfile.write(" ".join(["s", cid, str(max_I)]) + "\n")
@@ -130,12 +180,45 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-feature_file", required=True)
+    arg_parser.add_argument("-num_workers", required=False, type=int, default=4)
     args = arg_parser.parse_args()
     corpus = CorpusReader(args.corpus)
 
     feature_pool = FeatureStore(args.feature_file)
 
-    extract_features(corpus, feature_pool, args.corpus)
 
     with open(args.corpus + ".cons", "w") as outfile:
         outfile.write(feature_pool.get_voc())
+
+    num_workers = max(1, args.num_workers - 1)
+
+    write_queue = mp.Queue()
+    result_queue = mp.Queue()
+    process_queue = mp.Queue(maxsize=num_workers*2)
+
+
+    pool = []
+    for w in xrange(num_workers):
+        p = mp.Process(target=extract_features, args=(feature_pool, process_queue, write_queue, result_queue))
+        p.start()
+        pool.append(p)
+
+    writer = mp.Process(target=write_corpus, args=(write_queue,))
+    writer.start()
+
+    aggregator = mp.Process(target=aggregate, args=(result_queue,))
+    aggregator.start()
+
+    for buff in enumerate(corpus):
+        process_queue.put(buff)
+
+    for _ in pool:
+        process_queue.put(None)
+
+    for p in pool:
+        p.join()
+
+    write_queue.put(None)
+    result_queue.put(None)
+    writer.join()
+    aggregator.join()
