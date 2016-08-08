@@ -6,16 +6,16 @@ cd "$TMPDIR"
 cp %(it0_dir)s/%(job_name)s.corpus.%(part)s.gz corpus.test.gz
 cp %(it0_dir)s/%(job_name)s.order.gz order.gz
 cp %(it_dir)s/%(job_name)s.params.%(part)s.gz params.txt.gz
-cp %(it_dir)s/%(job_name)s.weights weights
-cp %(it0_dir)s/%(job_name)s.vecs vecs
+cp %(it_dir)s/%(job_name)s.convoc.%(part)s.params.gz convoc.params.gz
 gunzip params.txt.gz
 gunzip corpus.test.gz
 gunzip order.gz
+gunzip convoc.params.gz
 
 module load python
 source %(script_dir)s/venv/bin/activate
 
-python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.test  -params params.txt -vecs vecs -weights weights -out_file corpus.aligned -num_workers %(num_workers)s -p_0 %(p_0)s -limit %(align_limit)s
+python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.test  -params params.txt -convoc_params convoc.params -out_file corpus.aligned -num_workers %(num_workers)s -p_0 %(p_0)s -limit %(align_limit)s
 python %(script_dir)s/word_alignment/models/feature_model/reorder_aligned.py -order_file order -aligned_file corpus.aligned
 cp corpus.aligned.reordered %(it_dir)s/%(job_name)s.aligned.%(part)s
 wait

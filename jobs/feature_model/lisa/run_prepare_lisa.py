@@ -51,7 +51,9 @@ def parse_config(config_file):
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../../../'))
     params['num_nodes'] = int(config_dict["num_nodes"])
+    params['num_workers'] = int(config_dict["num_workers"])
     assert params['num_nodes'] > 0
+    assert params['num_workers'] > 0
     params['wall_time'] = config_dict["wall_time"]
 
     return params
