@@ -5,7 +5,7 @@ cd "$TMPDIR"
 
 cp %(it0_dir)s/%(job_name)s.vecs vecs
 cp %(it0_dir)s/%(job_name)s.weights weights
-cp %(it0_dir)s/%(job_name)s.convoc_convoc_list
+cp %(it0_dir)s/%(job_name)s.convoc_list convoc_list
 cp %(it0_dir)s/%(job_name)s.order.gz order.gz
 
 for part in $(seq 1 %(num_nodes)s);
