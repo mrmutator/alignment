@@ -6,7 +6,6 @@ cd "$TMPDIR"
 
 cp %(it0_dir)s/%(job_name)s.corpus.${part}.gz corpus.psnt.gz
 cp %(prev_it_dir)s/%(job_name)s.params.${part}.gz params.txt.gz
-cp %(it0_dir)s/%(job_name)s.convoc.${part}.gz convoc.txt.gz
 cp %(prev_it_dir)s/%(job_name)s.convoc.${part}.params.gz convoc.params.gz
 gunzip params.txt.gz
 gunzip corpus.psnt.gz
@@ -16,7 +15,7 @@ gunzip convoc.params.gz
 module load python
 source %(script_dir)s/venv/bin/activate
 
-python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt -params params.txt -convoc convoc.txt -convoc_params convoc.params -num_workers %(num_workers)s -p_0 %(p_0)s
+python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt -params params.txt -convoc_params convoc.params -num_workers %(num_workers)s -p_0 %(p_0)s
 gzip params.txt.counts
 cp params.txt.counts.gz %(it_dir)s/%(job_name)s.counts.${part}.gz
 wait

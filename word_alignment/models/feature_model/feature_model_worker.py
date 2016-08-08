@@ -33,6 +33,7 @@ def train_iteration(process_queue, queue):
         # set all counts to zero
         lex_counts = Counter()  # (e,f)
         lex_norm = Counter()  # e
+        al_counts = Counter()
 
         I = len(e_toks)
         I_double = 2 * I
@@ -88,7 +89,16 @@ def train_iteration(process_queue, queue):
                 if translation_matrix[j, i] > SMALL_PROB_CONST:
                     lex_counts[(e_tok, f_tok)] += gammas[j][i]
 
-        queue.put((lex_counts, lex_norm, (feature_ids, xis), log_likelihood))
+        con_j0 = feature_ids[0]
+        for i in xrange(I):
+            al_counts[(con_j0, i)] = gammas[0][i]  # start counts
+        for j, ips in enumerate(feature_ids[1:]):
+            xis[j+1][:I,:I] += xis[j+1][I:,:I]
+            for i_p, con in enumerate(ips):
+                for i in xrange(I):
+                    al_counts[(ips[i_p], i-i_p)] += xis[j+1][i_p,i]
+
+        queue.put((lex_counts, lex_norm, al_counts, log_likelihood))
 
 
 def load_params(file_name):
@@ -132,44 +142,22 @@ def load_convoc_params(fname):
     return new_start_params, new_dist_params
 
 
-def aggregate_counts(queue, convoc_file, counts_file):
-    # total = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
-    # total_ll = 0
-
-    with open(convoc_file, "r") as infile:
-        al_counts = dict()
-        start_counts = dict()
-        for line in infile:
-            t, con, max_I = line.split()
-            max_I = int(max_I)
-            if t == "s":
-                start_counts[con] = np.zeros(max_I)
-            elif t == "j":
-                al_counts[con] = np.zeros((max_I, max_I))
-
-    total = [Counter(), Counter()]
+def aggregate_counts(queue,  counts_file):
+    total = [Counter(), Counter(), Counter()]
     total_ll = 0
     while True:
         counts = queue.get()
         if counts is None:
             break
-        for i, c in enumerate(counts[:2]):
+        for i, c in enumerate(counts[:3]):
             total[i].update(c)
         total_ll += counts[-1]
-        statics, xis = counts[2]
-        I = int(len(xis[0])/2)
-        start_counts[statics[0]][:I] += xis[0][:I]
-        for j, ips in enumerate(statics[1:]):
-            xis[j+1][:I,:I] += xis[j+1][I:,:I]
-            for ip, static in enumerate(ips):
-                al_counts[static][ip, :I] += xis[j+1][ip, :I]
-
 
     logger.info("Writing counts to file.")
 
     # store counts
     # types = ["lex_counts", "lex_norm", "al_counts", "al_norm", "start_counts", "start_norm"]
-    types = ["0", "1"]
+    types = ["0", "1", "2"]
     with open(counts_file, "w") as outfile:
         outfile.write("LL:\t" + str(total_ll) + "\n")
         for i, counter in enumerate(total):
@@ -181,15 +169,6 @@ def aggregate_counts(queue, convoc_file, counts_file):
                     k = str(k)
                 v = str(v)
                 outfile.write("\t".join([t, k, v]) + "\n")
-        for con, array in start_counts.iteritems():
-            I = len(array)
-            for i in xrange(I):
-                outfile.write("\t".join(["2", con +" "+str(i), str(array[i])]) + "\n")
-        for con, array in al_counts.iteritems():
-            I = len(array)
-            diagonal_sums = all_traces(array)
-            for i, jmp in enumerate(xrange(-I+1, I)):
-                outfile.write("\t".join(["2", con+" "+str(jmp), str(diagonal_sums[i])]) + "\n")
 
     logger.info("Counts written.")
 
@@ -201,7 +180,6 @@ if __name__ == "__main__":
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-params", required=True)
     arg_parser.add_argument("-convoc_params", required=True)
-    arg_parser.add_argument("-convoc", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=2)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
     SMALL_PROB_CONST = 0.00000001
@@ -212,7 +190,7 @@ if __name__ == "__main__":
 
     update_queue = mp.Queue()
     num_workers = max(1, args.num_workers - 1)
-    updater = mp.Process(target=aggregate_counts, args=(update_queue, args.convoc, counts_file_name))
+    updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
     updater.start()
     process_queue = mp.Queue(maxsize=num_workers*2)
 

@@ -26,7 +26,7 @@ do
   for part in $(seq 1 %(num_nodes)s);
   do
    >&2 echo "Starting E-Step " ${part};
-   python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -convoc convoc.${part} -convoc_params convoc.${part}.params -num_workers %(num_workers)s -p_0 %(p_0)s
+   python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -convoc_params convoc.${part}.params -num_workers %(num_workers)s -p_0 %(p_0)s
    mv params.${part}.counts params.counts.${part}
   done
  # update
