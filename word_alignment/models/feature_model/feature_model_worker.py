@@ -24,16 +24,18 @@ def train_iteration(process_queue, queue):
     p_0 = args.p_0
     norm_coeff = 1.0 - p_0
     SMALL_PROB_CONST = 0.00000001
+    lex_counts = Counter()  # (e,f)
+    lex_norm = Counter()  # e
+    al_counts = Counter()
+    ll = 0
     while True:
         buffer = process_queue.get()
         if buffer is None:
+            queue.put((lex_counts, lex_norm, al_counts, ll))
             return
 
         e_toks, f_toks, f_heads, feature_ids = buffer
         # set all counts to zero
-        lex_counts = Counter()  # (e,f)
-        lex_norm = Counter()  # e
-        al_counts = Counter()
 
         I = len(e_toks)
         I_double = 2 * I
@@ -98,7 +100,7 @@ def train_iteration(process_queue, queue):
                 for i in xrange(I):
                     al_counts[(ips[i_p], i-i_p)] += xis[j+1][i_p,i]
 
-        queue.put((lex_counts, lex_norm, al_counts, log_likelihood))
+        ll += log_likelihood
 
 
 def load_params(file_name):
