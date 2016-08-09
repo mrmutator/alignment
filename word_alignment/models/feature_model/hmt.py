@@ -8,7 +8,7 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, marginals):
     # trans_probs = J x 2I for the translation probabilities
     # the gamma here is the xi in the Kondo paper (single posterior)
     # the xi here is the p(aj|a_pa(j)) (double posterior) in the Kondo paper
-
+    SMALL_CONST = 0.0000000000000000001
     # compute marginals
 
     for j in xrange(1, J):
@@ -22,6 +22,8 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, marginals):
     for j in xrange(J - 1, 0, -1):
         numerator = prod[j] * translation_matrix[j] * marginals[j]
         N_j = np.sum(numerator)
+        if N_j == 0:
+            N_j = SMALL_CONST
         log_likelihood += np.log(N_j)
         betas[j] = np.divide(numerator, N_j)
         betas_p[j] = np.dot(dist_probs[j - 1], (betas[j] / marginals[j]))
@@ -30,6 +32,8 @@ def upward_downward(J, I, heads, translation_matrix, dist_probs, marginals):
     # j=0
     numerator = prod[0] * translation_matrix[0] * marginals[0]
     N_j = np.sum(numerator)
+    if N_j == 0:
+        N_j = SMALL_CONST
     log_likelihood += np.log(N_j)
     betas[0] = np.divide(numerator, N_j)
 
