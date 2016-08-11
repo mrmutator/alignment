@@ -191,11 +191,11 @@ if __name__ == "__main__":
             ll += buffer_ll
             grad_ll += buffer_grad_ll
 
-            # l2-norm:
-            l2_norm = np.linalg.norm(d_weights)
-            ll -= kappa * l2_norm
+        # l2-norm:
+        l2_norm = np.linalg.norm(d_weights)
+        ll -= kappa * l2_norm
 
-            grad_ll -= 2 * kappa * d_weights
+        grad_ll -= 2 * kappa * d_weights
         return -ll, -grad_ll
 
 
