@@ -77,23 +77,22 @@ class SubcorpusReader(object):
         self.reset()
         c = 0
         while True:
-            e_toks = map(int, self.corpus_file.readline().split())
-            f_toks = map(int, self.corpus_file.readline().split())
-            if not f_toks:
+            I = self.corpus_file.readline().strip()
+            if not I:
                 break
+            I = int(I)
             f_heads = map(int, self.corpus_file.readline().split())
             gold_aligned = map(int, self.corpus_file.readline().split())
-            J = len(f_toks)
+            J = len(f_heads)
             feature_sets = [None] * J
-            feature_sets[0] = self.corpus_file.readline().strip()
-            I =len(e_toks)
+            feature_sets[0] = self.corpus_file.readline().split()
             for j in xrange(1, J):
-                j_sets = [None] * I
-                for i in xrange(I):
-                    j_sets[i] = self.corpus_file.readline().strip()
+                j_sets = [None] * (I+1)
+                for i in xrange(I+1):
+                    j_sets[i] = self.corpus_file.readline().split()
                 feature_sets[j] = j_sets
             self.corpus_file.readline()
-            yield (e_toks, f_toks, f_heads, gold_aligned, feature_sets)
+            yield (I, f_heads, gold_aligned, feature_sets)
             c += 1
 
 
