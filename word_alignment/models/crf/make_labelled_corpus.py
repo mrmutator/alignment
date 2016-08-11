@@ -80,9 +80,9 @@ def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences):
         alignment = []
         for f in xrange(1, len(f_toks)+1):
             if not als[f]:
-                alignment.append(-1)
+                alignment.append(0)
             else:
-                alignment.append(min(als[f])-1)
+                alignment.append(min(als[f]))
 
         # produce subcorpus file
         outfile_corpus.write(" ".join(map(str, e_toks)) + "\n")
