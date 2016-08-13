@@ -74,7 +74,7 @@ def predict(process_queue, result_queue):
                 alignment.append(best[j][alignment[head]])
 
         # alignment = [(al, order[j]) for j, al in enumerate(alignment) if al < I]
-        alignment = [(al, j) for j, al in enumerate(alignment) if al > 0]
+        alignment = [(al-1, j) for j, al in enumerate(alignment) if al > 0]
 
 
         result_queue.put((num, alignment))

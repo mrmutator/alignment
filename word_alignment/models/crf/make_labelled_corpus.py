@@ -111,6 +111,12 @@ def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences, ibm
             else:
                 alignment.append(min(als[f]))
 
+        # reorder alignment
+        reordered_alignment = []
+        for o in order:
+            reordered_alignment.append(alignment[o])
+
+
         # compute ibm1-features
         best_ibm1 = []
         for e_tok in [0] + e_toks:
@@ -131,7 +137,7 @@ def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences, ibm
         outfile_corpus.write(" ".join(map(str, rel)) + "\n")
         outfile_corpus.write(" ".join(map(str, hmm_transitions)) + "\n")
         outfile_corpus.write(" ".join(map(str, order)) + "\n")
-        outfile_corpus.write(" ".join(map(str, alignment)) + "\n")
+        outfile_corpus.write(" ".join(map(str, reordered_alignment)) + "\n")
         outfile_corpus.write(" ".join(map(str, best_ibm1)) + "\n")
         outfile_corpus.write(" ".join(e_str) + "\n")
         outfile_corpus.write(" ".join(f_str) + "\n")
