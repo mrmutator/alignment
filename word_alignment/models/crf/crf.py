@@ -44,7 +44,6 @@ def datapoint_worker(process_queue, result_queue):
         feature_matrices[0].append(start_feature_matrix)
         marginals[0] = np.exp(start_feature_matrix.dot(weights))
 
-        #marginals[0] = (numerator / np.sum(numerator))
         gold_ll += np.log(marginals[0, gold_aligned[0]])
         empirical_expectation += start_feature_matrix[gold_aligned[0]].toarray().flatten()
 
@@ -154,7 +153,10 @@ def predict(process_queue, result_queue):
 
         result_queue.put((correct, wrong))
 
-
+def write_weight_file(out_file_name, weights):
+    with open(out_file_name, "w") as outfile:
+        for w_id, w in enumerate(weights):
+            outfile.write(str(w_id) + " " + str(w) + "\n")
 
 #############################################
 # main
@@ -249,6 +251,9 @@ if __name__ == "__main__":
     final_acc = evaluate(optimized_weights)
     logger.info("Initial accuracy: " + str(initial_acc))
     logger.info("Final accuracy: " + str(final_acc))
+
+
+    write_weight_file(args.weights + ".optimized", optimized_weights)
 
 
     for p in pool:

@@ -56,7 +56,7 @@ class Vectors(object):
 def extract_features(corpus, outfile_name):
     all_features = Features()
     all_vectors = Vectors()
-    outfile = open(outfile_name + ".extracted", "w")
+    outfile = open(outfile_name, "w")
     for (e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order, gold_alignment, ibm1_best, e_str, f_str) in corpus:
         J = len(f_toks)
         I = len(e_toks)
@@ -163,7 +163,7 @@ def extract_features(corpus, outfile_name):
                         f_ids.append(fid)
                     vec_id = all_vectors.add_vector(frozenset(f_ids))
                     ip_vecs.append(vec_id)
-                outfile.write(" ".join(map(str, start_vecs)) + "\n")
+                outfile.write(" ".join(map(str, ip_vecs)) + "\n")
         outfile.write("\n")
 
     outfile.close()
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-corpus", required=True)
     args = arg_parser.parse_args()
     corpus = AnnotatedCorpusReader(args.corpus)
-    extract_features(corpus, "corpus")
+    extract_features(corpus, args.corpus + ".extracted")
 
 
 
