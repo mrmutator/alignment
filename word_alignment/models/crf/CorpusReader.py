@@ -46,9 +46,12 @@ class AnnotatedCorpusReader(object):
         b = 0
         for line in self.corpus_file:
             if b != -1:
-                buffer.append(map(int, line.strip().split()))
+                if b < 9:
+                    buffer.append(map(int, line.strip().split()))
+                else:
+                    buffer.append(line.strip().split())
             b += 1
-            if b == 8:
+            if b == 11:
                 yield buffer
                 c += 1
                 b = -1

@@ -1,6 +1,30 @@
 import argparse
 from CorpusReader import CorpusReader
-from collections import defaultdict
+import numpy as np
+import codecs
+
+def load_ibm1(t_file):
+    t_dict = dict()
+    with open(t_file, "r") as infile:
+        for line in infile:
+            e, f, p = line.strip().split()
+            e = int(e)
+            f = int(f)
+            if e not in t_dict:
+                t_dict[e] = dict()
+            t_dict[e][f] = float(p)
+
+    return t_dict
+
+def load_vcb(vcb_file):
+    vcb = dict()
+    with codecs.open(vcb_file, "r", "utf-8") as infile:
+        for line in infile:
+            i, w, _ = line.split()
+            vcb[int(i)] = w
+    vcb[0] = "#NULL#"
+    return vcb
+
 
 class LazyFile(object):
     def __init__(self, file_name):
@@ -8,7 +32,7 @@ class LazyFile(object):
         self.f = None
 
     def write(self, buffer):
-        self.f = open(self.file_name, "wb")
+        self.f = codecs.open(self.file_name, "w", "utf-8")
         self.f.write(buffer)
         self.write = self.__write
 
@@ -64,13 +88,16 @@ class GoldFile(object):
         return self.__iter_sent()
 
 
-def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences):
+def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences, ibm1_table, e_voc, f_voc):
     subset_id = 1
     outfile_corpus = LazyFile(file_prefix + "." + str(subset_id) + ".sub_feat")
     order_file = open(file_prefix + ".order", "w")
     subset_c = 0
     for gold_als in gold_file:
         e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order = corpus.next()
+
+        e_str = map(e_voc.__getitem__, e_toks)
+        f_str = map(f_voc.__getitem__, f_toks)
         subset_c += 1
 
         als = {f:set() for f in xrange(1, len(f_toks)+1)}
@@ -84,6 +111,18 @@ def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences):
             else:
                 alignment.append(min(als[f]))
 
+        # compute ibm1-features
+        best_ibm1 = []
+        for e_tok in [0] + e_toks:
+            ibm1_e = ibm1_table.get(e_tok, {})
+            scores = []
+            for j, f_tok in enumerate(f_toks):
+                scores.append(ibm1_e.get(f_tok, 0.000000000001))
+            best_j = np.argmax(scores)
+            best_ibm1.append(best_j)
+
+
+
         # produce subcorpus file
         outfile_corpus.write(" ".join(map(str, e_toks)) + "\n")
         outfile_corpus.write(" ".join(map(str, f_toks)) + "\n")
@@ -93,6 +132,9 @@ def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences):
         outfile_corpus.write(" ".join(map(str, hmm_transitions)) + "\n")
         outfile_corpus.write(" ".join(map(str, order)) + "\n")
         outfile_corpus.write(" ".join(map(str, alignment)) + "\n")
+        outfile_corpus.write(" ".join(map(str, best_ibm1)) + "\n")
+        outfile_corpus.write(" ".join(e_str) + "\n")
+        outfile_corpus.write(" ".join(f_str) + "\n")
         outfile_corpus.write("\n")
         order_file.write(" ".join(map(str, order)) + "\n")
 
@@ -115,6 +157,10 @@ if __name__ == "__main__":
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-gold", required=True)
     arg_parser.add_argument("-output_prefix", required=True)
+    arg_parser.add_argument("-ibm1_table", required=True)
+    arg_parser.add_argument("-e_voc", required=True)
+    arg_parser.add_argument("-f_voc", required=True)
+
     arg_parser.add_argument("-gold_order", required=True, type=str, default="ef")
     arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
     args = arg_parser.parse_args()
@@ -122,4 +168,8 @@ if __name__ == "__main__":
     corpus = CorpusReader(args.corpus)
     gold_file = GoldFile(args.gold, order=args.gold_order)
 
-    split_data_get_parameters(corpus, gold_file, args.output_prefix, args.group_size)
+    ibm1_table = load_ibm1(args.ibm1_table)
+    e_vocab = load_vcb(args.e_voc)
+    f_vocab = load_vcb(args.f_voc)
+
+    split_data_get_parameters(corpus, gold_file, args.output_prefix, args.group_size, ibm1_table, e_vocab, f_vocab)
