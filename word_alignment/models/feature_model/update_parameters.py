@@ -129,6 +129,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-vecs", required=True)
     arg_parser.add_argument("-kappa", required=True, type=float)
+    arg_parser.add_argument("-lbfgs_maxiter", required=False, type=int, default=15000)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=3)
 
     args = arg_parser.parse_args()
@@ -202,7 +203,7 @@ if __name__ == "__main__":
     original_weights = np.array(d_weights)
     initial_ll, _ = objective_func(original_weights)
 
-    optimized_weights, best_ll, _ = fmin_l_bfgs_b(objective_func, np.array(d_weights), m=10, iprint=1)
+    optimized_weights, best_ll, _ = fmin_l_bfgs_b(objective_func, np.array(d_weights), m=10, iprint=1, maxiter=args.lbfgs_maxiter)
     logger.info("Optimization done.")
     logger.info("Initial likelihood: " + str(-initial_ll))
     logger.info("Best likelihood: " + str(-best_ll))
