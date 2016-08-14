@@ -13,11 +13,23 @@ def random_weight():
 
 class Features(object):
 
-    def __init__(self):
-        self.i = 0
+    def __init__(self, fname=None):
+        self.i = 1
         self.fdict = dict()
+        self.fdict["empty_feature"] = 0
+        self.add_feature = self.__build_features
+        if fname:
+            self.fdict = dict()
+            with open(fname, "r") as infile:
+                for line in infile:
+                    fid, f = line.split()
+                    self.fdict[f] = int(fid)
+            self.add_feature = self.__return_only
 
-    def add_feature(self, feature):
+    def __return_only(self, feature):
+        return self.fdict.get(feature, None)
+
+    def __build_features(self, feature):
         if feature in self.fdict:
             f_index = self.fdict[feature]
         else:
@@ -53,8 +65,8 @@ class Vectors(object):
         for k in sorted(self.vecdict, key=self.vecdict.get):
             yield str(self.vecdict[k]) + " " + " ".join(map(str, k)) + "\n"
 
-def extract_features(corpus, outfile_name):
-    all_features = Features()
+def extract_features(corpus, outfile_name, fvoc):
+    all_features = Features(fname=fvoc)
     all_vectors = Vectors()
     outfile = open(outfile_name, "w")
     for (e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order, gold_alignment, ibm1_best, e_str, f_str) in corpus:
@@ -91,7 +103,7 @@ def extract_features(corpus, outfile_name):
 
         start_vecs = []
         for i in xrange(I_ext):
-            f_ids = []
+            f_ids = [0]
             start_features_single_i = []
             start_features_single_i.append("rsp=" + str(float(i)/I))
             if ibm1_best[i] == 0:
@@ -111,7 +123,8 @@ def extract_features(corpus, outfile_name):
 
             for sf in start_features_single + start_features_single_i:
                 fid = all_features.add_feature(sf + ",eaj=" + str(e_ext[i]))
-                f_ids.append(fid)
+                if fid is not None:
+                    f_ids.append(fid)
             vec_id = all_vectors.add_vector(frozenset(f_ids))
             start_vecs.append(vec_id)
         outfile.write(" ".join(map(str, start_vecs)) + "\n")
@@ -134,7 +147,7 @@ def extract_features(corpus, outfile_name):
             for ip in xrange(I_ext):
                 ip_vecs = []
                 for i in xrange(I_ext):
-                    f_ids = []
+                    f_ids = [0]
                     j_features_single_i = []
                     j_features_pair_i = []
                     j_features_single_i.append("rsp=" + str(float(i) / I))
@@ -157,10 +170,12 @@ def extract_features(corpus, outfile_name):
 
                     for jf in j_features_single + j_features_single_i:
                         fid = all_features.add_feature(jf + ",eaj=" + str(e_ext[i]))
-                        f_ids.append(fid)
+                        if fid is not None:
+                            f_ids.append(fid)
                     for jf in j_features_pair_i:
                         fid = all_features.add_feature(jf + ",eaj=" + str(e_ext[i]) + ",eajp=" + str(e_ext[ip]))
-                        f_ids.append(fid)
+                        if fid is not None:
+                            f_ids.append(fid)
                     vec_id = all_vectors.add_vector(frozenset(f_ids))
                     ip_vecs.append(vec_id)
                 outfile.write(" ".join(map(str, ip_vecs)) + "\n")
@@ -171,21 +186,23 @@ def extract_features(corpus, outfile_name):
         for s in all_vectors.get_voc():
             outfile.write(s)
 
-    with open(outfile_name + ".fvoc", "w") as outfile:
-        for s in all_features.get_voc():
-            outfile.write(s)
+    if not fvoc:
+        with open(outfile_name + ".fvoc", "w") as outfile:
+            for s in all_features.get_voc():
+                outfile.write(s)
 
-    with open(outfile_name + ".weights", "w") as outfile:
-        for i, s in enumerate(all_features.generate_weights()):
-            outfile.write(" ".join(map(str, [i,s])) + "\n")
+        with open(outfile_name + ".weights", "w") as outfile:
+            for i, s in enumerate(all_features.generate_weights()):
+                outfile.write(" ".join(map(str, [i,s])) + "\n")
 
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
+    arg_parser.add_argument("-fvoc", required=False, default="")
     args = arg_parser.parse_args()
     corpus = AnnotatedCorpusReader(args.corpus)
-    extract_features(corpus, args.corpus + ".extracted")
+    extract_features(corpus, args.corpus + ".extracted", args.fvoc)
 
 
 

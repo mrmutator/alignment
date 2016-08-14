@@ -74,12 +74,12 @@ class GoldFile(object):
             e, f = self.order(x,y)
             if int(snt) == prev:
                 if t == "S" or not self.sure_only:
-                    buffer.append((e,f))
+                    buffer.append((e,f, t))
             else:
                 yield buffer
                 buffer = []
                 if t == "S" or not self.sure_only:
-                    buffer.append((e,f))
+                    buffer.append((e,f, t))
                 prev = int(snt)
 
         yield buffer
@@ -88,10 +88,9 @@ class GoldFile(object):
         return self.__iter_sent()
 
 
-def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences, ibm1_table, e_voc, f_voc):
-    subset_id = 1
-    outfile_corpus = LazyFile(file_prefix + "." + str(subset_id) + ".sub_feat")
-    order_file = open(file_prefix + ".order", "w")
+def split_data_get_parameters(corpus, gold_file, file_prefix, train_sentences, ibm1_table, e_voc, f_voc):
+    outfile_corpus = LazyFile(file_prefix + ".training")
+    order_file = LazyFile(file_prefix + ".training.order")
     subset_c = 0
     for gold_als in gold_file:
         e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order = corpus.next()
@@ -101,7 +100,7 @@ def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences, ibm
         subset_c += 1
 
         als = {f:set() for f in xrange(1, len(f_toks)+1)}
-        for (e,f) in gold_als:
+        for (e,f, _) in gold_als:
             als[f].add(e)
 
         alignment = []
@@ -145,15 +144,32 @@ def split_data_get_parameters(corpus, gold_file, file_prefix, num_sentences, ibm
         order_file.write(" ".join(map(str, order)) + "\n")
 
 
-        if subset_c == num_sentences:
-            subset_id += 1
-            subset_c = 0
+        if subset_c == train_sentences:
             outfile_corpus.close()
-            outfile_corpus = open(file_prefix + "." + str(subset_id) + ".sub_feat", "w")
+            order_file.close()
+            outfile_corpus = LazyFile(file_prefix + ".test")
+            order_file = LazyFile(file_prefix + ".test.order")
 
     outfile_corpus.close()
     order_file.close()
 
+def write_gold_files(gold_file, training_size, output_prefix):
+    gold_file.sure_only = False
+    gold_file.reset()
+    out_file = LazyFile(output_prefix + ".training")
+    c = 0
+    ct = 0
+    for gold_als in gold_file:
+        c += 1
+        ct += 1
+        for al in gold_als:
+            out_file.write(" ".join([str(ct)] + map(str, list(al))) + "\n")
+
+        if c == training_size:
+            ct = 0
+            out_file.close()
+            out_file = LazyFile(output_prefix + ".test")
+    out_file.close()
 
 
 
@@ -162,20 +178,21 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-corpus", required=True)
     arg_parser.add_argument("-gold", required=True)
-    arg_parser.add_argument("-output_prefix", required=True)
     arg_parser.add_argument("-ibm1_table", required=True)
     arg_parser.add_argument("-e_voc", required=True)
     arg_parser.add_argument("-f_voc", required=True)
-
+    arg_parser.add_argument("-training_size", required=True, type=int)
     arg_parser.add_argument("-gold_order", required=True, type=str, default="ef")
-    arg_parser.add_argument("-group_size", required=False, type=int, default=-1)
+    arg_parser.add_argument('-include_p', action='store_true', required=False)
     args = arg_parser.parse_args()
 
     corpus = CorpusReader(args.corpus)
-    gold_file = GoldFile(args.gold, order=args.gold_order)
+    gold_file = GoldFile(args.gold, order=args.gold_order, sure_only= not args.include_p)
 
     ibm1_table = load_ibm1(args.ibm1_table)
     e_vocab = load_vcb(args.e_voc)
     f_vocab = load_vcb(args.f_voc)
 
-    split_data_get_parameters(corpus, gold_file, args.output_prefix, args.group_size, ibm1_table, e_vocab, f_vocab)
+    split_data_get_parameters(corpus, gold_file, args.corpus + ".labelled", args.training_size, ibm1_table, e_vocab, f_vocab)
+
+    write_gold_files(gold_file, args.training_size, args.gold)
