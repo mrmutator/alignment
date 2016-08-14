@@ -10,17 +10,6 @@ def get_file_length(f):
             c += 1
     return c
 
-def check_num_nodes_group_size(params):
-    psnt = params['psnt']
-    raw_length = get_file_length(psnt)
-    file_length = raw_length / 8
-    assert raw_length % 8 == 0
-    covered = params["group_size"] * params["num_nodes"]
-    if file_length > covered:
-        raise Exception("Current group_size / number of node configuration does not cover entire corpus file.")
-    if np.ceil(float(file_length) / params["group_size"]) < params["num_nodes"]:
-        raise Exception("Too many nodes specified for current configuration.")
-
 def check_paths(params):
     check_list = ["psnt", "ibm1_table", "e_voc", "f_voc", "script_dir", "gold_file"]
     for c in check_list:
@@ -89,7 +78,6 @@ if not args.config_file:
 else:
     params = parse_config(args.config_file)
     check_paths(params)
-    check_num_nodes_group_size(params)
 
     # make directories
     make_it0_directories(params['result_dir'])
