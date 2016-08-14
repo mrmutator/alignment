@@ -1,43 +1,62 @@
-from collections import defaultdict
 import numpy as np
+import random
+
+def random_weight():
+    return random.uniform(-1, 1)
 
 class Features(object):
-    # static and dynamic features
-    # static ones are stored in subcorpus file so they don't need to be extracted again
-    # dynamic ones need to be accounted for (reserve a spot in feature vector) and generate weights
 
-    def __init__(self):
-        self.feature_num = 0
-        self.feature_dict = dict()
+    def __init__(self, fname=None):
+        self.i = 1
+        self.fdict = dict()
+        self.fdict["empty_feature"] = 0
+        self.add_feature = self.__build_features
+        if fname:
+            self.fdict = dict()
+            with open(fname, "r") as infile:
+                for line in infile:
+                    fid, f = line.split()
+                    self.fdict[f] = int(fid)
+            self.add_feature = self.__return_only
 
-    def add(self, feat):
-        if feat not in self.feature_dict:
-            self.feature_dict[feat] = self.feature_num
-            self.feature_num += 1
-        return self.feature_dict[feat]
+    def __return_only(self, feature):
+        return self.fdict.get(feature, None)
 
-    def get_feat_id(self, feat):
-        return self.feature_dict[feat]
+    def __build_features(self, feature):
+        if feature in self.fdict:
+            f_index = self.fdict[feature]
+        else:
+            self.fdict[feature] = self.i
+            f_index = self.i
+            self.i += 1
+        return f_index
 
     def get_voc(self):
-        output = ""
-        for k in sorted(self.feature_dict, key=self.feature_dict.get):
-            output += str(self.feature_dict[k]) + "\t" + " ".join(map(str, k)) + "\n"
-        return output
+        for k in sorted(self.fdict, key=self.fdict.get):
+            yield str(self.fdict[k]) + " " +  k + "\n"
 
-class MaxDict(object):
+    def generate_weights(self):
+        for _ in self.fdict:
+            yield random_weight()
+
+class Vectors(object):
 
     def __init__(self):
-        self.max = 0
+        self.i = 0
+        self.vecdict = dict()
 
-    def add(self, v):
-        if v > self.max:
-            self.max = v
-    def get(self):
-        return self.max
+    def add_vector(self, id_set):
+        if id_set in self.vecdict:
+            vec_index = self.vecdict[id_set]
+        else:
+            self.vecdict[id_set] = self.i
+            vec_index = self.i
+            self.i += 1
+        return vec_index
 
-def max_dict():
-    return MaxDict()
+    def get_voc(self):
+        for k in sorted(self.vecdict, key=self.vecdict.get):
+            yield str(self.vecdict[k]) + " " + " ".join(map(str, k)) + "\n"
 
 
 def load_vecs(file_name):

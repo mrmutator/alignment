@@ -1,69 +1,12 @@
 import argparse
 from CorpusReader import AnnotatedCorpusReader
 import numpy as np
-import random
 import re
+from features import Features, Vectors
 
 def anti_vowel(s):
     result = re.sub(r'[AEIOU]', '', s, flags=re.IGNORECASE)
     return result
-
-def random_weight():
-    return random.uniform(-1, 1)
-
-class Features(object):
-
-    def __init__(self, fname=None):
-        self.i = 1
-        self.fdict = dict()
-        self.fdict["empty_feature"] = 0
-        self.add_feature = self.__build_features
-        if fname:
-            self.fdict = dict()
-            with open(fname, "r") as infile:
-                for line in infile:
-                    fid, f = line.split()
-                    self.fdict[f] = int(fid)
-            self.add_feature = self.__return_only
-
-    def __return_only(self, feature):
-        return self.fdict.get(feature, None)
-
-    def __build_features(self, feature):
-        if feature in self.fdict:
-            f_index = self.fdict[feature]
-        else:
-            self.fdict[feature] = self.i
-            f_index = self.i
-            self.i += 1
-        return f_index
-
-    def get_voc(self):
-        for k in sorted(self.fdict, key=self.fdict.get):
-            yield str(self.fdict[k]) + " " +  k + "\n"
-
-    def generate_weights(self):
-        for _ in self.fdict:
-            yield random_weight()
-
-class Vectors(object):
-
-    def __init__(self):
-        self.i = 0
-        self.vecdict = dict()
-
-    def add_vector(self, id_set):
-        if id_set in self.vecdict:
-            vec_index = self.vecdict[id_set]
-        else:
-            self.vecdict[id_set] = self.i
-            vec_index = self.i
-            self.i += 1
-        return vec_index
-
-    def get_voc(self):
-        for k in sorted(self.vecdict, key=self.vecdict.get):
-            yield str(self.vecdict[k]) + " " + " ".join(map(str, k)) + "\n"
 
 def extract_features(corpus, outfile_name, fvoc):
     all_features = Features(fname=fvoc)

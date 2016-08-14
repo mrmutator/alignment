@@ -1,0 +1,55 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=%(wall_time)s
+cd "$TMPDIR"
+
+cp  %(psnt)s corpus.psnt
+cp %(ibm1_table)s ibm1.table
+cp %(e_voc)s e.vcb
+cp %(f_voc)s f.vcb
+cp %(gold_file)s gold_file
+
+
+crpsize="$(tail -1 gold.filtered | cut --delimiter=" " -f1)"
+linem="$((crpsize*8))"
+head -n ${linem} ef.psnt > corpus.psnt
+
+
+module load python
+source %(script_dir)s/venv/bin/activate
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Labelling corpus"
+python %(script_dir)s/word_alignment/models/crf/make_labelled_corpus.py -corpus corpus.psnt -gold gold_file -ibm1_table ibm1.table -e_voc e.vcb -f_voc f.vcb -gold_order %(gold_order)s -training_size %(training_size)s
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Feature extraction training"
+python %(script_dir)s/word_alignment/models/crf/extract_features.py -corpus corpus.psnt.labelled.training
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Feature extraction test"
+python %(script_dir)s/word_alignment/models/crf/extract_features.py -corpus corpus.psnt.labelled.test -fvoc corpus.psnt.labelled.training.extracted.fvoc
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Training feature weights"
+python %(script_dir)s/word_alignment/models/crf/crf.py -corpus corpus.psnt.labelled.training.extracted -num_workers %(num_workers) -sigma %(sigma)s  -weights corpus.psnt.labelled.training.extracted.weights -vecs corpus.psnt.labelled.training.extracted.vecs > training.log 2> results.txt
+
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Predict alignment test corpus"
+python %(script_dir)s/word_alignment/models/crf/viterbi.py -corpus corpus.psnt.labelled.test.extracted -weights corpus.psnt.labelled.training.extracted.weights.optimized -vecs corpus.psnt.labelled.test.extracted.vecs -out_file test.aligned
+python %(script_dir)s/word_alignment/models/crf/reorder_aligned.py -order_file corpus.psnt.labelled.test.order -aligned_file test.aligned
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Predict alignment training corpus"
+python %(script_dir)s/word_alignment/models/crf/viterbi.py -corpus corpus.psnt.labelled.training.extracted -weights corpus.psnt.labelled.training.extracted.weights.optimized -vecs corpus.psnt.labelled.training.extracted.vecs -out_file training.aligned
+python %(script_dir)s/word_alignment/models/crf/reorder_aligned.py -order_file corpus.psnt.labelled.training.order -aligned_file training.aligned
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Evaluating alignments."
+echo "Test set: " >> results.txt
+python %(script_dir)s/word_alignment/utils/evaluate.py -gold gold_file.test -test_files test.aligned.reordered >> results.txt
+echo "Training set: " >> results.txt
+python %(script_dir)s/word_alignment/utils/evaluate.py -gold gold_file.training -test_files training.aligned.reordered >> results.txt
+
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Copying files."
+cp corpus.psnt.labelled.* %(result_dir)s/
+cp gold_file.* %(result_dir)s/
+cp *.aligned.reordered %(result_dir)s/
+cp results.txt %(result_dir)s/
+cp training.log %(result_dir)s/
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Done."
