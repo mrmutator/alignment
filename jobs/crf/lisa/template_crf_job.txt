@@ -3,7 +3,7 @@
 #PBS -lwalltime=%(wall_time)s
 cd "$TMPDIR"
 
-cp  %(psnt)s corpus.psnt
+cp  %(psnt)s ef.psnt
 cp %(ibm1_table)s ibm1.table
 cp %(e_voc)s e.vcb
 cp %(f_voc)s f.vcb
