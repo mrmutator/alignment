@@ -31,7 +31,7 @@ do
   done
  # update
  >&2 echo "Starting M-step";
- python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -vecs vecs -kappa %(kappa)s -num_workers %(num_workers)s > ll.${it}.log
+ python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -vecs vecs -kappa %(kappa)s -num_workers %(num_workers)s -lbfgs_maxiter %(lbfgs_maxiter)s > ll.${it}.log
  rename "s/^params.params/new_params/" params.params.*
  rm params.*
  rm weights
@@ -46,6 +46,7 @@ do
  cp params.* %(result_dir)s/
  cp convoc.*.params %(result_dir)s/
  cp weights %(result_dir)s/
+ cp ll.${it}.log %(result_dir)s/
  # evaluate
  >&2 echo "Aligning corpus";
  for part in $(seq 1 %(align_parts)s);

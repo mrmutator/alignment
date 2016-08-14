@@ -33,6 +33,7 @@ def parse_config(config_file):
     params['p_0'] = float(config_dict["p_0"])
     params['kappa'] = float(config_dict["kappa"])
     params['num_nodes'] = int(config_dict["num_nodes"])
+    params['lbfgs_maxiter'] = int(config_dict["lbfgs_maxiter"])
     assert params['num_nodes'] > 0
 
     params["align_limit"] = int(config_dict["align_limit"])

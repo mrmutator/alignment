@@ -67,7 +67,6 @@ def compute_lr_worker(process_queue, update_queue):
             feature_matrix.data[i] = [1.0] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
         numerator = np.exp(feature_matrix.dot(dist_weights))
-
         update_queue.put((t, con, numerator))
 
 def write_params(fh, t, con, start_i, values):

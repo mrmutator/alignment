@@ -41,15 +41,13 @@ def train_iteration(process_queue, queue):
         I_double = 2 * I
         J = len(f_toks)
 
-        translation_matrix = np.zeros((J, I_double)) * SMALL_PROB_CONST
+        translation_matrix = np.ones((J, I_double)) * SMALL_PROB_CONST
         marginals = np.zeros((J, I_double))
 
         # start probs
         # i_p is 0 for start_probs
         t_params_j = t_params.get(f_toks[0], None)
-        if t_params_j is None:
-            translation_matrix[0] = SMALL_PROB_CONST
-        else:
+        if t_params_j is not None:
             for i, e_tok in enumerate(e_toks):
                 translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
             translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
