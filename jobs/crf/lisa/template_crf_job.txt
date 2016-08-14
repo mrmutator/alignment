@@ -10,7 +10,7 @@ cp %(f_voc)s f.vcb
 cp %(gold_file)s gold_file
 
 
-crpsize="$(tail -1 gold.filtered | cut --delimiter=" " -f1)"
+crpsize="$(tail -1 gold_file | cut --delimiter=" " -f1)"
 linem="$((crpsize*8))"
 head -n ${linem} ef.psnt > corpus.psnt
 
@@ -28,7 +28,7 @@ date +"%(pr)sH:%(pr)sM:%(pr)sS> Feature extraction test"
 python %(script_dir)s/word_alignment/models/crf/extract_features.py -corpus corpus.psnt.labelled.test -fvoc corpus.psnt.labelled.training.extracted.fvoc
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Training feature weights"
-python %(script_dir)s/word_alignment/models/crf/crf.py -corpus corpus.psnt.labelled.training.extracted -num_workers %(num_workers) -sigma %(sigma)s  -weights corpus.psnt.labelled.training.extracted.weights -vecs corpus.psnt.labelled.training.extracted.vecs > training.log 2> results.txt
+python %(script_dir)s/word_alignment/models/crf/crf.py -corpus corpus.psnt.labelled.training.extracted -num_workers %(num_workers)s -sigma %(sigma)s  -weights corpus.psnt.labelled.training.extracted.weights -vecs corpus.psnt.labelled.training.extracted.vecs > training.log 2> results.txt
 
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Predict alignment test corpus"
