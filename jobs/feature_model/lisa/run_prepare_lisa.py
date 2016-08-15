@@ -58,6 +58,8 @@ def parse_config(config_file):
     assert params['num_nodes'] > 0
     assert params['num_workers'] > 0
     params['wall_time'] = config_dict["wall_time"]
+    assert config_dict["uniform_parameters"].lower() in ["true", "false"]
+    params['uniform'] =  "-uniform" if config_dict["uniform_parameters"].lower() == "true" else ""
 
     return params
 

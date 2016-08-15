@@ -9,11 +9,20 @@ from features import max_dict
 def random_weight():
     return random.uniform(-1, 1)
 
+def uniform_weight():
+    return 0.5
+
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-dir", required=True)
+    arg_parser.add_argument("-uniform", action="store_true", default=False)
     args = arg_parser.parse_args()
+
+    if args.uniform:
+        assign_weight = uniform_weight
+    else:
+        assign_weight = random_weight
 
     all_cons = defaultdict(lambda: defaultdict(max_dict))
     all_features = Features()
@@ -59,7 +68,7 @@ if __name__ == "__main__":
 
     with open(prefix + ".weights", "w") as outfile:
         for w_id in sorted(all_features.feature_dict.values()):
-            w = random_weight()
+            w = assign_weight()
             outfile.write("w " + str(w_id) + " " + str(w) + "\n")
 
     with open(prefix + ".fvoc", "w") as outfile:
