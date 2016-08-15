@@ -19,7 +19,6 @@ python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir data/ 
 python  %(script_dir)s/word_alignment/models/hmt/compute_params.py -convoc_list convoc_list -vecs vecs -weights weights.updated -num_workers %(num_workers)s
 
 gzip data/%(job_name)s.params.*
-gzip ll.log
 gzip *.convoc.*.params
 cp data/%(job_name)s.params.*.gz %(it_dir)s/
 cp weights.updated %(it_dir)s/%(job_name)s.weights

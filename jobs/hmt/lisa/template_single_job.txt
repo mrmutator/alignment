@@ -46,7 +46,6 @@ do
  cp params.* %(result_dir)s/
  cp convoc.*.params %(result_dir)s/
  cp weights %(result_dir)s/
- cp ll.${it}.log %(result_dir)s/
  # evaluate
  >&2 echo "Aligning corpus";
  for part in $(seq 1 %(align_parts)s);

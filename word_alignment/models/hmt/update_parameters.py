@@ -149,3 +149,6 @@ if __name__ == "__main__":
     logger.info("Writing weight file.")
     write_weight_file(args.weights + ".updated", optimized_weights)
     trans_norm_process.join()
+
+    with open("log_likelihood", "w") as outfile:
+        outfile.write("Log-Likelihood: " + str(log_likelihood_before_update) + "\n")
