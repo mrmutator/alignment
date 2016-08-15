@@ -52,7 +52,7 @@ def train_iteration(process_queue, queue):
                 translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
             translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
 
-        numerator = start_params[feature_ids[0]][:I_double]
+        numerator = start_params[feature_ids[0]][:I]
         s_probs = (numerator / np.sum(numerator)) * norm_coeff
         marginals[0] = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
