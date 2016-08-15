@@ -51,6 +51,7 @@ def extract_features(feature_pool, process_queue, write_queue, result_queue):
         # rest
         for j in xrange(1, J):
             features_j = ExtractedFeatures(feature_pool, features_sentence_level)
+            features_j.add_feature(("j", j))
             # add features
             h = f_heads[j]
             features_j.add_feature(("pl", l[h]))
