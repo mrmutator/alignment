@@ -33,11 +33,8 @@ def parse_config(config_file):
     params['num_workers'] = int(config_dict["num_workers"])
     params['p_0'] = float(config_dict["p_0"])
     params['alpha'] = float(config_dict["alpha"])
-    params['fertility'] = float(config_dict["fertility"])
     params['num_nodes'] = int(config_dict["num_nodes"])
     assert params['num_nodes'] > 0
-    params['buffer_size'] = int(config_dict["buffer_size"])
-    assert params['buffer_size'] > 0
 
     params["align_limit"] = int(config_dict["align_limit"])
 
@@ -46,15 +43,6 @@ def parse_config(config_file):
         params["align_parts"] = params["num_nodes"]
     else:
         params["align_parts"] = 1
-
-    params["exempt_chain_params"] = ""
-    params["cp_exempt_file"] = ""
-    if config_dict["exempt_chain_params"].lower() == "true":
-        params["cp_exempt_file"] = "cp " + os.path.abspath(os.path.join(params['it0_dir'], +params["job_name"] + ".condvoc.gz")) + " condvoc.txt.gz\ngunzip condvoc.txt.gz"
-        params["exempt_chain_params"] = "-exempt_chain_params condvoc.txt"
-    elif config_dict['exempt_chain_params'].lower() != "false":
-        raise Exception("exempt_chain_params must be <true> or <false>.")
-
 
     params['wall_time_train'] = config_dict["wall_time_train"]
     params['wall_time_update'] = config_dict["wall_time_update"]

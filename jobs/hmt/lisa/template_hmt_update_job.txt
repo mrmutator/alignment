@@ -2,13 +2,27 @@
 #PBS -lnodes=1:cores16
 #PBS -lwalltime=%(wall_time_update)s
 cd "$TMPDIR"
+
 mkdir data
 cp %(it_dir)s/%(job_name)s.counts.*.gz data/
+cp %(prev_it_dir)s/%(job_name)s.weights weights
+cp %(it0_dir)s/%(job_name)s.vecs vecs
+cp %(it0_dir)s/%(job_name)s.convoc_list convoc_list
+cp %(it0_dir)s/%(job_name)s.convoc.*.gz ./
+rm %(job_name)s.convoc.*.params.gz
 gunzip data/%(job_name)s.counts.*.gz
+gunzip %(job_name)s.convoc.*.gz
+
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir data/
+
+python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir data/ -weights weights -vecs vecs
+python  %(script_dir)s/word_alignment/models/hmt/compute_params.py -convoc_list convoc_list -vecs vecs -weights weights.updated -num_workers %(num_workers)s
+
 gzip data/%(job_name)s.params.*
+gzip *.convoc.*.params
 cp data/%(job_name)s.params.*.gz %(it_dir)s/
+cp weights.updated %(it_dir)s/%(job_name)s.weights
+cp *.convoc.*.params.gz %(it_dir)s/
 cp log_likelihood %(it_dir)s/
 wait

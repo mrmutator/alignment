@@ -54,16 +54,15 @@ def parse_config(config_file):
     params['wall_time'] = config_dict["wall_time"]
     params["tj_cond_tok"] = "-tj_cond_tok " + config_dict["tj_cond_tok"] if config_dict["tj_cond_tok"] != "-" else ""
     params["tj_cond_head"] = "-tj_cond_head " + config_dict["tj_cond_head"] if config_dict["tj_cond_head"] != "-" else ""
-    params["cj_cond_tok"] = "-cj_cond_tok " + config_dict["cj_cond_tok"] if config_dict["cj_cond_tok"] != "-" else ""
-    params["cj_cond_head"] = "-cj_cond_head " + config_dict["cj_cond_head"] if config_dict["cj_cond_head"] != "-" else ""
-    params["init_c"] = float(config_dict["init_c"])
-    params["init_t"] = float(config_dict["init_t"])
+    params["start_cond_tok"] = "-start_cond_tok " + config_dict["start_cond_tok"] if config_dict["start_cond_tok"] != "-" else ""
+    params['num_workers'] = int(config_dict["num_workers"])
+    assert config_dict["uniform_parameters"].lower() in ["true", "false"]
+    params['uniform'] =  "-uniform" if config_dict["uniform_parameters"].lower() == "true" else ""
 
     return params
 
 
-def make_it0_directories(dir):
-    path_it = dir + "/it0/"
+def make_it0_directories(path_it):
     if not os.path.exists(path_it):
         os.makedirs(path_it)
 
@@ -97,7 +96,7 @@ else:
     check_num_nodes_group_size(params)
 
     # make directories
-    make_it0_directories(params['dir'])
+    make_it0_directories(params['it0_dir'])
 
     generate_prepare_job(**params)
     generate_train_config(**params)
