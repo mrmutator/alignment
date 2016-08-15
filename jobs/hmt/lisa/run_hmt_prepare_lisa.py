@@ -60,8 +60,7 @@ def parse_config(config_file):
     return params
 
 
-def make_it0_directories(dir):
-    path_it = dir + "/it0/"
+def make_it0_directories(path_it):
     if not os.path.exists(path_it):
         os.makedirs(path_it)
 
@@ -95,7 +94,7 @@ else:
     check_num_nodes_group_size(params)
 
     # make directories
-    make_it0_directories(params['dir'])
+    make_it0_directories(params['it0_dir'])
 
     generate_prepare_job(**params)
     generate_train_config(**params)
