@@ -9,6 +9,7 @@ cp %(prev_it_dir)s/%(job_name)s.weights weights
 cp %(it0_dir)s/%(job_name)s.vecs vecs
 cp %(it0_dir)s/%(job_name)s.convoc_list convoc_list
 cp %(it0_dir)s/%(job_name)s.convoc.*.gz ./
+rm %(job_name)s.convoc.*.params.gz
 gunzip data/%(job_name)s.counts.*.gz
 gunzip %(job_name)s.convoc.*.gz
 

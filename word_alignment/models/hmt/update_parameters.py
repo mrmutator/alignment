@@ -36,19 +36,6 @@ def update_count_file(file_name, total, static_dynamic_dict):
             total[count_i][k] += v
 
 
-def write_param_file(count_file_name, normalized_trans_prob):
-    param_file_name = re.sub(r"counts\.(\d+)$", r"params.\1", count_file_name)
-    with open(param_file_name, "w") as outfile:
-        with open(count_file_name, "r") as infile:
-            infile.readline()
-            for line in infile:
-                count_i, k, _ = line.strip().split("\t")
-                count_i = int(count_i)
-                if count_i == 0:
-                    k_str = k.split(" ")
-                    k_int = (int(k_str[0]), int(k_str[1]))
-                    value = str(normalized_trans_prob[k_int])
-                    outfile.write(" ".join(["t", k_str[0], k_str[1], value]) + "\n")
 
 
 def normalize_trans(in_queue):
