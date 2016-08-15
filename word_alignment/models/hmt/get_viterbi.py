@@ -2,83 +2,86 @@ from __future__ import division
 import numpy as np
 import multiprocessing as mp
 import argparse
-from CorpusReader import SubcorpusReader, Corpus_Buffer
+from CorpusReader import SubcorpusReader
 import logging
-from hmt_worker import load_params, get_chain_params
+from hmt_worker import load_params, load_convoc_params
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
 
-def get_all_viterbi_alignments(buffer, alpha, p_0, fertility_const, chain_cons, queue):
-    worker_num, corpus, t_probs, d_params, s_params = buffer
-    all_alignments = []
-    start_norm_coeff = 1.0 - p_0
-    for e_toks, f_toks, f_heads, cons, order in corpus:
+def get_viterbi_alignment(process_queue, queue):
+    p_0 = args.p_0
+    alpha_o = 1.0 - args.alpha
+    alpha_s = args.alpha
+
+    norm_coeff = 1.0 - p_0
+    SMALL_PROB_CONST = 0.0000001
+
+
+    while True:
+        buffer = process_queue.get()
+        if buffer is None:
+            return
+
+        pair_num, (e_toks, f_toks, f_heads, feature_ids) = buffer
+
         I = len(e_toks)
-        J = len(f_toks)
         I_double = 2 * I
-        uniform_const = 1.0 / I
+        J = len(f_toks)
+        uniform_prob = 1.0 / I
 
-        cons_set = set()
-        for con in cons[1:]:
-            cons_set.add(con)
+        translation_matrix = np.ones((J, I_double)) * SMALL_PROB_CONST
 
-        d_probs = dict()
-        for p in cons_set:
-            tmp_prob = np.zeros((I, I))
-            jumps = {j: d_params[p, j] for j in xrange(-I + 1, I)}
-            fertility = 0
-            uniform = uniform_const
-            norm_coeff = start_norm_coeff
-            if fertility_const and p not in chain_cons:
-                fertility = fertility_const
-                jumps[0] = 0.0
-                norm_coeff = 1.0 - p_0 - fertility_const
-                if I > 1:
-                    uniform = 1.0 / (I - 1)
-            for i_p in xrange(I):
-                norm = np.sum([jumps[i_pp - i_p] for i_pp in xrange(I)])
-                tmp_prob[i_p, :] = np.array(
-                    [((jumps[i - i_p] / norm) * (1 - alpha)) + (alpha * uniform) if not fertility or i_p  != i else 0.0 for i in xrange(I)])
-            tmp_prob = tmp_prob * norm_coeff
-            if fertility:
-                tmp_prob = tmp_prob + (np.identity(I)*fertility)
-            tmp = np.hstack((tmp_prob, np.identity(I) * p_0))
-            dist_mat = np.vstack((tmp, tmp))
-            d_probs[p] = dist_mat
+        # start probs
+        # i_p is 0 for start_probs
+        t_params_j = t_params.get(f_toks[0], None)
+        if t_params_j is not None:
+            for i, e_tok in enumerate(e_toks):
+                translation_matrix[0][i] = t_params_j.get(e_tok, SMALL_PROB_CONST)
+            translation_matrix[0][I:] = t_params_j.get(0, SMALL_PROB_CONST)
 
-        s_probs = np.hstack((np.array(s_params[I]) * start_norm_coeff, np.ones(I) * (float(p_0) / I)))
+        numerator = start_params[feature_ids[0]][:I]
+        s_probs = (((numerator / np.sum(numerator)) * alpha_o) + (alpha_s * uniform_prob)) * norm_coeff
+        start_prob = np.hstack((s_probs, np.ones(I) * (p_0 / I)))
 
-        e_toks = e_toks + [0] * I
-        dependencies = [set() for _ in xrange(J)]
-        for j, h in enumerate(f_heads[1:]):
-            dependencies[h].add(j + 1)
+        # dist probs
+        d_probs = np.zeros((J - 1, I_double, I_double))
+        tmp = np.hstack((np.zeros((I, I)), np.identity(I) * p_0))
+        template = np.vstack((tmp, tmp))
+        for j in xrange(1, J):
+            t_params_j = t_params.get(f_toks[j], None)
+            if t_params_j is not None:
+                translation_matrix[j][I:] = t_params_j.get(0, SMALL_PROB_CONST)
+            for actual_i_p, running_ip, in enumerate(xrange(I-1, -1, -1)):
+                if t_params_j is not None:
+                    translation_matrix[j][actual_i_p] = t_params_j.get(e_toks[actual_i_p], SMALL_PROB_CONST)
+                all_params = dist_params[feature_ids[j][actual_i_p]]
+                all_I = int((len(all_params)+1) / 2)
+                diff_I = all_I-I
+                tmp = all_params[running_ip+diff_I:running_ip+I+diff_I]
+                d_probs[j - 1, actual_i_p, :I] = tmp
+                d_probs[j - 1, actual_i_p + I, :I] = tmp
+
+        dist_probs = ((d_probs / np.sum(d_probs, axis=2)[:, :, np.newaxis]) * alpha_o)
+        dist_probs[:, :, :I] += (uniform_prob * alpha_s)
+        dist_probs = (dist_probs * norm_coeff) + template
+
 
         f = np.zeros((J, I_double))
+        f_in = np.zeros((J, I_double))
         best = np.zeros((J, I_double), dtype=int)
 
-        for j in reversed(range(1, J)):
-            p = cons[j]
-            f_j_in = np.zeros(I_double)
-            for dep in dependencies[j]:
-                f_j_in += f[dep]
+        for j in reversed(xrange(1, J)):
+            values = (np.log(translation_matrix[j]) + np.log(dist_probs[j-1])) + f_in[j]
+            best_is = np.argmax(values, axis=1)
+            best[j] = best_is
+            f[j] = values[np.arange(I_double), best_is]
+            f_in[f_heads[j]] += f[j]
 
-            for i_p in range(I_double):
-                values = np.zeros(I_double)
-                for i in range(I_double):
-                    values[i] = (np.log(t_probs.get((e_toks[i], f_toks[j]), 0.0000001)) + np.log(d_probs[p][i_p, i])) + \
-                                f_j_in[i]
+        f[0] = np.log(start_prob) + np.log(translation_matrix[0]) + f_in[0]
 
-                best_i = np.argmax(values)
-                best[j][i_p] = best_i
-                f[j][i_p] = values[best_i]
 
-        f[0] = np.array(
-            [np.log(s_probs[i]) + np.log(t_probs.get((e_toks[i], f_toks[0]), 0.0000001)) for i in range(I_double)])
-
-        for dep in dependencies[0]:
-            f[0] += f[dep]
         last_best = np.argmax(f[0])
         alignment = [int(last_best)]
         for j in range(1, J):
@@ -88,95 +91,91 @@ def get_all_viterbi_alignments(buffer, alpha, p_0, fertility_const, chain_cons, 
             else:
                 alignment.append(best[j][alignment[head]])
 
-        alignment = [(al, order[j]) for j, al in enumerate(alignment) if al < I]
-        all_alignments.append(alignment)
+        # alignment = [(al, order[j]) for j, al in enumerate(alignment) if al < I]
+        alignment = [(al, j) for j, al in enumerate(alignment) if al < I]
 
-    queue.put((worker_num, all_alignments))
+        queue.put((pair_num, alignment))
 
+def aggregate_alignments(queue):
+    outfile = open(args.out_file, "w")
+    buffer_dict = dict()
+    next_c = 0
+    while True:
+        if next_c in buffer_dict:
+            alignment = buffer_dict[next_c]
+            alignment = [str(al[0]) + "-" + str(al[1]) for al in alignment]
+            outfile.write(" ".join(alignment) + "\n")
+            del buffer_dict[next_c]
+            next_c += 1
+            continue
+
+        obj = queue.get()
+        if obj is None:
+            break
+        num, alignment = obj
+        if num == next_c:
+            alignment = [str(al[0]) + "-" + str(al[1]) for al in alignment]
+            outfile.write(" ".join(alignment) + "\n")
+            next_c += 1
+        else:
+            buffer_dict[num] = alignment
+
+    while len(buffer_dict) > 0:
+        alignment = buffer_dict[next_c]
+        alignment = [str(al[0]) + "-" + str(al[1]) for al in alignment]
+        outfile.write(" ".join(alignment) + "\n")
+        del buffer_dict[next_c]
+        next_c += 1
+
+    outfile.close()
 
 #############################################
 # main
+if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-corpus", required=True)
+    arg_parser.add_argument("-params", required=True)
+    arg_parser.add_argument("-convoc_params", required=True)
+    arg_parser.add_argument("-out_file", required=True)
+    arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
+    arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
+    arg_parser.add_argument("-alpha", required=False, type=float, default=0.4)
+    arg_parser.add_argument("-limit", required=False, type=int, default=0)
 
-arg_parser = argparse.ArgumentParser()
-arg_parser.add_argument("-corpus", required=True)
-arg_parser.add_argument("-params", required=True)
-arg_parser.add_argument("-out_file", required=True)
-arg_parser.add_argument("-num_workers", required=False, type=int, default=1)
-arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
-arg_parser.add_argument("-alpha", required=False, type=float, default=0.0)
-arg_parser.add_argument("-fertility", required=False, type=float, default=0.0)
-arg_parser.add_argument("-buffer_size", required=False, type=int, default=20)
-arg_parser.add_argument("-limit", required=False, type=int, default=0)
-arg_parser.add_argument('-exempt_chain_params', required=False, type=str, default="")
+    args = arg_parser.parse_args()
+    num_workers = max(1, args.num_workers-1)
 
-args = arg_parser.parse_args()
+    results_queue = mp.Queue()
+    process_queue = mp.Queue(maxsize=num_workers)
 
-results_queue = mp.Queue()
-process_queue = mp.Queue(maxsize=int(np.ceil((args.num_workers) / 4)))
+    logger.info("Loading parameters.")
+    t_params = load_params(args.params)
+    start_params, dist_params = load_convoc_params(args.convoc_params)
 
-t_params = dict()
-d_params = dict()
-s_params = dict()
+    pool = []
+    for w in xrange(num_workers):
+        p = mp.Process(target=get_viterbi_alignment, args=(process_queue, results_queue))
+        p.start()
+        pool.append(p)
 
-chain_cons = set()
-if args.exempt_chain_params:
-    chain_cons = get_chain_params(args.exempt_chain_params)
+    aggregator = mp.Process(target=aggregate_alignments, args=(results_queue,))
+    aggregator.start()
 
+    logger.info("Loading corpus.")
+    corpus = SubcorpusReader(args.corpus)
+    for buff in enumerate(corpus):
+        process_queue.put(buff)
+        if buff[0]+1 == args.limit:
+            break
 
-def worker_wrapper(process_queue):
-    while True:
-        buffer = process_queue.get()
-        if buffer is None:
-            return
-        get_all_viterbi_alignments(buffer, args.alpha, args.p_0, args.fertility, chain_cons, results_queue)
+    logger.info("Entire corpus loaded.")
+    for _ in pool:
+        process_queue.put(None)
 
+    for p in pool:
+        p.join()
 
-corpus = SubcorpusReader(args.corpus, limit=args.limit, return_order=True)
-pool = []
-for w in xrange(args.num_workers):
-    p = mp.Process(target=worker_wrapper, args=(process_queue,))
-    p.start()
-    pool.append(p)
+    results_queue.put(None)
+    aggregator.join()
 
-logger.info("Loading parameters.")
-load_params(t_params, d_params, s_params, args.params)
-
-corpus_buffer = Corpus_Buffer(corpus, buffer_size=args.buffer_size)
-logger.info("Loading corpus.")
-for num_buffer, buff in enumerate(corpus_buffer):
-    # get all t-params of buffer
-    required_ts = set()
-    required_Is = set()
-    required_cons_j = set()
-    for e_toks, f_toks, f_heads, cons, order in buff:
-        for e_tok in e_toks + [0]:
-            for f_tok in f_toks:
-                required_ts.add((e_tok, f_tok))
-        I = len(e_toks)
-        required_Is.add(I)
-        for con in cons[1:]:
-            for jmp in xrange(-I + 1, I):
-                required_cons_j.add((con, jmp))
-
-    # get a copy from shared dicts
-    t_probs = {ef: t_params[ef] for ef in required_ts if ef in t_params}
-    s_probs = {I_: np.copy(s_params[I_]) for I_ in required_Is}
-    d_probs = {cj: d_params[cj] for cj in required_cons_j}
-    process_queue.put((num_buffer, buff, t_probs, d_probs, s_probs))
-for _ in xrange(args.num_workers):
-    process_queue.put(None)
-logger.info("Entire corpus loaded.")
-results = [None] * (num_buffer + 1)
-for _ in xrange(num_buffer+1):
-    res = results_queue.get()
-    i, als = res
-    results[i] = als
-
-logger.info("Writing alignment file.")
-outfile = open(args.out_file, "w")
-for group in results:
-    for als in group:
-        als = [str(al[0]) + "-" + str(al[1]) for al in als]
-        outfile.write(" ".join(als) + "\n")
-outfile.close()
-logger.info("Done.")
+    logger.info("Done.")
