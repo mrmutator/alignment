@@ -2,11 +2,46 @@
 #PBS -lnodes=1:cores16
 #PBS -lwalltime=%(wall_time)s
 cd "$TMPDIR"
+
 cp  %(psnt)s corpus.psnt
 cp %(ibm1_table)s ibm1.table
+
 module load python
 source %(script_dir)s/venv/bin/activate
-python %(script_dir)s/word_alignment/models/hmt/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s -init_t %(init_t)s -init_c %(init_c)s %(cj_cond_tok)s %(cj_cond_head)s %(tj_cond_tok)s %(tj_cond_head)s
-gzip %(job_name)s.*
-cp %(job_name)s.* %(it0_dir)s/
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Splitting corpus."
+python %(script_dir)s/word_alignment/models/hmt/get_parameters.py -corpus corpus.psnt -output_prefix %(job_name)s -t_file ibm1.table -group_size %(group_size)s  %(tj_cond_tok)s  %(tj_cond_head)s  %(start_cond_tok)s
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Starting feature extraction"
+for f in %(job_name)s.*.sub_feat
+ do
+ python %(script_dir)s/word_alignment/models/hmt/extract_features.py -corpus $f -feature_file %(job_name)s.features -num_workers %(num_workers)s
+done
+
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Aggregating features."
+python %(script_dir)s/word_alignment/models/feature_model/aggregate_features.py -dir .
+
+rename "s/(.*?)\.(\d+)\.sub_feat.extracted/\1.corpus.\2/" *.sub_feat.extracted
+rename "s/(.*?)\.(\d+)\.sub_feat.convoc/\1.convoc.\2/" *.sub_feat.convoc
+mv %(job_name)s.1.sub_feat.cons %(job_name)s.cons
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Computing parameters from weights."
+python  %(script_dir)s/word_alignment/models/feature_model/compute_params.py -convoc_list %(job_name)s.convoc_list -vecs %(job_name)s.vecs -weights %(job_name)s.weights -num_workers %(num_workers)s
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Copying files."
+gzip %(job_name)s.params.*
+gzip %(job_name)s.corpus.*
+gzip %(job_name)s.order
+gzip %(job_name)s.convoc.*
+cp %(job_name)s.params.*.gz %(it0_dir)s/
+cp %(job_name)s.corpus.*.gz %(it0_dir)s/
+cp %(job_name)s.convoc.*.gz %(it0_dir)s/
+cp %(job_name)s.weights %(it0_dir)s/
+cp %(job_name)s.cons %(it0_dir)s/
+cp %(job_name)s.vecs %(it0_dir)s/
+cp %(job_name)s.fvoc %(it0_dir)s/
+cp %(job_name)s.order.gz %(it0_dir)s/
+cp %(job_name)s.convoc_list %(it0_dir)s/
 wait
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Done."
