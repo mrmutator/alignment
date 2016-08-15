@@ -91,7 +91,7 @@ def train_iteration(process_queue, queue):
 
         con_j0 = feature_ids[0]
         for i in xrange(I):
-            al_counts[(con_j0, i)] = gammas[0][i]  # start counts
+            al_counts[(con_j0, i)] += gammas[0][i]  # start counts
         for j, ips in enumerate(feature_ids[1:]):
             xis[j+1][:I,:I] += xis[j+1][I:,:I]
             for i_p, con in enumerate(ips):
