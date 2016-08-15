@@ -55,8 +55,6 @@ def parse_config(config_file):
     params["tj_cond_tok"] = "-tj_cond_tok " + config_dict["tj_cond_tok"] if config_dict["tj_cond_tok"] != "-" else ""
     params["tj_cond_head"] = "-tj_cond_head " + config_dict["tj_cond_head"] if config_dict["tj_cond_head"] != "-" else ""
     params["start_cond_tok"] = "-start_cond_head " + config_dict["start_cond_tok"] if config_dict["start_cond_tok"] != "-" else ""
-    params["init_c"] = float(config_dict["init_c"])
-    params["init_t"] = float(config_dict["init_t"])
 
     return params
 
