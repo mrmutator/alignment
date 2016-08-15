@@ -9,7 +9,6 @@ cp %(prev_it_dir)s/%(job_name)s.params.${part}.gz params.txt.gz
 cp %(prev_it_dir)s/%(job_name)s.convoc.${part}.params.gz convoc.params.gz
 gunzip params.txt.gz
 gunzip corpus.psnt.gz
-gunzip convoc.txt.gz
 gunzip convoc.params.gz
 
 module load python

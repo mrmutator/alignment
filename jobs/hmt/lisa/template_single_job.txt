@@ -31,7 +31,7 @@ do
   done
  # update
  >&2 echo "Starting M-step";
- python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir . -weights weights -vecs vecs -num_workers %(num_workers)s
+ python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir . -weights weights -vecs vecs
  rename "s/^params.params/new_params/" params.params.*
  rm params.*
  rm weights

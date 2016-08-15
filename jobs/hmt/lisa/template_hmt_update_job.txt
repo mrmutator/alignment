@@ -15,7 +15,7 @@ gunzip %(job_name)s.convoc.*.gz
 module load python
 source %(script_dir)s/venv/bin/activate
 
-python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir data/ -weights weights -vecs vecs -num_workers %(num_workers)s
+python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir data/ -weights weights -vecs vecs
 python  %(script_dir)s/word_alignment/models/hmt/compute_params.py -convoc_list convoc_list -vecs vecs -weights weights.updated -num_workers %(num_workers)s
 
 gzip data/%(job_name)s.params.*
