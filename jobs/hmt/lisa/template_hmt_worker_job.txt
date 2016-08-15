@@ -15,7 +15,7 @@ gunzip convoc.params.gz
 module load python
 source %(script_dir)s/venv/bin/activate
 
-python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt -params params.txt -convoc_params convoc.params -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s
+python %(script_dir)s/word_alignment/models/hmt/hmt_worker.py -corpus corpus.psnt -params params.txt -convoc_params convoc.params -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s
 gzip params.txt.counts
 cp params.txt.counts.gz %(it_dir)s/%(job_name)s.counts.${part}.gz
 wait

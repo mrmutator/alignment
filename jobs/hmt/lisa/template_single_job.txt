@@ -26,12 +26,12 @@ do
   for part in $(seq 1 %(num_nodes)s);
   do
    >&2 echo "Starting E-Step " ${part};
-   python %(script_dir)s/word_alignment/models/feature_model/feature_model_worker.py -corpus corpus.psnt.${part} -params params.${part} -convoc_params convoc.${part}.params -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s
+   python %(script_dir)s/word_alignment/models/hmt/hmt_worker.py -corpus corpus.psnt.${part} -params params.${part} -convoc_params convoc.${part}.params -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s
    mv params.${part}.counts params.counts.${part}
   done
  # update
  >&2 echo "Starting M-step";
- python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -vecs vecs -num_workers %(num_workers)s
+ python %(script_dir)s/word_alignment/models/hmt/update_parameters.py -dir . -weights weights -vecs vecs -num_workers %(num_workers)s
  rename "s/^params.params/new_params/" params.params.*
  rm params.*
  rm weights
@@ -40,7 +40,7 @@ do
  mv log_likelihood log_likelihood.${it}
  rm convoc.*.params
  >&2 echo "Recomputing parameters.";
- python  %(script_dir)s/word_alignment/models/feature_model/compute_params.py -convoc_list convoc_list -vecs vecs -weights weights -num_workers %(num_workers)s
+ python  %(script_dir)s/word_alignment/models/hmt/compute_params.py -convoc_list convoc_list -vecs vecs -weights weights -num_workers %(num_workers)s
 
  cp log_likelihood.${it} %(result_dir)s/%(job_name)s.log_likelihood.${it}
  cp params.* %(result_dir)s/
@@ -52,11 +52,11 @@ do
  for part in $(seq 1 %(align_parts)s);
  do
  >&2 echo "Aligning part " ${part};
-   python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -convoc_params convoc.${part}.params -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -limit %(align_limit)s
+   python %(script_dir)s/word_alignment/models/hmt/get_viterbi.py -corpus corpus.psnt.${part}  -params params.${part} -convoc_params convoc.${part}.params -out_file corpus.aligned.${part} -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s -limit %(align_limit)s
    done
  cat corpus.aligned.* > all.aligned.${it}
  rm corpus.aligned.*
- python %(script_dir)s/word_alignment/models/feature_model/reorder_aligned.py -order_file order -aligned_file all.aligned.${it}
+ python %(script_dir)s/word_alignment/models/hmt/reorder_aligned.py -order_file order -aligned_file all.aligned.${it}
 
  cp all.aligned.${it}.reordered %(result_dir)s/%(job_name)s.aligned.${it}
 done
