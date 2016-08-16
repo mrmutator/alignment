@@ -65,7 +65,8 @@ def extract_features(corpus, outfile_name, fvoc):
 
 
             for sf in start_features_single + start_features_single_i:
-                fid = all_features.add_feature(sf + ",eaj=" + str(e_ext[i]))
+                # fid = all_features.add_feature(sf + ",eaj=" + str(e_ext[i]))
+                fid = all_features.add_feature(sf + ",sj=" + str(i if i > 0 else "NULL"))
                 if fid is not None:
                     f_ids.append(fid)
             vec_id = all_vectors.add_vector(frozenset(f_ids))
@@ -96,6 +97,14 @@ def extract_features(corpus, outfile_name, fvoc):
                     j_features_single_i.append("rsp=" + str(float(i) / I))
                     if ibm1_best[i] == j:
                         j_features_single_i.append("bestibm1")
+                    jmp = i - ip
+                    if i == 0:
+                        jmp = "TN"
+                    if ip == 0:
+                        jmp = "FN"
+                    if ip == 0 and i == 0:
+                        jmp = "SN"
+
                     if i > 0:
                         if e_str[i - 1] == f_str[j]:
                             j_features_single_i.append("exact_match")
@@ -108,15 +117,17 @@ def extract_features(corpus, outfile_name, fvoc):
                         if len(e_str[i - 1]) < 4 and len(f_str[j]) < 4:
                             j_features_single_i.append("both_short")
                         if ip > 0:
-                            j_features_pair_i.append("jump_width=" + str(abs(i-ip-1)))
+                            j_features_pair_i.append("jump_width=" + str(abs(i - ip - 1)))
 
 
                     for jf in j_features_single + j_features_single_i:
-                        fid = all_features.add_feature(jf + ",eaj=" + str(e_ext[i]))
+                        # fid = all_features.add_feature(jf + ",eaj=" + str(e_ext[i]))
+                        fid = all_features.add_feature(jf + ",jmp=" + str(jmp))
                         if fid is not None:
                             f_ids.append(fid)
                     for jf in j_features_pair_i:
-                        fid = all_features.add_feature(jf + ",eaj=" + str(e_ext[i]) + ",eajp=" + str(e_ext[ip]))
+                        # fid = all_features.add_feature(jf + ",eaj=" + str(e_ext[i]) + ",eajp=" + str(e_ext[ip]))
+                        fid = all_features.add_feature(jf + ",eaj=" + str(jmp))
                         if fid is not None:
                             f_ids.append(fid)
                     vec_id = all_vectors.add_vector(frozenset(f_ids))
