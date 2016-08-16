@@ -8,6 +8,7 @@ class Evaluation(object):
         self.probable = set()
         self.gold_file = gold_file
         self.paramtypes = None
+        self.max_gold_sent = 0
 
         if alignment_file:
             self.read_alignment_file(alignment_file, order=al_order)
@@ -41,6 +42,7 @@ class Evaluation(object):
                     self.sure.add(tpl)
                     self.probable.add(tpl)
                 self.gold_aligned.add((tpl[0], tpl[2]))
+                self.max_gold_sent = int(snt)
 
     def read_alignment_file(self, file_name, order=('e', 'f')):
         self.alignments = set()
@@ -58,6 +60,8 @@ class Evaluation(object):
                         raise Exception("Invalid order type.")
                     self.alignments.add(tpl)
                     self.aligned_f.add((i+1, tpl[2]))
+            if i+1 < self.max_gold_sent:
+                print "WARNING: Gold and test files differ in number of sentences!"
 
     def read_paramtypes(self, fname):
         data = dict()
