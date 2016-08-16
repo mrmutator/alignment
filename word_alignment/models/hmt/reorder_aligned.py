@@ -12,10 +12,12 @@ if __name__ == "__main__":
     outfile = open(args.aligned_file + ".reordered", "w")
     with open(args.aligned_file, "r") as infile:
         for line in infile:
+            if not line.strip():
+                outfile.write("\n")
+                order_file.readline()
+                continue
             order = map(int, order_file.readline().strip().split())
             als = line.strip().split()
-            if not als:
-                break
             es, fs = zip(*[a.split("-") for a in als])
             fs = map(int, fs)
             reordered_fs = map(str, map(order.__getitem__, fs))
