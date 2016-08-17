@@ -153,7 +153,8 @@ class Statistics(object):
             # translate con Ids
             pos = map(lambda p: self.pos_voc.get(p,p), pos)
             rel = map(lambda p: self.rel_voc.get(p,p), rel)
-            dir = [np.sign(j-f_heads[j]) for j in xrange(J)]
+            l = [j - f_heads[j] for j in xrange(J)]
+            dir = map(np.sign, l)
 
             children = [set() for _ in xrange(J)]
             for j, h in enumerate(f_heads):
@@ -188,8 +189,10 @@ class Statistics(object):
                             features.add(("cpos",p_c))
                             features.add(("crel",r_c))
                             features.add(("cdir",d_c))
-                            features.add(("l",c - j))
-                            features.add(("absl",abs(c - j)))
+                            features.add(("cl", l[c]))
+                            features.add(("pl", l[j]))
+                            features.add(("cabsl",abs(l[c])))
+                            features.add(("pabsl",abs(l[j])))
                             features.add(("I",len(e_toks)))
                             features.add(("J",J))
                             features.add(("ptl",tree_levels[j]))

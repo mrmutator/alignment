@@ -23,7 +23,8 @@ def extract_features(feature_pool, process_queue, write_queue, result_queue):
         I = len(e_toks)
         tree_levels = [0] * J
 
-        dir = [np.sign(order[j] - order[f_heads[j]]) for j in xrange(J)]
+        l = [0] + [order[j] - order[f_heads[j]] for j in xrange(1, J)]
+        dir = map(np.sign, l)
 
         children = [0] * J
         left_children = [0] * J
@@ -80,8 +81,10 @@ def extract_features(feature_pool, process_queue, write_queue, result_queue):
             features_j.add_feature(("cpos", pos[j]))
             features_j.add_feature(("crel", rel[j]))
             features_j.add_feature(("cdir", dir[j]))
-            features_j.add_feature(("l", order[j]-order[h]))
-            features_j.add_feature(("absl", abs(order[j]-order[h])))
+            features_j.add_feature(("cl", l[j]))
+            features_j.add_feature(("cabsl", abs(l[j])))
+            features_j.add_feature(("pl", l[h]))
+            features_j.add_feature(("pabsl", abs(l[h])))
             features_j.add_feature(("ctl", j_tree_level))
             features_j.add_feature(("ptl", tree_levels[j]))
             features_j.add_feature(("plc", left_children[h]))
