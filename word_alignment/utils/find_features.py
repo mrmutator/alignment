@@ -204,7 +204,7 @@ class Statistics(object):
                             features.add(("pj", order_indices[h]))
                             features.add(("oj", j))
                             features.add(("op", h))
-                            features.add(("ip", i_p))
+                            #features.add(("ip", i_p))
                             features.add(("phmm", hmm_transitions[j]))
                             features.add(("chmm", hmm_transitions[c]))
 
@@ -314,9 +314,10 @@ if __name__ == "__main__":
             freqs[features] = freq
             weighted[num_features][features] = (1.0/entropy) * freq
             dists[features] = dist
-            w_conc = stat.compute_concentrations(dist, args.num_range) * freq
-            best_m = np.argmax(w_conc)
-            concentrations[best_m][num_features][features] = w_conc
+            if args.num_range > 0:
+                w_conc = stat.compute_concentrations(dist, args.num_range) * freq
+                best_m = np.argmax(w_conc)
+                concentrations[best_m][num_features][features] = w_conc
 
 
 
@@ -330,7 +331,7 @@ if __name__ == "__main__":
     for m in xrange(args.num_range):
         selected = dict()
         for n in xrange(1, args.max_combo + 1):
-            mr_outfile.write("### Concentration range " + str(m) + ", " + str(n) + " ###\n")
+            #mr_outfile.write("### Concentration range " + str(m) + ", " + str(n) + " ###\n")
             outfile = open(args.output + ".c" + str(m) + "." + str(n), "w")
             selected_n = 0
             for features in sorted(concentrations[m][n], key= lambda x: concentrations[m][n][x][m], reverse=True):
@@ -353,27 +354,28 @@ if __name__ == "__main__":
 
             outfile.close()
 
-    for n in xrange(1,args.max_combo+1):
-        mr_outfile.write("### Weighted Inverse Entropy " + str(n) + " ###\n")
-        outfile = open(args.output + ".e" + str(n), "w")
-        selected_n = 0
-        for features in sorted(weighted[n], key= weighted[n].get, reverse=True):
-            current_dist = dists[features].toarray().flatten() + smoothing
-            for s, s_dist in selected.iteritems():
-                kl = kldiv(s_dist, current_dist)
-                if kl < 0.5:
+    if not args.num_range:
+        for n in xrange(1,args.max_combo+1):
+            #mr_outfile.write("### Weighted Inverse Entropy " + str(n) + " ###\n")
+            outfile = open(args.output + ".e" + str(n), "w")
+            selected_n = 0
+            for features in sorted(weighted[n], key= weighted[n].get, reverse=True):
+                current_dist = dists[features].toarray().flatten() + smoothing
+                for s, s_dist in selected.iteritems():
+                    kl = kldiv(s_dist, current_dist)
+                    if kl < 0.5:
+                        break
+                else:
+                    selected_n += 1
+                    selected[features] = current_dist
+                    outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(weighted[n][features]), str(freqs[features])]) + "\n")
+                    mr_outfile.write("\t".join([" ".join(map(str, [fn, fv])) for (fn, fv) in features]) + "\n")
+                    if args.plots:
+                        stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/we" + str(n) + "." + str(selected_n))
+                if selected_n == args.result_limit:
                     break
-            else:
-                selected_n += 1
-                selected[features] = current_dist
-                outfile.write(" ".join([",".join([fn + "=" + str(fv) for (fn, fv) in features]), str(weighted[n][features]), str(freqs[features])]) + "\n")
-                mr_outfile.write("\t".join([" ".join(map(str, [fn, fv])) for (fn, fv) in features]) + "\n")
-                if args.plots:
-                    stat.make_plot(dists[features], features, args.plots.rstrip("/") + "/we" + str(n) + "." + str(selected_n))
-            if selected_n == args.result_limit:
-                break
 
-        outfile.close()
+            outfile.close()
     mr_outfile.close()
 
 
