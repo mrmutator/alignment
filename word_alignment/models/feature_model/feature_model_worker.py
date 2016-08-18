@@ -12,14 +12,6 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 
-def all_traces(x):
-    jj = np.tile(np.arange(x.shape[1]),x.shape[0])
-    ii = (np.arange(x.shape[1])+np.arange(x.shape[0])[::-1,None]).ravel()
-    z = np.zeros(((x.shape[0]+x.shape[1]-1),x.shape[1]))
-    z[ii,jj] = x.ravel()
-    return z.sum(axis=1)
-
-
 def train_iteration(process_queue, queue):
     p_0 = args.p_0
     norm_coeff = 1.0 - p_0
