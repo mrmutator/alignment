@@ -38,7 +38,7 @@ def parse_config(config_file):
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../../../'))
     params['num_workers'] = int(config_dict["num_workers"])
-    params['sigma'] = float(config_dict["num_workers"])
+    params['sigma'] = float(config_dict["sigma"])
     assert params['num_workers'] > 0
     params['wall_time'] = config_dict["wall_time"]
     params['gold_order'] = config_dict["gold_order"]
