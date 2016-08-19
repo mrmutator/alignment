@@ -72,7 +72,7 @@ def generate_prepare_job(**params):
     with open(params['job_template_dir'] + "/template_hmt_prepare_job.txt", "r") as infile:
         template = infile.read()
         job_file = template % params
-    with open(params['dir'] + "/" + params["job_name"] + "_prepare.job", "w") as outfile:
+    with open(params['it0_dir'] + "/" + params["job_name"] + "_prepare.job", "w") as outfile:
         outfile.write(job_file)
 
 def generate_train_config(**params):

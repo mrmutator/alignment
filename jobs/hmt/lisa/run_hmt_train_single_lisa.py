@@ -56,7 +56,7 @@ def generate_single_job(**params):
     with open(params['job_template_dir'] + "/template_single_job.txt", "r") as infile:
         template = infile.read()
         job_file = template % params
-    with open(params['dir'] + "/" + params["job_name"] + "_train.job", "w") as outfile:
+    with open(params['result_dir'] + "/" + params["job_name"] + "_train.job", "w") as outfile:
         outfile.write(job_file)
 
 
