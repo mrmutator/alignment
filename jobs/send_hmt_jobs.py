@@ -100,7 +100,7 @@ if __name__ == "__main__":
                           "start_cond_tok": sj_tok, "job_name": job_name, "align_limit": test_set_length,
                           "psnt": os.path.join(data_set_dir, corpus_file),
                           "ibm1_table": os.path.join(data_set_dir, "ibm1.table"),
-                          "it0_dir": os.path.join(corpus_dir, ",".join(exp))}
+                          "it0_dir": os.path.join(corpus_dir, "_".join(exp))}
                 params.update(STANDARD_PARAMS)
                 params["wall_time"] = params["prep_wall_time"]
                 prepare_file = os.path.join(params["it0_dir"], "prepare.job")
