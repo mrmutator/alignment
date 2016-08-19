@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     STANDARD_PARAMS, CORPUS_TYPES, EXPERIMENTS, LANGUAGE_PAIRS = parse_config(args.config_file)
 
-    jobs_file = open(STANDARD_PARAMS["result_dir"] + "/all_jobs.txt", "w")
+    jobs_file = open(os.path.join(STANDARD_PARAMS["result_dir"], "all_jobs.txt"), "w")
     job_id = 0
 
     this_dir = os.path.dirname(os.path.realpath(__file__))
