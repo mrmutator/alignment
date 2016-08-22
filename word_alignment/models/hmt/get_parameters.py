@@ -101,9 +101,9 @@ class Parameters(object):
                     j_cons.add(("cdir", dir[j]))
                 if "l" in tok_pattern:
                     j_cons.add(("cl", l[j]))
-                if "I" in start_pattern:
+                if "I" in tok_pattern:
                     j_cons.add(("I", I))
-                if "h" in start_pattern:
+                if "h" in tok_pattern:
                     j_cons.add(("chmm", hmm_trans[j]))
 
                 if "p" in parent_pattern:
