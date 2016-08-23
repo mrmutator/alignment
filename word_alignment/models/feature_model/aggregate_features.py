@@ -5,6 +5,7 @@ import random
 from collections import defaultdict
 import re
 from features import max_dict
+import numpy as np
 
 def random_weight():
     return random.uniform(-1, 1)
@@ -17,7 +18,15 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-dir", required=True)
     arg_parser.add_argument("-uniform", action="store_true", default=False)
+    arg_parser.add_argument("-max_jmp", type=int, default=0)
     args = arg_parser.parse_args()
+
+    if args.max_jmp == 0:
+        max_pos_jmp = np.inf
+        max_neg_jmp = -np.inf
+    else:
+        max_pos_jmp = args.max_jmp
+        max_neg_jmp = -args.max_jmp
 
     if args.uniform:
         assign_weight = uniform_weight
@@ -41,7 +50,7 @@ if __name__ == "__main__":
         max_I = all_cons["s"][con_id].get()
         convoc_outfile.write(" ".join(["s", con_id, str(max_I)]) + "\n")
         ftype_ids = map(int, con_id.split("-"))
-        for jmp in xrange(max_I):
+        for jmp in xrange(max_I):   
             feature_ids = set()
             for ftype in ftype_ids:
                 f_tuple = (ftype, jmp)
@@ -57,7 +66,13 @@ if __name__ == "__main__":
         for jmp in xrange(-max_I+1, max_I):
             feature_ids = set()
             for ftype in ftype_ids:
-                f_tuple = (ftype, jmp)
+                if jmp > 0:
+                    act_jmp = min(max_pos_jmp, jmp)
+                elif jmp < 0:
+                    act_jmp = max(max_neg_jmp, jmp)
+                else:
+                    act_jmp = jmp
+                f_tuple = (ftype, act_jmp)
                 feature_id = all_features.add(f_tuple)
                 feature_ids.add(feature_id)
             vec_id = ".".join([str(jmp), con_id])
