@@ -96,7 +96,7 @@ if __name__ == "__main__":
                 params = {"lang": lang, "corpus": corpus_file, "job_name": exp, "align_limit": test_set_length,
                           "psnt": os.path.join(data_set_dir, corpus_file),
                           "ibm1_table": os.path.join(data_set_dir, "ibm1.table"),
-                          "it0_dir": os.path.join(corpus_dir, exp)}
+                          "it0_dir": os.path.join(corpus_dir, exp), "feature_file": os.path.join(corpus_dir, exp + ".features")}
                 params.update(STANDARD_PARAMS)
                 params["wall_time"] = params["prep_wall_time"]
                 prepare_file = os.path.join(params["it0_dir"], "prepare.job")
