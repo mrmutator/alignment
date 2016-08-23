@@ -18,15 +18,15 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-dir", required=True)
     arg_parser.add_argument("-uniform", action="store_true", default=False)
-    arg_parser.add_argument("-max_jmp", type=int, default=0)
+    arg_parser.add_argument("-max_jump", type=int, default=0)
     args = arg_parser.parse_args()
 
     if args.max_jmp == 0:
         max_pos_jmp = np.inf
         max_neg_jmp = -np.inf
     else:
-        max_pos_jmp = args.max_jmp
-        max_neg_jmp = -args.max_jmp
+        max_pos_jmp = args.max_jump
+        max_neg_jmp = -args.max_jump
 
     if args.uniform:
         assign_weight = uniform_weight

@@ -18,7 +18,7 @@ for f in %(job_name)s.*.sub_feat
 done
 wait
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Aggregating features."
-python %(script_dir)s/word_alignment/models/feature_model/aggregate_features.py -dir . %(uniform)s -max_jmp %(max_jump)s
+python %(script_dir)s/word_alignment/models/feature_model/aggregate_features.py -dir . %(uniform)s -max_jump %(max_jump)s
 
 rename "s/(.*?)\.(\d+)\.sub_feat.extracted/\1.corpus.\2/" *.sub_feat.extracted
 rename "s/(.*?)\.(\d+)\.sub_feat.convoc/\1.convoc.\2/" *.sub_feat.convoc
