@@ -21,7 +21,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-max_jump", type=int, default=0)
     args = arg_parser.parse_args()
 
-    if args.max_jmp == 0:
+    if args.max_jump == 0:
         max_pos_jmp = np.inf
         max_neg_jmp = -np.inf
     else:
