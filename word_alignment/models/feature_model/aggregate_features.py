@@ -43,12 +43,12 @@ if __name__ == "__main__":
                 all_cons[ftype][con_id].add(int(max_I))
 
     prefix = re.search("^\./(.*?)\.\d+\.sub_feat", f).group(1)
-    outfile = open(prefix + ".vecs", "w")
+    #outfile = open(prefix + ".vecs", "w")
     convoc_outfile = open(prefix + ".convoc_list", "w")
 
     for con_id in all_cons["s"]:
         max_I = all_cons["s"][con_id].get()
-        convoc_outfile.write(" ".join(["s", con_id, str(max_I)]) + "\n")
+        #convoc_outfile.write(" ".join(["s", con_id, str(max_I)]) + "\n")
         ftype_ids = map(int, con_id.split("-"))
         for jmp in xrange(max_I):   
             feature_ids = set()
@@ -56,12 +56,12 @@ if __name__ == "__main__":
                 f_tuple = (ftype, jmp)
                 feature_id = all_features.add(f_tuple)
                 feature_ids.add(feature_id)
-            vec_id = ".".join([str(jmp), con_id])
-            outfile.write(" ".join([vec_id] + map(str, feature_ids)) + "\n")
+            #vec_id = ".".join([str(jmp), con_id])
+            convoc_outfile.write(" ".join(["s", con_id, str(jmp)] + map(str, feature_ids)) + "\n")
 
     for con_id in all_cons["j"]:
         max_I = all_cons["j"][con_id].get()
-        convoc_outfile.write(" ".join(["j", con_id, str(max_I)]) + "\n")
+        #convoc_outfile.write(" ".join(["j", con_id, str(max_I)]) + "\n")
         ftype_ids = map(int, con_id.split("-"))
         for jmp in xrange(-max_I+1, max_I):
             feature_ids = set()
@@ -75,10 +75,11 @@ if __name__ == "__main__":
                 f_tuple = (ftype, act_jmp)
                 feature_id = all_features.add(f_tuple)
                 feature_ids.add(feature_id)
-            vec_id = ".".join([str(jmp), con_id])
-            outfile.write(" ".join([vec_id] + map(str, feature_ids)) + "\n")
+            #vec_id = ".".join([str(jmp), con_id])
+            #outfile.write(" ".join([vec_id] + map(str, feature_ids)) + "\n")
+            convoc_outfile.write(" ".join(["j", con_id, str(jmp)] + map(str, feature_ids)) + "\n")
 
-    outfile.close()
+    #outfile.close()
     convoc_outfile.close()
 
     with open(prefix + ".weights", "w") as outfile:

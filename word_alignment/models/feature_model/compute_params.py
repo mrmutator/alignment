@@ -13,23 +13,23 @@ logger = logging.getLogger()
 
 def convoc_reader(fname):
     with open(fname, "r") as infile:
+        els = infile.readline().split()
+        t, con = els[0], els[1]
+        feature_i = map(int, els[3:])
+        prev = (t, con)
+        data = [feature_i]
         for line in infile:
-            t, con, max_I = line.split()
-            max_I = int(max_I)
-            yield t, con, max_I
+            els = line.split()
+            t, con = els[0], els[1]
+            feature_i = map(int, els[3:])
+            if prev != (t, con):
+                yield prev[0], prev[1], data
+                prev = (t, con)
+                data = [feature_i]
+            else:
+                data.append(feature_i)
+        yield prev[0], prev[1], data
 
-def load_vecs(file_name):
-    vec_ids = dict()
-    infile = open(file_name, "r")
-    for line in infile:
-        els = line.strip().split()
-        jmp, cid = els[0].split(".")
-        if cid not in vec_ids:
-            vec_ids[cid] = dict()
-
-        vec_ids[cid][int(jmp)] = sorted(map(int, els[1:]))
-    infile.close()
-    return vec_ids
 
 
 def load_weights(file_name):
@@ -44,25 +44,16 @@ def load_weights(file_name):
 
 
 def compute_lr_worker(process_queue, update_queue):
-    dist_vecs = dict(vec_ids)
     dist_weights = np.array(d_weights)
     feature_dim = len(dist_weights)
     while True:
         buff = process_queue.get()
         if buff is None:
             return
-        t, con, max_I = buff
-        if t == "s":
-            a,b = 0, max_I
-        else:
-            a,b = -max_I+1, max_I
-            max_I = (2* max_I)-1
+        t, con, data = buff
 
-        vecs_con = dist_vecs[con]
-
-        feature_matrix = lil_matrix((max_I, feature_dim))
-        for i, jmp in enumerate(xrange(a,b)):
-            features_i = vecs_con[jmp]
+        feature_matrix = lil_matrix((len(data), feature_dim))
+        for i, features_i in enumerate(data):
             feature_matrix.rows[i] = features_i
             feature_matrix.data[i] = [1.0] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
@@ -117,7 +108,6 @@ def aggregate_params(update_queue, convoc_files):
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-convoc_list", required=True)
-    arg_parser.add_argument("-vecs", required=True)
     arg_parser.add_argument("-weights", required=True)
     arg_parser.add_argument("-num_workers", default=8, type=int, required=False)
     args = arg_parser.parse_args()
@@ -133,7 +123,6 @@ if __name__ == "__main__":
     process_queue = mp.Queue(maxsize=num_workers*2)
 
     logger.info("Loading weights and vecs.")
-    vec_ids = load_vecs(args.vecs)
     d_weights = load_weights(args.weights)
 
     logger.info("Starting workers.")

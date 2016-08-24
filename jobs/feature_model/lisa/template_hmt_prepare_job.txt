@@ -25,7 +25,7 @@ rename "s/(.*?)\.(\d+)\.sub_feat.convoc/\1.convoc.\2/" *.sub_feat.convoc
 mv %(job_name)s.1.sub_feat.cons %(job_name)s.cons
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Computing parameters from weights."
-python  %(script_dir)s/word_alignment/models/feature_model/compute_params.py -convoc_list %(job_name)s.convoc_list -vecs %(job_name)s.vecs -weights %(job_name)s.weights -num_workers %(num_workers)s
+python  %(script_dir)s/word_alignment/models/feature_model/compute_params.py -convoc_list %(job_name)s.convoc_list -weights %(job_name)s.weights -num_workers %(num_workers)s
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Copying files."
 gzip %(job_name)s.params.*
@@ -37,7 +37,6 @@ cp %(job_name)s.corpus.*.gz %(it0_dir)s/
 cp %(job_name)s.convoc.*.gz %(it0_dir)s/
 cp %(job_name)s.weights %(it0_dir)s/
 cp %(job_name)s.cons %(it0_dir)s/
-cp %(job_name)s.vecs %(it0_dir)s/
 cp %(job_name)s.fvoc %(it0_dir)s/
 cp %(job_name)s.order.gz %(it0_dir)s/
 cp %(job_name)s.convoc_list %(it0_dir)s/

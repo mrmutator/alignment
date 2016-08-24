@@ -5,13 +5,26 @@ import re
 import logging
 import numpy as np
 import multiprocessing as mp
-from compute_params import load_weights, load_vecs
+from compute_params import load_weights
 from scipy.optimize import fmin_l_bfgs_b
 from scipy.sparse import lil_matrix
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
+
+def load_vecs(file_name):
+    vec_ids = dict()
+    infile = open(file_name, "r")
+    for line in infile:
+        els = line.split()
+        t, con, jmp = els[0], els[1], els[2]
+        if con not in vec_ids:
+            vec_ids[con] = dict()
+
+        vec_ids[con][int(jmp)] = sorted(map(int, els[3:]))
+    infile.close()
+    return vec_ids
 
 
 def update_count_file(file_name, total, static_dynamic_dict):
@@ -114,7 +127,7 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-dir", required=True)
     arg_parser.add_argument("-weights", required=True)
-    arg_parser.add_argument("-vecs", required=True)
+    arg_parser.add_argument("-convoc_list", required=True)
     arg_parser.add_argument("-kappa", required=True, type=float)
     arg_parser.add_argument("-lbfgs_maxiter", required=False, type=int, default=15000)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=3)
@@ -161,7 +174,7 @@ if __name__ == "__main__":
 
 
 
-    dist_vecs = load_vecs(args.vecs)
+    dist_vecs = load_vecs(args.convoc_list)
 
     compute_expectation_vectors(static_dynamic_dict, al_counts)
     data_num = len(static_dynamic_dict)
