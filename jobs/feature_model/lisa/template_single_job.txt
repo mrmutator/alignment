@@ -3,7 +3,6 @@
 #PBS -lwalltime=%(wall_time)s
 cd "$TMPDIR"
 
-cp %(it0_dir)s/%(job_name)s.vecs vecs
 cp %(it0_dir)s/%(job_name)s.weights weights
 cp %(it0_dir)s/%(job_name)s.convoc_list convoc_list
 cp %(it0_dir)s/%(job_name)s.order.gz order.gz
@@ -31,7 +30,7 @@ do
   done
  # update
  >&2 echo "Starting M-step";
- python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -vecs vecs -kappa %(kappa)s -num_workers %(num_workers)s -lbfgs_maxiter %(lbfgs_maxiter)s > ll.${it}.log
+ python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -convoc_list convoc_list -kappa %(kappa)s -num_workers %(num_workers)s -lbfgs_maxiter %(lbfgs_maxiter)s > ll.${it}.log
  rename "s/^params.params/new_params/" params.params.*
  rm params.*
  rm weights
@@ -40,7 +39,7 @@ do
  mv log_likelihood log_likelihood.${it}
  rm convoc.*.params
  >&2 echo "Recomputing parameters.";
- python  %(script_dir)s/word_alignment/models/feature_model/compute_params.py -convoc_list convoc_list -vecs vecs -weights weights -num_workers %(num_workers)s
+ python  %(script_dir)s/word_alignment/models/feature_model/compute_params.py -convoc_list convoc_list -weights weights -num_workers %(num_workers)s
 
  cp log_likelihood.${it} %(result_dir)s/%(job_name)s.log_likelihood.${it}
  cp params.* %(result_dir)s/
