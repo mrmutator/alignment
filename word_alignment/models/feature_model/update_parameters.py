@@ -27,7 +27,7 @@ def load_vecs(file_name):
     return vec_ids
 
 
-def update_count_file(file_name, total, static_dynamic_dict):
+def update_count_file(file_name, total):
     with open(file_name, "r") as infile:
         ll = float(infile.readline().strip().split("\t")[1])
         total[3] += ll
@@ -42,10 +42,6 @@ def update_count_file(file_name, total, static_dynamic_dict):
             else:
                 if count_i == 2:
                     k = (k[0], int(k[1]))
-                    # make association of static and dynamic conds
-                    static = k[0]
-                    dynamic = k[1]
-                    static_dynamic_dict[static].add(dynamic)
                 else:
                     k = tuple(map(int, k))
             total[count_i][k] += v
@@ -86,12 +82,21 @@ def normalize_trans(in_queue):
     logger.info("Translation parameter files written.")
 
 
-def compute_expectation_vectors(static_dynamic_dict, al_counts):
-    for static_cond_id in static_dynamic_dict:
-        dynamic_ids = list(static_dynamic_dict[static_cond_id])
-        expectation_vector = np.array([al_counts[static_cond_id, dynamic_cid] for dynamic_cid in dynamic_ids])
-        static_dynamic_dict[static_cond_id] = (expectation_vector, dynamic_ids)
+def compute_expectation_vectors(convoc_list_file, al_counts):
+    data = dict()
+    with open(convoc_list_file, "r") as infile:
+        for line in infile:
+            els = line.split()
+            t, con, jmp = els[0], els[1], int(els[2])
+            feature_i = sorted(map(int, els[3:]))
+            if con not in data:
+                data[con] = (list(), list())
+            data[con][0].append(feature_i)
+            data[con][1].append(al_counts[con, jmp])
+    for con in data:
+        data[con] = (data[con][0], np.array(data[con][1]))
 
+    return data
 
 def write_weight_file(out_file_name, weights):
     with open(out_file_name, "w") as outfile:
@@ -123,6 +128,28 @@ def optimization_worker(feature_dim, process_queue, results_queue):
         results_queue.put((ll, grad_c_t))
 
 
+def aggregator(process_queue, results_queue, feature_dim):
+    num_data = process_queue.get()
+    ll = 0
+    grad_ll = np.zeros(feature_dim)
+    c = 0
+    while True:
+        if c == num_data:
+            results_queue.put((ll, grad_ll))
+            ll = 0
+            grad_ll = np.zeros(feature_dim)
+            c = 0
+        buffer = process_queue.get()
+        if buffer is None:
+            assert c == 0
+            return
+        tmp_ll, tmp_grad_ll = buffer
+        ll += tmp_ll
+        grad_ll += tmp_grad_ll
+        c += 1
+
+
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-dir", required=True)
@@ -139,7 +166,9 @@ if __name__ == "__main__":
     exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts.*")
 
     results_queue = mp.Queue()
-    process_queue = mp.Queue(maxsize=args.num_workers)
+    process_queue = mp.Queue(maxsize=args.num_workers*2)
+    final_queue = mp.Queue()
+
     trans_queue = mp.Queue()
 
     d_weights = load_weights(args.weights)
@@ -151,16 +180,20 @@ if __name__ == "__main__":
         p.start()
         pool.append(p)
 
+    p = mp.Process(target=aggregator, args=(results_queue, final_queue, feature_dim))
+    p.start()
+    pool.append(p)
+
     p = mp.Process(target=normalize_trans, args=(trans_queue,))
     p.start()
     pool.append(p)
 
     # types = ["lex_counts", "lex_norm", "al_counts", "ll"]
     total = [Counter(), Counter(), Counter(), 0.0]
-    static_dynamic_dict = defaultdict(set)
+
     logger.info("Aggregating counts.")
     for f in exp_files:
-        update_count_file(f, total, static_dynamic_dict)
+        update_count_file(f, total)
 
     lex_counts, lex_norm, al_counts, log_likelihood_before_update = total
 
@@ -170,27 +203,17 @@ if __name__ == "__main__":
         trans_queue.put(f)
     trans_queue.put(None)
 
-    logger.info("Optimizing / M-step")
-
-
-
-    dist_vecs = load_vecs(args.convoc_list)
-
-    compute_expectation_vectors(static_dynamic_dict, al_counts)
-    data_num = len(static_dynamic_dict)
+    logger.info("Loading conditions")
+    data = compute_expectation_vectors(args.convoc_list, al_counts)
+    data_num = len(data)
+    results_queue.put(data_num)
 
     def objective_func(d_weights):
         # compute regularized expected complete log-likelihood
-        ll = 0
-        grad_ll = np.zeros(feature_dim)
-        for static_cond_id, (expectation_vector, dynamic_ids) in static_dynamic_dict.iteritems():
-            vecs = dist_vecs[static_cond_id]
-            process_queue.put((np.array(d_weights), expectation_vector, map(vecs.__getitem__, dynamic_ids)))
+        for static_cond_id, (feature_i, expectation_vector) in data.iteritems():
+            process_queue.put((np.array(d_weights), expectation_vector, feature_i))
 
-        for _ in xrange(data_num):
-            buffer_ll, buffer_grad_ll = results_queue.get()
-            ll += buffer_ll
-            grad_ll += buffer_grad_ll
+        ll, grad_ll = final_queue.get()
 
         # l2-norm:
         l2_norm = np.linalg.norm(d_weights)
@@ -203,14 +226,16 @@ if __name__ == "__main__":
     original_weights = np.array(d_weights)
     initial_ll, _ = objective_func(original_weights)
 
+    logger.info("Starting lbfgs optimization.")
     optimized_weights, best_ll, _ = fmin_l_bfgs_b(objective_func, np.array(d_weights), m=10, iprint=1, maxiter=args.lbfgs_maxiter)
     logger.info("Optimization done.")
     logger.info("Initial likelihood: " + str(-initial_ll))
     logger.info("Best likelihood: " + str(-best_ll))
     logger.info("LL diff: " + str(-initial_ll + best_ll))
 
-    for p in pool[:-1]:  # last one in pool is trans normalization
+    for p in pool[:-2]:  # last one in pool is trans normalization and aggregator
         process_queue.put(None)
+    results_queue.put(None)
     for p in pool:
         p.join()
 
