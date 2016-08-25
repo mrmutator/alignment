@@ -83,24 +83,27 @@ def normalize_trans(in_queue):
 
 
 def compute_expectation_vectors(convoc_list_file, al_counts, num_workers):
-    datas = [dict() for _ in xrange(num_workers)]
     data_count = [0 for _ in xrange(num_workers)]
-    data = dict()
+    context_count = [0 for _ in xrange(num_workers)]
+    outfiles = [open("temp_counts." + str(i), "w") for i in xrange(num_workers)]
+    current_con = None
     with open(convoc_list_file, "r") as infile:
         for line in infile:
             els = line.split()
             t, con, jmp = els[0], els[1], int(els[2])
-            feature_i = sorted(map(int, els[3:]))
-            if con not in data:
-                data[con] = (list(), list())
-            data[con][0].append(feature_i)
-            data[con][1].append(al_counts[con, jmp])
-    for con in data.keys():
-        i = np.argmin(data_count)
-        datas[i][con] = (data[con][0], np.array(data[con][1]))
-        data_count[i] += len(data[con][0])
-        del data[con]
-    return datas, data_count
+            feature_i = els[3:]
+            if current_con != con:
+                current_con = con
+                current_i = np.argmin(data_count)
+                current_file = outfiles[current_i]
+                context_count[current_i] += 1
+            current_file.write(" ".join([con, str(al_counts[con, jmp])] + feature_i) + "\n")
+            data_count[current_i] += 1
+
+    for of in outfiles:
+        of.close()
+    return data_count, context_count
+
 
 def write_weight_file(out_file_name, weights):
     with open(out_file_name, "w") as outfile:
@@ -109,23 +112,29 @@ def write_weight_file(out_file_name, weights):
 
 
 def optimization_worker(feature_dim, process_queue, results_queue):
-    data, data_length = process_queue.get()
+    count_file, data_length, context_count = process_queue.get()
     f_matrix = lil_matrix((data_length, feature_dim))
-    sum_template = lil_matrix((len(data), data_length))
+    sum_template = lil_matrix((context_count, data_length))
     ci = 0
-    cj = 0
-    expectation_vector = np.array([])
-    for _, (feature_ids, exp_vec) in data.iteritems():
-        expectation_vector = np.append(expectation_vector, exp_vec)
-        for feature_i in feature_ids:
+    cj = -1
+    expectation_vector = np.zeros(data_length)
+    curr_con = None
+    with open(count_file, "r") as infile:
+        for line in infile:
+            els = line.split()
+            con, exp_count = els[0], float(els[1])
+            feature_i = map(int, els[2:])
+            if con != curr_con:
+                curr_con = con
+                cj += 1
+            expectation_vector[ci] = exp_count
             f_matrix.rows[ci] = feature_i
             f_matrix.data[ci] = [1.0] * len(feature_i)
             sum_template[cj, ci] = 1.0
             ci += 1
-        cj += 1
+
     f_matrix = f_matrix.tocsr()
     sum_template = sum_template.tocsr()
-    del data
 
     while True:
         buffer = process_queue.get()
@@ -142,7 +151,6 @@ def optimization_worker(feature_dim, process_queue, results_queue):
         f_sums = sum_template.T.dot(sum_template.dot(f_cond)) # --> |d| * |f|
         grad_c_t_w = f_matrix - f_sums
         grad_c_t = grad_c_t_w.T.dot(expectation_vector)  # multiply each row by d_expectation_count
-
         results_queue.put((ll, grad_c_t))
 
 
@@ -224,13 +232,13 @@ if __name__ == "__main__":
     trans_queue.put(None)
 
     logger.info("Loading conditions")
-    datas, data_count = compute_expectation_vectors(args.convoc_list, al_counts, worker_num)
+    data_counts, context_counts = compute_expectation_vectors(args.convoc_list, al_counts, worker_num)
     results_queue.put(worker_num)
 
 
     logger.info("Sending data to workers")
-    for i, data in enumerate(datas):
-        process_queues[i].put((data, data_count[i]))
+    for i in xrange(worker_num):
+        process_queues[i].put(("temp_counts." + str(i), data_counts[i], context_counts[i]))
 
     def objective_func(d_weights):
         # compute regularized expected complete log-likelihood
