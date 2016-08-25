@@ -1,4 +1,4 @@
-from collections import defaultdict, Counter
+from collections import Counter
 import argparse
 import glob
 import re
