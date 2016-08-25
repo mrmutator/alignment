@@ -7,7 +7,7 @@ import numpy as np
 import multiprocessing as mp
 from compute_params import load_weights
 from scipy.optimize import fmin_l_bfgs_b
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix, diags
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -82,7 +82,9 @@ def normalize_trans(in_queue):
     logger.info("Translation parameter files written.")
 
 
-def compute_expectation_vectors(convoc_list_file, al_counts):
+def compute_expectation_vectors(convoc_list_file, al_counts, num_workers):
+    datas = [dict() for _ in xrange(num_workers)]
+    data_count = [0 for _ in xrange(num_workers)]
     data = dict()
     with open(convoc_list_file, "r") as infile:
         for line in infile:
@@ -93,10 +95,12 @@ def compute_expectation_vectors(convoc_list_file, al_counts):
                 data[con] = (list(), list())
             data[con][0].append(feature_i)
             data[con][1].append(al_counts[con, jmp])
-    for con in data:
-        data[con] = (data[con][0], np.array(data[con][1]))
-
-    return data
+    for con in data.keys():
+        i = np.argmin(data_count)
+        datas[i][con] = (data[con][0], np.array(data[con][1]))
+        data_count[i] += len(data[con][0])
+        del data[con]
+    return datas, data_count
 
 def write_weight_file(out_file_name, weights):
     with open(out_file_name, "w") as outfile:
@@ -105,25 +109,39 @@ def write_weight_file(out_file_name, weights):
 
 
 def optimization_worker(feature_dim, process_queue, results_queue):
+    data, data_length = process_queue.get()
+    f_matrix = lil_matrix((data_length, feature_dim))
+    sum_template = lil_matrix((len(data), data_length))
+    ci = 0
+    cj = 0
+    expectation_vector = np.array([])
+    for _, (feature_ids, exp_vec) in data.iteritems():
+        expectation_vector = np.append(expectation_vector, exp_vec)
+        for feature_i in feature_ids:
+            f_matrix.rows[ci] = feature_i
+            f_matrix.data[ci] = [1.0] * len(feature_i)
+            sum_template[cj, ci] = 1.0
+            ci += 1
+        cj += 1
+    f_matrix = f_matrix.tocsr()
+    sum_template = sum_template.tocsr()
+    del data
+
     while True:
         buffer = process_queue.get()
         if buffer is None:
             return
-        d_weights, expectation_vector, dynamic_feat_sets = buffer
-
-        f_matrix = lil_matrix((len(dynamic_feat_sets), feature_dim))
-        for i, dynamic_feat_set in enumerate(dynamic_feat_sets):
-            f_matrix.rows[i] = dynamic_feat_set
-            f_matrix.data[i] = [1.0] * len(dynamic_feat_set)
-        f_matrix = f_matrix.tocsr()
+        d_weights = buffer
         numerator = np.exp(f_matrix.dot(d_weights))
-        cond_params = (numerator / np.sum(numerator))
+        num_sum = sum_template.T.dot(sum_template.dot(numerator))
+        cond_params = (numerator / num_sum)
         ll = np.sum(np.multiply(expectation_vector, np.log(cond_params)))
-        # ll += expectation_vector.dot(np.log(cond_params)) # slower
+        # ll + expectation_vector.dot(np.log(cond_params)) # slower
 
-        c_t_sum = f_matrix.T.dot(cond_params)
-        grad_c_t_w = np.asarray(f_matrix - c_t_sum)  # still a |d| x |f| matrix
-        grad_c_t = expectation_vector.dot(grad_c_t_w)  # multiply each row by d_expectation_count
+        f_cond = diags(cond_params, 0) * f_matrix # a |f| x |d| matrix
+        f_sums = sum_template.T.dot(sum_template.dot(f_cond)) # --> |d| * |f|
+        grad_c_t_w = f_matrix - f_sums
+        grad_c_t = grad_c_t_w.T.dot(expectation_vector)  # multiply each row by d_expectation_count
 
         results_queue.put((ll, grad_c_t))
 
@@ -161,12 +179,14 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
+    worker_num = max(1, args.num_workers - 2)
+
     kappa = args.kappa
 
     exp_files = glob.glob(args.dir.rstrip("/") + "/*.counts.*")
 
     results_queue = mp.Queue()
-    process_queue = mp.Queue(maxsize=args.num_workers*2)
+    process_queues = [mp.Queue() for _ in xrange(worker_num)]
     final_queue = mp.Queue()
 
     trans_queue = mp.Queue()
@@ -175,8 +195,8 @@ if __name__ == "__main__":
     feature_dim = len(d_weights)
 
     pool = []
-    for w in xrange(max(1, args.num_workers - 2)):
-        p = mp.Process(target=optimization_worker, args=(feature_dim, process_queue, results_queue))
+    for w in xrange(worker_num):
+        p = mp.Process(target=optimization_worker, args=(feature_dim, process_queues[w], results_queue))
         p.start()
         pool.append(p)
 
@@ -204,14 +224,18 @@ if __name__ == "__main__":
     trans_queue.put(None)
 
     logger.info("Loading conditions")
-    data = compute_expectation_vectors(args.convoc_list, al_counts)
-    data_num = len(data)
-    results_queue.put(data_num)
+    datas, data_count = compute_expectation_vectors(args.convoc_list, al_counts, worker_num)
+    results_queue.put(worker_num)
+
+
+    logger.info("Sending data to workers")
+    for i, data in enumerate(datas):
+        process_queues[i].put((data, data_count[i]))
 
     def objective_func(d_weights):
         # compute regularized expected complete log-likelihood
-        for static_cond_id, (feature_i, expectation_vector) in data.iteritems():
-            process_queue.put((np.array(d_weights), expectation_vector, feature_i))
+        for i in xrange(worker_num):
+            process_queues[i].put(np.array(d_weights))
 
         ll, grad_ll = final_queue.get()
 
@@ -233,8 +257,9 @@ if __name__ == "__main__":
     logger.info("Best likelihood: " + str(-best_ll))
     logger.info("LL diff: " + str(-initial_ll + best_ll))
 
-    for p in pool[:-2]:  # last one in pool is trans normalization and aggregator
-        process_queue.put(None)
+
+    for q in process_queues:  # last one in pool is trans normalization and aggregator
+        q.put(None)
     results_queue.put(None)
     for p in pool:
         p.join()
