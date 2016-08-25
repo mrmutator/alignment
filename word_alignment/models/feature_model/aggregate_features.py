@@ -8,7 +8,7 @@ from features import max_dict
 import numpy as np
 
 def random_weight():
-    return random.uniform(-1, 1)
+    return random.uniform(-0.2, 0.2)
 
 def uniform_weight():
     return 0.5
