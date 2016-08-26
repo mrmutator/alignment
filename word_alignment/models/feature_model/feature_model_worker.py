@@ -13,6 +13,9 @@ logger = logging.getLogger()
 
 
 def train_iteration(process_queue, queue):
+    max_jump = args.max_jump
+    if max_jump == 0:
+        max_jump = np.inf
     p_0 = args.p_0
     norm_coeff = 1.0 - p_0
     SMALL_PROB_CONST = 0.00000001
@@ -88,7 +91,12 @@ def train_iteration(process_queue, queue):
             xis[j+1][:I,:I] += xis[j+1][I:,:I]
             for i_p, con in enumerate(ips):
                 for i in xrange(I):
-                    al_counts[(ips[i_p], i-i_p)] += xis[j+1][i_p,i]
+                    jmp = i-i_p
+                    if jmp < -max_jump:
+                        jmp = -max_jump
+                    elif jmp > max_jump:
+                        jmp = max_jump
+                    al_counts[(ips[i_p], jmp)] += xis[j+1][i_p,i]
 
         ll += log_likelihood
 
@@ -174,6 +182,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("-convoc_params", required=True)
     arg_parser.add_argument("-num_workers", required=False, type=int, default=2)
     arg_parser.add_argument("-p_0", required=False, type=float, default=0.2)
+    arg_parser.add_argument("-max_jump", type=int, default=0)
     SMALL_PROB_CONST = 0.00000001
 
     args = arg_parser.parse_args()

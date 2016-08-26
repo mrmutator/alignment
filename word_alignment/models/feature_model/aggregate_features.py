@@ -61,18 +61,14 @@ if __name__ == "__main__":
 
     for con_id in all_cons["j"]:
         max_I = all_cons["j"][con_id].get()
+        min_jump = max(-max_I+1, max_neg_jmp)
+        max_jump = min(max_I, max_pos_jmp+1)
         #convoc_outfile.write(" ".join(["j", con_id, str(max_I)]) + "\n")
         ftype_ids = map(int, con_id.split("-"))
-        for jmp in xrange(-max_I+1, max_I):
+        for jmp in xrange(min_jump, max_jump):
             feature_ids = set()
             for ftype in ftype_ids:
-                if jmp > 0:
-                    act_jmp = min(max_pos_jmp, jmp)
-                elif jmp < 0:
-                    act_jmp = max(max_neg_jmp, jmp)
-                else:
-                    act_jmp = jmp
-                f_tuple = (ftype, act_jmp)
+                f_tuple = (ftype, jmp)
                 feature_id = all_features.add(f_tuple)
                 feature_ids.add(feature_id)
             #vec_id = ".".join([str(jmp), con_id])

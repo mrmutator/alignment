@@ -5,6 +5,7 @@ import numpy as np
 from scipy.sparse import lil_matrix
 import glob
 from collections import defaultdict
+from features import max_dict
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
@@ -70,6 +71,7 @@ def aggregate_params(update_queue, convoc_files):
     start_index = defaultdict(list)
     dist_index = defaultdict(list)
     outfiles = []
+    max_dists = defaultdict(max_dict)
 
     for i, f in enumerate(convoc_files):
         with open(f, "r") as infile:
@@ -79,6 +81,7 @@ def aggregate_params(update_queue, convoc_files):
                     start_index[con].append((i, int(max_I)))
                 elif t == "j":
                     dist_index[con].append((i, int(max_I)))
+                    max_dists[con].add(int(max_I))
         outfiles.append(open(f + ".params", "w"))
 
     while True:
@@ -92,6 +95,17 @@ def aggregate_params(update_queue, convoc_files):
                 write_params(outfiles[fid],t, con, 0, numerator[:max_I])
         elif t == "j":
             all_I = (len(numerator) + 1) / 2
+            actual_max = max_dists[con].get()
+            if all_I < actual_max:
+                diff_I = actual_max - all_I
+                # jumps have been clipped
+                temp_numerator = np.zeros((actual_max*2)-1)
+                temp_numerator[diff_I:-diff_I] = numerator
+                temp_numerator[:diff_I+1] = numerator[0] / (diff_I + 1)
+                temp_numerator[-(diff_I+1):] = numerator[-1] / (diff_I+1)
+                numerator = temp_numerator
+                all_I = (len(numerator) + 1) / 2
+
             for fid, max_I in dist_index[con]:
                 if all_I != max_I:
                     diff_I = all_I-max_I
