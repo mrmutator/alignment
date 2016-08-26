@@ -23,12 +23,17 @@ def train_iteration(process_queue, queue):
     lex_norm = Counter()  # e
     al_counts = Counter()
     ll = 0
+    processed_count = 0
     while True:
+        if processed_count > 3000:
+            queue.put((lex_counts, lex_norm, al_counts, ll))
+            lex_counts, lex_norm, al_counts, ll = Counter(), Counter(), Counter(), 0
         buffer = process_queue.get()
         if buffer is None:
             queue.put((lex_counts, lex_norm, al_counts, ll))
             return
 
+        processed_count += 1
         e_toks, f_toks, f_heads, feature_ids = buffer
         # set all counts to zero
 
