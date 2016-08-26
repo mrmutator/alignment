@@ -40,6 +40,7 @@ def extract_features(feature_pool, process_queue, write_queue, result_queue):
 
         # sentence_level
         features_sentence_level = ExtractedFeatures(feature_pool)
+        features_sentence_level.add_feature(("0", 1)) # basic jump feature
         features_sentence_level.add_feature(("I", I))
         features_sentence_level.add_feature(("J", J))
 
