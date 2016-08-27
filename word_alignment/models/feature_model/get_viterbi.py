@@ -26,7 +26,7 @@ def get_viterbi_alignment(process_queue, queue):
         J = len(f_toks)
         I_double = 2 * I
 
-        translation_matrix = np.zeros((J, I_double)) * SMALL_PROB_CONST
+        translation_matrix = np.ones((J, I_double)) * SMALL_PROB_CONST
 
         # start probs
         # i_p is 0 for start_probs
