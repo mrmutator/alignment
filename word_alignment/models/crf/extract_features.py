@@ -101,13 +101,6 @@ def extract_features(corpus, outfile_name, fvoc):
             for ip in xrange(I_ext):
                 ip_vecs = []
                 for i in xrange(I_ext):
-                    jmp = i - ip
-                    if i == 0:
-                        jmp = "TN"
-                    if ip == 0:
-                        jmp = "FN"
-                    if ip == 0 and i == 0:
-                        jmp = "SN"
                     f_ids = [0]
                     j_features_single_i = []
                     j_features_pair_i = []
