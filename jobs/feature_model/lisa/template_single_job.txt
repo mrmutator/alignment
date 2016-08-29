@@ -31,6 +31,7 @@ do
  # update
  >&2 echo "Starting M-step";
  python %(script_dir)s/word_alignment/models/feature_model/update_parameters.py -dir . -weights weights -convoc_list convoc_list -kappa %(kappa)s -num_workers %(num_workers)s -lbfgs_maxiter %(lbfgs_maxiter)s > ll.${it}.log
+ rm temp_counts.*
  rename "s/^params.params/new_params/" params.params.*
  rm params.*
  rm weights
