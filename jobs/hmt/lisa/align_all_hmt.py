@@ -11,8 +11,8 @@ def parse_config(args):
     params['result_dir'] = params["dir"]
     params['convoc_params'] = os.path.join(params["dir"] + "convoc.1.params")
     params['params'] = os.path.join(params["dir"] + "params.1")
-    params['corpus_gz'] = os.path.abspath(glob.glob(params["dir"] + "/../*.corpus.1.gz"))
-    params['corpus_gz'] = os.path.abspath(glob.glob(params["dir"] + "/../*.order.gz"))
+    params['corpus_gz'] = os.path.abspath(glob.glob(params["dir"] + "/../*.corpus.1.gz")[0])
+    params['corpus_gz'] = os.path.abspath(glob.glob(params["dir"] + "/../*.order.gz")[0])
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../../../'))
     params['num_workers'] = 16
