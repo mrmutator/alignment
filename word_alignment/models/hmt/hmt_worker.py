@@ -106,8 +106,7 @@ def train_iteration(process_queue, queue):
         ll += log_likelihood
 
 
-def load_params(file_name):
-    t_params = dict()
+def load_params(file_name, t_params):
     infile = open(file_name, "r")
     for line in infile:
         els = line.strip().split(" ")
@@ -122,11 +121,10 @@ def load_params(file_name):
         else:
             raise Exception("Should not happen.")
     infile.close()
-    return t_params
 
 
 
-def load_convoc_params(fname):
+def load_convoc_params(fname, new_start_params, new_dist_params):
     start_params = defaultdict(list)
     dist_params = defaultdict(list)
     with open(fname, "r") as infile:
@@ -137,14 +135,12 @@ def load_convoc_params(fname):
             elif t == "j":
                 dist_params[con].append(float(p))
 
-    new_start_params = dict()
-    new_dist_params = dict()
     for k, l in start_params.iteritems():
         new_start_params[k] = np.array(l)
     for k, l in dist_params.iteritems():
         new_dist_params[k] = np.array(l)
-
-    return new_start_params, new_dist_params
+    del start_params
+    del dist_params
 
 
 def aggregate_counts(queue,  counts_file):
@@ -200,16 +196,17 @@ if __name__ == "__main__":
     updater.start()
     process_queue = mp.Queue(maxsize=num_workers*2)
 
-
-    logger.info("Loading parameters.")
-    t_params = load_params(args.params)
-    start_params, dist_params = load_convoc_params(args.convoc_params)
+    start_params, dist_params, t_params = dict(), dict(), dict()
 
     pool = []
     for w in xrange(num_workers):
         p = mp.Process(target=train_iteration, args=(process_queue, update_queue))
         p.start()
         pool.append(p)
+
+    logger.info("Loading parameters.")
+    load_params(args.params, t_params)
+    load_convoc_params(args.convoc_params, start_params, dist_params)
 
     logger.info("Starting worker processes..")
     corpus = SubcorpusReader(args.corpus)
