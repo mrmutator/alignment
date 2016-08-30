@@ -1,0 +1,19 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=%(wall_time)s
+cd "$TMPDIR"
+
+cp %(corpus_gz)s corpus.test.gz
+cp %(order_gz)s order.gz
+cp %(params)s params.txt
+cp %(convoc_params)s convoc.params
+gunzip corpus.test.gz
+gunzip order.gz
+
+module load python
+source %(script_dir)s/venv/bin/activate
+
+python %(script_dir)s/word_alignment/models/hmt/get_viterbi.py -corpus corpus.test  -params params.txt -convoc_params convoc.params -out_file corpus.aligned -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s
+python %(script_dir)s/word_alignment/models/hmt/reorder_aligned.py -order_file order -aligned_file corpus.aligned
+cp corpus.aligned.reordered %(result_dir)s/all.aligned
+wait
