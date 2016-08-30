@@ -28,6 +28,7 @@ def train_iteration(process_queue, queue):
         if processed_count > 3000:
             queue.put((lex_counts, lex_norm, al_counts, ll))
             lex_counts, lex_norm, al_counts, ll = Counter(), Counter(), Counter(), 0
+            processed_count = 0
         buffer = process_queue.get()
         if buffer is None:
             queue.put((lex_counts, lex_norm, al_counts, ll))
