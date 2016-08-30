@@ -37,7 +37,7 @@ arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-alpha", required=False, default=0.4, type=float)
 arg_parser.add_argument("-p_0", required=False, default=0.2, type=float)
-arg_parser.add_argument("-wall_time", required=False, default=0.2, type=float)
+arg_parser.add_argument("-wall_time", required=False, default="05:00:00", type=str)
 
 args = arg_parser.parse_args()
 
