@@ -149,8 +149,8 @@ if __name__ == "__main__":
     process_queue = mp.Queue(maxsize=num_workers)
 
     logger.info("Loading parameters.")
-
-    t_params, start_params, dist_params = dict(), dict(), dict()
+    t_params = load_params(args.params)
+    start_params, dist_params = load_convoc_params(args.convoc_params)
 
     pool = []
     for w in xrange(num_workers):
@@ -160,9 +160,6 @@ if __name__ == "__main__":
 
     aggregator = mp.Process(target=aggregate_alignments, args=(results_queue,))
     aggregator.start()
-
-    load_params(args.params, t_params)
-    load_convoc_params(args.convoc_params, start_params, dist_params)
 
     logger.info("Loading corpus.")
     corpus = SubcorpusReader(args.corpus)
