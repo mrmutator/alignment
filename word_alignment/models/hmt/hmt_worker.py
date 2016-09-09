@@ -20,7 +20,7 @@ def all_traces(x):
     return z.sum(axis=1)
 
 
-def train_iteration(process_queue, queue):
+def train_iteration(process_queue, pipes, worker_id, communication_queue):
     p_0 = args.p_0
     alpha_o = 1.0 - args.alpha
     alpha_s = args.alpha
@@ -33,8 +33,7 @@ def train_iteration(process_queue, queue):
     while True:
         buffer = process_queue.get()
         if buffer is None:
-            queue.put((lex_counts, lex_norm, al_counts, ll))
-            return
+            break
 
         e_toks, f_toks, f_heads, feature_ids = buffer
         # set all counts to zero
@@ -106,6 +105,42 @@ def train_iteration(process_queue, queue):
         ll += log_likelihood
 
 
+    # aggregate worker
+    while True:
+        communication_queue.put(worker_id)
+        cmd = pipes[worker_id][0].recv()
+        if isinstance(cmd, tuple):
+            tmp_lex_counts, tmp_lex_norm, tmp_al_counts, tmp_ll = cmd
+            lex_counts.update(tmp_lex_counts)
+            lex_norm.update(tmp_lex_norm)
+            al_counts.update(tmp_al_counts)
+            ll += tmp_ll
+
+        elif cmd == "w":
+            break
+        else:
+            pipes[cmd][1].send((lex_counts, lex_norm, al_counts, ll))
+            return
+
+    logger.info("Writing counts to file.")
+    # store counts
+    # types = ["lex_counts", "lex_norm", "al_counts", "al_norm", "start_counts", "start_norm"]
+    types = ["0", "1", "2"]
+    with open(counts_file_name, "w") as outfile:
+        outfile.write("LL:\t" + str(ll) + "\n")
+        for i, counter in enumerate([lex_counts, lex_norm, al_counts]):
+            t = types[i]
+            for k, v in counter.iteritems():
+                if isinstance(k, tuple):
+                    k = " ".join(map(str, k))
+                else:
+                    k = str(k)
+                v = str(v)
+                outfile.write("\t".join([t, k, v]) + "\n")
+
+    logger.info("Counts written.")
+
+
 def load_params(file_name):
     t_params = dict()
     infile = open(file_name, "r")
@@ -147,37 +182,6 @@ def load_convoc_params(fname):
     return new_start_params, new_dist_params
 
 
-def aggregate_counts(queue,  counts_file):
-    total = [Counter(), Counter(), Counter()]
-    total_ll = 0
-    while True:
-        counts = queue.get()
-        if counts is None:
-            break
-        for i, c in enumerate(counts[:3]):
-            total[i].update(c)
-        total_ll += counts[-1]
-
-    logger.info("Writing counts to file.")
-
-    # store counts
-    # types = ["lex_counts", "lex_norm", "al_counts", "al_norm", "start_counts", "start_norm"]
-    types = ["0", "1", "2"]
-    with open(counts_file, "w") as outfile:
-        outfile.write("LL:\t" + str(total_ll) + "\n")
-        for i, counter in enumerate(total):
-            t = types[i]
-            for k, v in counter.iteritems():
-                if isinstance(k, tuple):
-                    k = " ".join(map(str, k))
-                else:
-                    k = str(k)
-                v = str(v)
-                outfile.write("\t".join([t, k, v]) + "\n")
-
-    logger.info("Counts written.")
-
-
 #############################################
 # main
 if __name__ == "__main__":
@@ -194,10 +198,9 @@ if __name__ == "__main__":
 
     counts_file_name = args.params + ".counts"
 
-    update_queue = mp.Queue()
     num_workers = args.num_workers
-    updater = mp.Process(target=aggregate_counts, args=(update_queue, counts_file_name))
-    updater.start()
+    update_pipes = [mp.Pipe(duplex=True) for _ in xrange(num_workers)]
+    communication_queue = mp.Queue()
     process_queue = mp.Queue(maxsize=num_workers*2)
 
 
@@ -207,7 +210,7 @@ if __name__ == "__main__":
 
     pool = []
     for w in xrange(num_workers):
-        p = mp.Process(target=train_iteration, args=(process_queue, update_queue))
+        p = mp.Process(target=train_iteration, args=(process_queue, update_pipes, w, communication_queue))
         p.start()
         pool.append(p)
 
@@ -215,13 +218,19 @@ if __name__ == "__main__":
     corpus = SubcorpusReader(args.corpus)
     for buff in corpus:
         process_queue.put(buff)
+    logger.info("Entire corpus loaded.")
     # Send termination signal
     for _ in xrange(num_workers):
         process_queue.put(None)
-    logger.info("Entire corpus loaded.")
+
+    # aggregation
+    for _ in xrange(num_workers-1):
+        del_id = communication_queue.get()
+        agg_id = communication_queue.get()
+        update_pipes[del_id][1].send(agg_id)
+    final_id = communication_queue.get()
+    update_pipes[final_id][1].send("w")
+
     for p in pool:
         p.join()
-    # Send termination signal
-    update_queue.put(None)
-    logger.info("Waiting for update process to terminate.")
-    updater.join()
+
