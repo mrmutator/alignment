@@ -60,11 +60,11 @@ def compute_lr_worker(process_queue, update_queue):
 
         vecs_con = dist_vecs[con]
 
-        feature_matrix = lil_matrix((max_I, feature_dim))
+        feature_matrix = lil_matrix((max_I, feature_dim), dtype=bool)
         for i, jmp in enumerate(xrange(a,b)):
             features_i = vecs_con[jmp]
             feature_matrix.rows[i] = features_i
-            feature_matrix.data[i] = [1.0] * len(features_i)
+            feature_matrix.data[i] = [True] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
         numerator = feature_matrix.dot(dist_weights)
         update_queue.put((t, con, numerator))
