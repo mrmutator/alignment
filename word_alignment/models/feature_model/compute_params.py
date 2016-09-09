@@ -53,10 +53,10 @@ def compute_lr_worker(process_queue, update_queue):
             return
         t, con, data = buff
 
-        feature_matrix = lil_matrix((len(data), feature_dim))
+        feature_matrix = lil_matrix((len(data), feature_dim), dtype=bool)
         for i, features_i in enumerate(data):
             feature_matrix.rows[i] = features_i
-            feature_matrix.data[i] = [1.0] * len(features_i)
+            feature_matrix.data[i] = [True] * len(features_i)
         feature_matrix = feature_matrix.tocsr()
         numerator = np.exp(feature_matrix.dot(dist_weights))
         update_queue.put((t, con, numerator))

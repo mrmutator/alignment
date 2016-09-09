@@ -113,8 +113,8 @@ def write_weight_file(out_file_name, weights):
 
 def optimization_worker(feature_dim, process_queue, results_queue):
     count_file, data_length, context_count = process_queue.get()
-    f_matrix = lil_matrix((data_length, feature_dim))
-    sum_template = lil_matrix((context_count, data_length))
+    f_matrix = lil_matrix((data_length, feature_dim), dtype=bool)
+    sum_template = lil_matrix((context_count, data_length), dtype=bool)
     ci = 0
     cj = -1
     expectation_vector = np.zeros(data_length)
@@ -129,8 +129,8 @@ def optimization_worker(feature_dim, process_queue, results_queue):
                 cj += 1
             expectation_vector[ci] = exp_count
             f_matrix.rows[ci] = feature_i
-            f_matrix.data[ci] = [1.0] * len(feature_i)
-            sum_template[cj, ci] = 1.0
+            f_matrix.data[ci] = [True] * len(feature_i)
+            sum_template[cj, ci] = True
             ci += 1
 
     f_matrix = f_matrix.tocsr()
