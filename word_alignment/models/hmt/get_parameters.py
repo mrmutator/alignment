@@ -137,10 +137,12 @@ class Parameters(object):
 
         with open(file_prefix + ".features", "w") as outfile:
             for sc in all_start_conditions:
-                outfile.write("j 0\t" + "\t".join([f + " " + str(v) for f, v in sc]) + "\n")
+                if sc:
+                    outfile.write("j 0\t" + "\t".join([f + " " + str(v) for f, v in sc]) + "\n")
 
             for jc in all_j_conditions:
-                outfile.write("\t".join([f + " " + str(v) for f, v in jc]) + "\n")
+                if jc:
+                    outfile.write("\t".join([f + " " + str(v) for f, v in jc]) + "\n")
 
 
 def prepare_data(corpus, t_file, num_sentences, file_prefix="", tj_cond_head="", tj_cond_tok="", start_cond_tok=""):
