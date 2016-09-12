@@ -62,8 +62,8 @@ if __name__ == "__main__":
 
     this_dir = os.path.dirname(os.path.realpath(__file__))
     hmt_job_dir = os.path.abspath(os.path.join(this_dir, 'hmt/lisa'))
-    tmp = {"script_dir": os.path.abspath(os.path.join(this_dir, "../")), "pr": "%", "group_size":-1,
-           "uniform": "-uniform", "num_nodes":1}
+    tmp = {"script_dir": os.path.abspath(os.path.join(this_dir, "../")), "pr": "%",
+           "uniform": "-uniform"}
     if not STANDARD_PARAMS["uniform"]:
         tmp["uniform"] = ""
 
