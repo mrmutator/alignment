@@ -7,7 +7,7 @@ import re
 from features import max_dict
 
 def random_weight():
-    return random.uniform(-1, 1)
+    return random.random() * -1 + 1  # random number between 0 and 1, excluding 0, including 1
 
 def uniform_weight():
     return 0.5
