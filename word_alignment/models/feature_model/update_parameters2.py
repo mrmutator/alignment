@@ -142,7 +142,9 @@ def optimization_worker(feature_dim, process_queue, results_queue):
 
     while True:
         buffer = process_queue.get()
+        lock.acquire()
         if buffer is None:
+            lock.release()
             return
         d_weights = buffer
         numerator = np.exp(f_matrix.dot(d_weights))
@@ -155,28 +157,8 @@ def optimization_worker(feature_dim, process_queue, results_queue):
         f_sums = sum_template.T.dot(sum_template.dot(f_cond)) # --> |d| * |f|
         grad_c_t_w = f_matrix - f_sums
         grad_c_t = grad_c_t_w.T.dot(expectation_vector)  # multiply each row by d_expectation_count
+        lock.release()
         results_queue.put((ll, grad_c_t))
-
-
-def aggregator(process_queue, results_queue, feature_dim):
-    num_data = process_queue.get()
-    ll = 0
-    grad_ll = np.zeros(feature_dim)
-    c = 0
-    while True:
-        if c == num_data:
-            results_queue.put((ll, grad_ll))
-            ll = 0
-            grad_ll = np.zeros(feature_dim)
-            c = 0
-        buffer = process_queue.get()
-        if buffer is None:
-            assert c == 0
-            return
-        tmp_ll, tmp_grad_ll = buffer
-        ll += tmp_ll
-        grad_ll += tmp_grad_ll
-        c += 1
 
 
 
@@ -199,7 +181,6 @@ if __name__ == "__main__":
 
     results_queue = mp.Queue()
     process_queues = [mp.Queue() for _ in xrange(worker_num)]
-    final_queue = mp.Queue()
 
     trans_queue = mp.Queue()
 
@@ -211,10 +192,6 @@ if __name__ == "__main__":
         p = mp.Process(target=optimization_worker, args=(feature_dim, process_queues[w], results_queue))
         p.start()
         pool.append(p)
-
-    p = mp.Process(target=aggregator, args=(results_queue, final_queue, feature_dim))
-    p.start()
-    pool.append(p)
 
     p = mp.Process(target=normalize_trans, args=(trans_queue,))
     p.start()
@@ -237,8 +214,6 @@ if __name__ == "__main__":
 
     logger.info("Loading conditions")
     data_counts, context_counts = compute_expectation_vectors(args.convoc_list, al_counts, worker_num)
-    print "Stats: ", data_counts, context_counts
-    results_queue.put(worker_num)
 
 
     logger.info("Sending data to workers")
@@ -247,10 +222,14 @@ if __name__ == "__main__":
 
     def objective_func(d_weights):
         # compute regularized expected complete log-likelihood
+        ll = 0
+        grad_ll = np.zeros(feature_dim)
         for i in xrange(worker_num):
             process_queues[i].put(np.array(d_weights))
-
-        ll, grad_ll = final_queue.get()
+            buffer = results_queue.get()
+            tmp_ll, tmp_grad_ll = buffer
+            ll += tmp_ll
+            grad_ll += tmp_grad_ll
 
         # l2-norm:
         l2_norm = np.linalg.norm(d_weights)
@@ -258,7 +237,6 @@ if __name__ == "__main__":
 
         grad_ll -= 2 * kappa * d_weights
         return -ll, -grad_ll
-
 
     original_weights = np.array(d_weights)
     initial_ll, _ = objective_func(original_weights)
