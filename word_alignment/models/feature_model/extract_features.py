@@ -100,6 +100,10 @@ def extract_features(feature_pool, process_queue, write_queue, result_queue):
             features_j.add_feature(("op", order[h]))
             features_j.add_feature(("phmm", hmm_transitions[h]))
             features_j.add_feature(("chmm", hmm_transitions[j]))
+            sib = 1 if f_heads[j-1] == h else 0
+            features_j.add_feature(("sib", sib))
+            myhead = 1 if j-1 == h else 0
+            features_j.add_feature(("myhead", myhead))
 
 
             for i_p in xrange(I):
