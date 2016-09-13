@@ -237,6 +237,7 @@ if __name__ == "__main__":
 
     logger.info("Loading conditions")
     data_counts, context_counts = compute_expectation_vectors(args.convoc_list, al_counts, worker_num)
+    print "Stats: ", data_counts, context_counts
     results_queue.put(worker_num)
 
 
