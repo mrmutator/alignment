@@ -3,17 +3,26 @@
 #PBS -lwalltime=%(wall_time)s
 cd "$TMPDIR"
 
-cp %(corpus_gz)s corpus.test.gz
-cp %(order_gz)s order.gz
-cp %(params)s params.txt
-cp %(convoc_params)s convoc.params
-gunzip corpus.test.gz
+for it in $(seq 1 %(num_parts)s);
+do
+ cp %(prefix)s.corpus.$it.gz corpus.$it.gz
+ cp %(dir)s/params.$it params.$it
+ cp %(dir)s/convoc.$it.params convoc.$it.params
+done
+
+cp %(prefix)s.order.gz order.gz
+gunzip corpus.*.gz
 gunzip order.gz
 
 module load python
 source %(script_dir)s/venv/bin/activate
 
-python %(script_dir)s/word_alignment/models/hmt/get_viterbi.py -corpus corpus.test  -params params.txt -convoc_params convoc.params -out_file corpus.aligned -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s
-python %(script_dir)s/word_alignment/models/hmt/reorder_aligned.py -order_file order -aligned_file corpus.aligned
-cp corpus.aligned.reordered %(result_dir)s/all.aligned
-wait
+touch all.aligned
+for it in $(seq 1 %(num_parts)s);
+ do
+ python %(script_dir)s/word_alignment/models/hmt/get_viterbi.py -corpus corpus.$it  -params params.$it -convoc_params convoc.$it.params -out_file corpus.aligned.$it -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s
+ python %(script_dir)s/word_alignment/models/hmt/reorder_aligned.py -order_file order -aligned_file corpus.aligned.$it
+ cat corpus.aligned.$it.reordered >> all.aligned
+done
+
+cp all.aligned %(dir)s/all.aligned

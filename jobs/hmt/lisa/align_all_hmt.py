@@ -8,11 +8,8 @@ def parse_config(args):
 
     params = dict()
     params['dir'] = os.path.abspath(args.dir)
-    params['result_dir'] = params["dir"]
-    params['convoc_params'] = os.path.join(params["dir"] + "/convoc.1.params")
-    params['params'] = os.path.join(params["dir"] + "/params.1")
-    params['corpus_gz'] = os.path.abspath(glob.glob(params["dir"] + "/../*.corpus.1.gz")[0])
-    params['order_gz'] = os.path.abspath(glob.glob(params["dir"] + "/../*.order.gz")[0])
+    params['num_parts'] = len(glob.glob(os.path.join(params["dir"], "convoc.*.params")))
+    params['prefix'] = os.path.abspath(glob.glob(os.path.join(params["dir"], "../*.corpus.1.gz"))[0])[:-12]
     params['job_template_dir'] = os.path.dirname(os.path.realpath(__file__))
     params['script_dir'] = os.path.abspath(os.path.join(params['job_template_dir'], '../../../'))
     params['num_workers'] = 16
@@ -28,7 +25,7 @@ def generate_single_job(**params):
     with open(params['job_template_dir'] + "/template_align_all.job.txt", "r") as infile:
         template = infile.read()
         job_file = template % params
-    with open(params['result_dir'] + "/align_all.job", "w") as outfile:
+    with open(params['dir'] + "/align_all.job", "w") as outfile:
         outfile.write(job_file)
 
 
