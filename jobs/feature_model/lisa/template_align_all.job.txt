@@ -20,7 +20,7 @@ source %(script_dir)s/venv/bin/activate
 touch all.aligned
 for it in $(seq 1 %(num_parts)s);
  do
- python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.$it  -params params.$it -convoc_params convoc.$it.params -out_file corpus.aligned.$it -num_workers %(num_workers)s -p_0 %(p_0)s -alpha %(alpha)s
+ python %(script_dir)s/word_alignment/models/feature_model/get_viterbi.py -corpus corpus.$it  -params params.$it -convoc_params convoc.$it.params -out_file corpus.aligned.$it -num_workers %(num_workers)s -p_0 %(p_0)s
  cat corpus.aligned.$it >> all.aligned
 done
 python %(script_dir)s/word_alignment/models/feature_model/reorder_aligned.py -order_file order -aligned_file all.aligned
