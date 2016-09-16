@@ -13,7 +13,6 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s  %(message)s')
 logger = logging.getLogger()
 
-lock = mp.Lock()
 
 def load_vecs(file_name):
     vec_ids = dict()
@@ -113,7 +112,7 @@ def write_weight_file(out_file_name, weights):
             outfile.write("w " + str(w_id) + " " + str(w) + "\n")
 
 
-def optimization_worker(feature_dim, process_queue, results_queue):
+def optimization_worker(feature_dim, process_queue, results_queue, lock):
     lock.acquire()
     count_file, data_length, context_count = process_queue.get()
     f_matrix = lil_matrix((data_length, feature_dim), dtype=bool)
@@ -187,9 +186,11 @@ if __name__ == "__main__":
     d_weights = load_weights(args.weights)
     feature_dim = len(d_weights)
 
+    num_locks = 4
+    locks = [mp.Lock() for _ in xrange(num_locks)]
     pool = []
     for w in xrange(worker_num):
-        p = mp.Process(target=optimization_worker, args=(feature_dim, process_queues[w], results_queue))
+        p = mp.Process(target=optimization_worker, args=(feature_dim, process_queues[w], results_queue, locks[w%num_locks]))
         p.start()
         pool.append(p)
 
