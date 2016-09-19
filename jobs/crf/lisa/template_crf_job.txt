@@ -57,38 +57,43 @@ cp training.log %(result_dir)s/
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Aligning entire corpus"
 sizet="$(wc -l ef.psnt| cut --delimiter=" " -f1)"
 size=`expr $sizet / 8`
-nmt=`expr $size / 16`
+nmt=`expr $size / 100`
 nm=`expr $nmt + 1`
 splt=`expr $nm \* 8`
 split -l $splt ef.psnt subpart.
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Annotating ..."
+touch commands.txt
 for f in subpart.*
  do
- python %(script_dir)s/word_alignment/models/crf/annotate_corpus.py -corpus $f -ibm1_table ibm1.table -e_voc e.vcb -f_voc f.vcb &
+ echo "python %(script_dir)s/word_alignment/models/crf/annotate_corpus.py -corpus $f -ibm1_table ibm1.table -e_voc e.vcb -f_voc f.vcb" >> commands.txt
 done
-wait
+parallel --jobs 16 < commands.txt
+rm commands.txt
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Extracting ..."
+touch commands.txt
 for f in subpart.*.annotated
  do
- python %(script_dir)s/word_alignment/models/crf/extract_features.py -corpus $f -fvoc corpus.psnt.labelled.training.extracted.fvoc &
+ echo "python %(script_dir)s/word_alignment/models/crf/extract_features.py -corpus $f -fvoc corpus.psnt.labelled.training.extracted.fvoc" >> commands.txt
 done
-wait
+parallel --jobs 16 < commands.txt
+rm commands.txt
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Aligning ..."
 for f in subpart.*.annotated.extracted
  do
  python %(script_dir)s/word_alignment/models/crf/viterbi.py -corpus $f -weights corpus.psnt.labelled.training.extracted.weights.optimized -vecs $f.vecs -out_file $f.aligned
 done
-wait
+
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Reordering ..."
+touch commands.txt
 for f in subpart.*.annotated
  do
- python %(script_dir)s/word_alignment/models/crf/reorder_aligned.py -order_file $f.order -aligned_file $f.extracted.aligned &
+ echo "python %(script_dir)s/word_alignment/models/crf/reorder_aligned.py -order_file $f.order -aligned_file $f.extracted.aligned" >> commands.txt
 done
-wait
+parallel --jobs 16 < commands.txt
 
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Collecting ..."
 touch all.aligned
