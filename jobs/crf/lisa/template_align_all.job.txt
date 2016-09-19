@@ -1,0 +1,56 @@
+#PBS -S /bin/bash
+#PBS -lnodes=1:cores16
+#PBS -lwalltime=%(wall_time)s
+part=$PBS_ARRAYID
+cd "$TMPDIR"
+
+cp %(corpus)s corpus
+cp %(fvoc)s fvoc
+cp %(weights)s weights
+cp %(ibm1_table)s ibm1.table
+cp %(e_voc)s e.vcb
+cp %(f_voc)s f.vcb
+
+module load python
+source %(script_dir)s/venv/bin/activate
+
+
+sizet="$(wc -l corpus| cut --delimiter=" " -f1)"
+size=`expr $sizet / 8`
+nmt=`expr $size / %(num_nodes)s`
+nm=`expr $nmt + 1`
+splt=`expr $nm \* 8`
+split -l $splt corpus subpart. --numeric-suffixes -a 1
+
+
+sizet="$(wc -l subpart.$part | cut --delimiter=" " -f1)"
+size=`expr $sizet / 8`
+nmt=`expr $size / %(num_workers)s`
+nm=`expr $nmt + 1`
+splt=`expr $nm \* 8`
+split -l $splt subpart.$part mini.
+
+touch commands.txt
+for f in mini.*
+ do
+ echo "python %(script_dir)s/word_alignment/models/crf/annotate_corpus.py -corpus $f -ibm1_table ibm1.table -e_voc e.vcb -f_voc f.vcb" >> commands.txt
+done
+parallel --jobs 16 < commands.txt
+rm commands.txt
+
+touch commands.txt
+for f in mini.*.annotated
+ do
+ echo "python %(script_dir)s/word_alignment/models/crf/extract_and_viterbi.py -corpus $f -fvoc fvoc -weights weights" >> commands.txt
+done
+parallel --jobs 16 < commands.txt
+rm commands.txt
+
+touch all.aligned
+for f in mini.*.annotated.extracted.aligned
+ do
+ cat $f >> all.aligned
+done
+wait
+
+cp all.aligned %(dir)s/part.aligned.$part
