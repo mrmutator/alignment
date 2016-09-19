@@ -52,4 +52,50 @@ cp gold_file.* %(result_dir)s/
 cp *.aligned.reordered %(result_dir)s/
 cp results.txt %(result_dir)s/
 cp training.log %(result_dir)s/
+
+# align entire corpus
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Aligning entire corpus"
+sizet="$(wc -l corpus.psnt | cut --delimiter=" " -f1)"
+size=`expr $sizet / 8`
+nmt=`expr $size / 16`
+nm=`expr $nmt + 1`
+splt=`expr $nm \* 8`
+split -l $splt corpus.psnt subpart.
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Annotating ..."
+for f in subpart.*
+ do
+ python %(script_dir)s/word_alignment/models/crf/annotate_corpus.py -corpus $f -ibm1_table ibm1.table -e_voc e.vcb -f_voc f.vcb &
+done
+wait
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Extracting ..."
+for f in subpart.*.annotated
+ do
+ python %(script_dir)s/word_alignment/models/crf/extract_features.py -corpus $f -fvoc corpus.psnt.labelled.training.extracted.fvoc &
+done
+wait
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Aligning ..."
+for f in subpart.*.annotated.extracted
+ do
+ python %(script_dir)s/word_alignment/models/crf/viterbi.py -corpus $f -weights corpus.psnt.labelled.training.extracted.weights.optimized -vecs $f.vecs -out_file $f.aligned
+done
+wait
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Reordering ..."
+for f in subpart.*.annotated
+ do
+ python %(script_dir)s/word_alignment/models/crf/reorder_aligned.py -order_file $f.order -aligned_file $f.extracted.aligned
+done
+wait
+
+date +"%(pr)sH:%(pr)sM:%(pr)sS> Collecting ..."
+touch all.aligned
+for f in subpart.*.annotated.extracted.aligned.reordered
+ do
+ cat $f >> all.aligned
+done
+wait
+
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Done."

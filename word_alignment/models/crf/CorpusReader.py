@@ -1,14 +1,14 @@
 class CorpusReader(object):
     def __init__(self, corpus_file):
         self.corpus_file = open(corpus_file, "r")
-        self.__generator = self.__iter_sent()
+        self.__generator = self.iter_sent()
         self.next = self.__generator.next
         self.__iter__ = self.__generator
 
     def reset(self):
         self.corpus_file.seek(0)
 
-    def __iter_sent(self):
+    def iter_sent(self):
         self.reset()
         c = 0
         buffer = []
