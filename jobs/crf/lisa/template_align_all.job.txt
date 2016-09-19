@@ -20,7 +20,7 @@ size=`expr $sizet / 8`
 nmt=`expr $size / %(num_nodes)s`
 nm=`expr $nmt + 1`
 splt=`expr $nm \* 8`
-split -l $splt corpus subpart. --numeric-suffixes -a 1
+split -l $splt corpus subpart. --numeric-suffixes=1 -a 1
 
 
 sizet="$(wc -l subpart.$part | cut --delimiter=" " -f1)"
