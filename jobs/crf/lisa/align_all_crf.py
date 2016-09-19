@@ -37,7 +37,6 @@ arg_parser = argparse.ArgumentParser()
 
 arg_parser.add_argument("-dir", required=True)
 arg_parser.add_argument("-corpus", required=True)
-arg_parser.add_argument("-ibm1_table", required=True)
 arg_parser.add_argument("-num_nodes", required=False, type=int, default=1)
 arg_parser.add_argument("-wall_time", required=False, default="05:00:00", type=str)
 
