@@ -9,7 +9,7 @@ def parse_config(args):
     params = dict()
     params['dir'] = os.path.abspath(args.dir)
     params['fvoc'] = os.path.abspath(glob.glob(os.path.join(params["dir"], "*.fvoc"))[0])
-    params['fvoc'] = os.path.abspath(glob.glob(os.path.join(params["dir"], "*.weights"))[0])
+    params['weights'] = os.path.abspath(glob.glob(os.path.join(params["dir"], "*.weights"))[0])
     params['corpus'] = os.path.abspath(args.corpus)
     params['corpus_dir'] = os.path.dirname(os.path.realpath(params['corpus']))
     params['ibm1_table'] = os.path.abspath(os.path.join(params['corpus_dir'], 'ibm1.table'))
