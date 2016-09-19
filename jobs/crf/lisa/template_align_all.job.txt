@@ -1,7 +1,7 @@
 #PBS -S /bin/bash
 #PBS -lnodes=1:cores16
 #PBS -lwalltime=%(wall_time)s
-part=$PBS_ARRAYID
+part=`expr $PBS_ARRAYID - 1`
 cd "$TMPDIR"
 
 cp %(corpus)s corpus
@@ -20,7 +20,7 @@ size=`expr $sizet / 8`
 nmt=`expr $size / %(num_nodes)s`
 nm=`expr $nmt + 1`
 splt=`expr $nm \* 8`
-split -l $splt corpus subpart. --numeric-suffixes=1 -a 1
+split -l $splt corpus subpart. --numeric-suffixes -a 1
 
 
 sizet="$(wc -l subpart.$part | cut --delimiter=" " -f1)"
