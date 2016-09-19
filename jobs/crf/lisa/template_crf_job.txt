@@ -86,7 +86,7 @@ wait
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Reordering ..."
 for f in subpart.*.annotated
  do
- python %(script_dir)s/word_alignment/models/crf/reorder_aligned.py -order_file $f.order -aligned_file $f.extracted.aligned
+ python %(script_dir)s/word_alignment/models/crf/reorder_aligned.py -order_file $f.order -aligned_file $f.extracted.aligned &
 done
 wait
 
