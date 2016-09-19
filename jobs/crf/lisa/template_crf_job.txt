@@ -1,5 +1,5 @@
 #PBS -S /bin/bash
-#PBS -lnodes=1:cores16
+#PBS -lnodes=1:mem64gb
 #PBS -lwalltime=%(wall_time)s
 cd "$TMPDIR"
 
