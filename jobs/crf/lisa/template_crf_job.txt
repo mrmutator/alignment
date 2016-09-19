@@ -98,4 +98,5 @@ for f in subpart.*.annotated.extracted.aligned.reordered
 done
 wait
 
+cp all.aligned %(result_dir)s/
 date +"%(pr)sH:%(pr)sM:%(pr)sS> Done."
