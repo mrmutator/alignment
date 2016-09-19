@@ -45,7 +45,6 @@ class LazyFile(object):
 
 def split_data_get_parameters(corpus, file_prefix, ibm1_table, e_voc, f_voc):
     outfile_corpus = LazyFile(file_prefix)
-    order_file = LazyFile(file_prefix + ".order")
     subset_c = 0
     for e_toks, f_toks, f_heads, pos, rel, hmm_transitions, order in corpus:
 
@@ -76,10 +75,8 @@ def split_data_get_parameters(corpus, file_prefix, ibm1_table, e_voc, f_voc):
         outfile_corpus.write(" ".join(e_str) + "\n")
         outfile_corpus.write(" ".join(f_str) + "\n")
         outfile_corpus.write("\n")
-        order_file.write(" ".join(map(str, order)) + "\n")
 
     outfile_corpus.close()
-    order_file.close()
 
 
 
