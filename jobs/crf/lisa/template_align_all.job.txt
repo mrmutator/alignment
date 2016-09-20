@@ -47,7 +47,7 @@ parallel --jobs 16 < commands.txt
 rm commands.txt
 
 touch all.aligned
-for f in mini.*.annotated.extracted.aligned
+for f in mini.*.annotated.aligned
  do
  cat $f >> all.aligned
 done
