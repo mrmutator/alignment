@@ -87,6 +87,8 @@ class Parameters(object):
                 start_cons.add(("crel", rel[0]))
             if "I" in start_pattern:
                 start_cons.add(("I", I))
+            if "s" in start_pattern:
+                start_cons.add(("j", 0))
 
             all_start_conditions.add(frozenset(start_cons))
 
